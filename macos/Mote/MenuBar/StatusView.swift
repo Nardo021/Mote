@@ -41,18 +41,7 @@ struct StatusView: View {
     }
 
     private var indicatorColor: Color {
-        switch state {
-        case .connected:
-            return MoteColors.success
-        case .connecting, .authenticating:
-            return MoteColors.accent
-        case .reconnecting:
-            return persistWarning ? MoteColors.warning : MoteColors.accent
-        case .error:
-            return MoteColors.error
-        case .disconnected, .notConfigured:
-            return MoteColors.offline
-        }
+        state.statusTone(persistWarning: persistWarning).color
     }
 
     private var labelColor: Color {

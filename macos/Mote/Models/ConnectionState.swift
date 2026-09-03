@@ -70,4 +70,19 @@ enum ConnectionState: Equatable, Sendable {
             return false
         }
     }
+
+    func statusTone(persistWarning: Bool) -> MoteStatusTone {
+        switch self {
+        case .connected:
+            return .success
+        case .connecting, .authenticating:
+            return .accent
+        case .reconnecting:
+            return persistWarning ? .warning : .accent
+        case .error:
+            return .error
+        case .disconnected, .notConfigured:
+            return .offline
+        }
+    }
 }

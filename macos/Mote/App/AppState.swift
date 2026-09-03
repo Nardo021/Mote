@@ -176,6 +176,11 @@ final class AppState {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func presentMainWindow() {
+        prepareToShowWindow()
+        shouldOpenSettings = true
+    }
+
     func refreshPermissionsAndLoginItem() {
         lockPermissionGranted = AccessibilityPermission.isTrusted
         startAtLogin = LoginItemService.isEnabled

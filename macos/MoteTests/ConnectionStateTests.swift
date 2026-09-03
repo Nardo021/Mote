@@ -24,4 +24,15 @@ final class ConnectionStateTests: XCTestCase {
         XCTAssertEqual(ConnectionState.authenticating.debugLabel, "authenticating")
         XCTAssertEqual(ConnectionState.error("x").debugLabel, "error")
     }
+
+    func testStatusToneMatchesConnectionHealth() {
+        XCTAssertEqual(ConnectionState.connected.statusTone(persistWarning: false), .success)
+        XCTAssertEqual(ConnectionState.connecting.statusTone(persistWarning: false), .accent)
+        XCTAssertEqual(ConnectionState.authenticating.statusTone(persistWarning: false), .accent)
+        XCTAssertEqual(ConnectionState.reconnecting.statusTone(persistWarning: false), .accent)
+        XCTAssertEqual(ConnectionState.reconnecting.statusTone(persistWarning: true), .warning)
+        XCTAssertEqual(ConnectionState.error("Relay unavailable").statusTone(persistWarning: false), .error)
+        XCTAssertEqual(ConnectionState.disconnected.statusTone(persistWarning: false), .offline)
+        XCTAssertEqual(ConnectionState.notConfigured.statusTone(persistWarning: false), .offline)
+    }
 }
