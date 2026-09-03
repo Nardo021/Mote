@@ -13,10 +13,22 @@ enum MoteColors {
     static let accent = Color(moteToken: "mote.accent", light: "4F7CFF", dark: "6B91FF")
     static let accentSoft = Color(moteToken: "mote.accent.soft", light: "E9EFFF", dark: "1E2B52")
 
+    /// sRGB fill for AppKit-backed controls. Dynamic `NSColor(name:)` tokens do not tint `borderedProminent`.
+    static func accentFill(for scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 107 / 255, green: 145 / 255, blue: 255 / 255)
+            : Color(red: 79 / 255, green: 124 / 255, blue: 255 / 255)
+    }
+
     static let success = Color(moteToken: "mote.success", light: "2F9E63", dark: "49C47D")
     static let warning = Color(moteToken: "mote.warning", light: "C88719", dark: "E7A83A")
     static let error = Color(moteToken: "mote.error", light: "D54848", dark: "F06A6A")
     static let offline = Color(moteToken: "mote.offline", light: "8A9099", dark: "777E88")
+
+    /// 1px structural ring. Pure black/white so it does not pick up the canvas tint.
+    static func hairline(for scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06)
+    }
 }
 
 private extension Color {

@@ -2,39 +2,54 @@ import SwiftUI
 
 struct UnconfiguredStateView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MoteSpacing.tight) {
-            Text(title)
-                .font(MoteTypography.deviceName)
-            Text(subtitle)
-                .font(MoteTypography.secondary)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        MoteGroupSurface {
+            VStack(alignment: .leading, spacing: MoteSpacing.related) {
+                VStack(alignment: .leading, spacing: MoteSpacing.tight) {
+                    Text(title)
+                        .font(MoteTypography.primaryMedium)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            if let error = pairingError {
-                MoteInlineErrorView(title: error.title, detail: error.detail)
-            }
+                    Text(subtitle)
+                        .font(MoteTypography.secondary)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(MoteTypography.wrappingLineSpacing)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+                .id(subtitle)
 
-            if appState.isPairing {
-                Button("Cancel") {
-                    appState.cancelPairing()
+                if let error = pairingError {
+                    MoteInlineErrorView(title: error.title, detail: error.detail)
                 }
-                .buttonStyle(.bordered)
-                .padding(.top, MoteSpacing.micro)
-            } else {
-                Button("Pair") {
-                    appState.beginPairing()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(MoteColors.accent)
-                .padding(.top, MoteSpacing.micro)
-                .accessibilityHint("Asks Mote Relay to approve this Mac.")
+
+                actionButton
             }
+            .padding(.vertical, MoteSpacing.tight)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: subtitle)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, MoteSpacing.tight)
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if appState.isPairing {
+            Button("Cancel") {
+                appState.cancelPairing()
+            }
+            .moteButtonStyle()
+            .keyboardShortcut(.cancelAction)
+        } else {
+            Button("Pair") {
+                appState.beginPairing()
+            }
+            .moteButtonStyle(prominent: true)
+            .keyboardShortcut(.defaultAction)
+            .accessibilityHint("Asks Mote Relay to approve this Mac.")
+        }
     }
 
     private var title: String {
@@ -43,26 +58,12 @@ struct UnconfiguredStateView: View {
 
     private var subtitle: String {
         if appState.isPairing {
-            return "Mote Relay can see this Device ID. Allow it in the Dashboard and this Mac will connect automatically."
+            return "Relay can see this Device ID. Allow this Mac in the Dashboard and it will connect automatically."
         }
-        return "Click Pair so Mote Relay can approve this Mac. The device credential is stored in the Keychain and never shown again."
+        return "Pair this Mac so Relay can approve it. The device credential stays in the Keychain and is never shown again."
     }
 
     private var pairingError: ConnectionStatusCopy.InlineError? {
         ConnectionStatusCopy.inlineError(state: appState.connectionState, lastError: appState.lastError)
-            ?? unconfiguredError
-    }
-
-    private var unconfiguredError: ConnectionStatusCopy.InlineError? {
-        guard appState.connectionState == .notConfigured else {
-            return nil
-        }
-        guard let lastError = appState.lastError, !lastError.isEmpty else {
-            return nil
-        }
-        if ConnectionStatusCopy.isStartupError(lastError) {
-            return nil
-        }
-        return ConnectionStatusCopy.InlineError(title: lastError, detail: nil)
     }
 }

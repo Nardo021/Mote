@@ -106,7 +106,7 @@ enum MenuBarIconImage {
         )
         context.strokePath()
 
-        context.setLineWidth(2.2)
+        context.setLineWidth(2.4)
         context.strokeEllipse(in: CGRect(x: 3.8, y: 23.8, width: 4.4, height: 4.4))
         context.strokeEllipse(in: CGRect(x: 23.8, y: 23.8, width: 4.4, height: 4.4))
 

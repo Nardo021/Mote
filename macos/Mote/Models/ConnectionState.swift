@@ -8,6 +8,7 @@ enum ConnectionState: Equatable, Sendable {
     case authenticating
     case connected
     case reconnecting
+    case disabled
     case error(String)
 
     var title: String {
@@ -26,6 +27,8 @@ enum ConnectionState: Equatable, Sendable {
             return "Connected"
         case .reconnecting:
             return "Reconnecting…"
+        case .disabled:
+            return "Disabled"
         case .error:
             return "Connection Error"
         }
@@ -47,6 +50,8 @@ enum ConnectionState: Equatable, Sendable {
             return "connected"
         case .reconnecting:
             return "reconnecting"
+        case .disabled:
+            return "disabled"
         case .error:
             return "error"
         }
@@ -54,7 +59,7 @@ enum ConnectionState: Equatable, Sendable {
 
     var menuSymbol: String {
         switch self {
-        case .connected, .error:
+        case .connected, .error, .disabled:
             return "●"
         case .connecting, .authenticating, .reconnecting:
             return "◌"
@@ -73,7 +78,7 @@ enum ConnectionState: Equatable, Sendable {
         switch self {
         case .connecting, .authenticating, .reconnecting, .pairing:
             return true
-        case .notConfigured, .disconnected, .connected, .error:
+        case .notConfigured, .disconnected, .connected, .error, .disabled:
             return false
         }
     }
@@ -88,6 +93,8 @@ enum ConnectionState: Equatable, Sendable {
             return persistWarning ? .warning : .accent
         case .error:
             return .error
+        case .disabled:
+            return .warning
         case .disconnected, .notConfigured:
             return .offline
         }

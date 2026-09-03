@@ -7,36 +7,27 @@ struct WindowHeaderView: View {
     let transportText: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: MoteSpacing.item) {
-            VStack(alignment: .leading, spacing: MoteSpacing.micro) {
-                Text(deviceName)
-                    .font(MoteTypography.deviceName)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-                Text("Mote Agent")
+        VStack(alignment: .leading, spacing: MoteSpacing.micro) {
+            Text(deviceName)
+                .font(MoteTypography.deviceName)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .lineLimit(2)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityHeading(.h1)
+
+            StatusView(state: state, persistWarning: persistWarning)
+
+            if let transportText {
+                Text(transportText)
                     .font(MoteTypography.secondary)
                     .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(alignment: .trailing, spacing: MoteSpacing.micro) {
-                StatusView(state: state, persistWarning: persistWarning)
-                if let transportText {
-                    Text(transportText)
-                        .font(MoteTypography.secondary)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
+                    .monospacedDigit()
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText)
-    }
-
-    private var accessibilityText: String {
-        if let transportText {
-            return "\(deviceName), Mote Agent, \(state.title), \(transportText)"
-        }
-        return "\(deviceName), Mote Agent, \(state.title)"
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 }

@@ -86,7 +86,7 @@ PVE Host
 - **Mote Relay** — 认证命令客户端、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令。同一 Fastify 进程还托管 **Mote Relay Dashboard**、`/admin/api/*` 和配对通道。Relay 对 Cloudflare 无感知：它不调用 Cloudflare API，也不保存 Tunnel token。
 - **Mote Relay Dashboard** — 浏览器管理界面。由 Relay 静态提供，不是单独的服务器或容器。页面：Overview、Devices（含配对批准）、Tokens、Activity、Settings。
 - **Mote Agent** — Mote for Mac 的持久后台组件。维护 WebSocket，并执行允许列表中的本地动作。
-- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。当前版本 `1.3.1`。
+- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。当前版本 `1.5.0`。
 - **Mote iOS** — 尚未实现。计划复用同一条 `send_command` HTTPS API，见 [ios.md](ios.md)。
 
 ### 动作

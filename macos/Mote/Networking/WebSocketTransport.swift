@@ -32,18 +32,35 @@ actor WebSocketTransport: MessageTransport {
         guard let task else {
             throw TransportError.notConnected
         }
-        let message = try await task.receive()
-        switch message {
-        case .string(let text):
-            guard let data = text.data(using: .utf8) else {
-                throw TransportError.invalidUTF8
+        do {
+            let message = try await task.receive()
+            switch message {
+            case .string(let text):
+                guard let data = text.data(using: .utf8) else {
+                    throw TransportError.invalidUTF8
+                }
+                return data
+            case .data(let data):
+                return data
+            @unknown default:
+                throw TransportError.invalidRelayResponse
             }
-            return data
-        case .data(let data):
-            return data
-        @unknown default:
-            throw TransportError.invalidRelayResponse
+        } catch {
+            throw closedError(from: task) ?? error
         }
+    }
+
+    private func closedError(from task: URLSessionWebSocketTask) -> TransportError? {
+        let reason = task.closeReason
+            .flatMap { String(data: $0, encoding: .utf8) }?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if reason == "client_close" {
+            return .cancelled
+        }
+        if task.closeCode == .invalid, reason == nil {
+            return nil
+        }
+        return .closed(reason: reason)
     }
 
     func close(reason: String?) async {

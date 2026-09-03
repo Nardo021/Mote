@@ -10,19 +10,23 @@ struct MoteSection<Content: View>: View {
                 .font(MoteTypography.sectionHeading)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
-            VStack(alignment: .leading, spacing: 0) {
+                .tracking(0.8)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityHeading(.h2)
+            MoteGroupSurface {
                 content
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(title)
     }
 }
 
 struct MoteRow<Value: View>: View {
     let label: String
     var alignment: VerticalAlignment = .center
+    var interactive: Bool = false
+    var hidesLabel: Bool = false
     @ViewBuilder var value: Value
 
     var body: some View {
@@ -30,24 +34,37 @@ struct MoteRow<Value: View>: View {
             Text(label)
                 .font(MoteTypography.primary)
                 .foregroundStyle(.primary)
+                .accessibilityHidden(hidesLabel)
             Spacer(minLength: MoteSpacing.related)
             value
         }
         .padding(.vertical, MoteSpacing.tight)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: interactive ? .contain : .combine)
     }
 }
 
 struct MoteValueText: View {
     let text: String
     var monospaced: Bool = false
+    var monospacedDigit: Bool = false
     var color: Color = .secondary
 
     var body: some View {
-        Text(text)
+        textView
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private var textView: some View {
+        let styled = Text(text)
             .font(monospaced ? MoteTypography.technical : MoteTypography.primary)
             .foregroundStyle(color)
             .multilineTextAlignment(.trailing)
-            .textSelection(.enabled)
+        if monospacedDigit {
+            styled.monospacedDigit()
+        } else {
+            styled
+        }
     }
 }

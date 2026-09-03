@@ -32,6 +32,29 @@ final class AppStateCredentialTests: XCTestCase {
         XCTAssertNil(state.lastError)
     }
 
+    func testDisabledUsesReconnectAndHidesPaste() {
+        let state = AppState(credentials: CredentialManager(store: InMemoryKeychainStore()))
+        state.connectionState = .disabled
+        state.lastError = RelayCloseReason.deviceDisabled.rawValue
+        state.wantsConnection = true
+
+        XCTAssertEqual(state.connectActionTitle, "Reconnect")
+        XCTAssertFalse(state.needsCredentialPaste)
+        XCTAssertFalse(state.showsDisconnectAction)
+        XCTAssertFalse(state.isUnconfigured)
+    }
+
+    func testRotatedCredentialShowsPasteRecovery() {
+        let state = AppState(credentials: CredentialManager(store: InMemoryKeychainStore()))
+        state.connectionState = .error(RelayCloseReason.credentialRotated.rawValue)
+        state.lastError = RelayCloseReason.credentialRotated.rawValue
+        state.wantsConnection = true
+
+        XCTAssertTrue(state.needsCredentialPaste)
+        XCTAssertEqual(state.connectActionTitle, "Reconnect")
+        XCTAssertFalse(state.showsDisconnectAction)
+    }
+
     func testEmptyCredentialInputIsNotSavable() {
         let state = AppState(credentials: CredentialManager(store: InMemoryKeychainStore()))
         state.credentialInput = "   "

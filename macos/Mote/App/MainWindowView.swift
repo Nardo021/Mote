@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
+    @AccessibilityFocusState private var headerIsFocused: Bool
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -9,16 +10,22 @@ struct MainWindowView: View {
                 VStack(alignment: .leading, spacing: MoteSpacing.section) {
                     header
                         .id("mote-top")
+                        .accessibilityFocused($headerIsFocused)
 
                     if appState.isUnconfigured {
                         UnconfiguredStateView()
+                        deviceSection
+                        permissionsSection
+                        startupSection
+                        shortcutsSection
                     } else {
                         connectionSection
+                        remoteActionsSection
+                        permissionsSection
+                        startupSection
+                        deviceSection
+                        shortcutsSection
                     }
-
-                    permissionsSection
-                    startupSection
-                    deviceSection
 
                     #if DEBUG
                     DeveloperSettingsView()
@@ -43,25 +50,32 @@ struct MainWindowView: View {
             guard !RuntimeContext.isRunningTests else { return }
             appState.refreshPermissionsAndLoginItem()
         }
-        .accessibilityLabel("Mote")
+        .onChange(of: appState.connectionState.title) { oldTitle, newTitle in
+            guard oldTitle != newTitle else { return }
+            AccessibilityNotification.Announcement(newTitle).post()
+        }
+        .onChange(of: announcementSignature(for: appState.connectionErrorText)) { _, newValue in
+            guard let newValue else { return }
+            AccessibilityNotification.Announcement(newValue).post()
+        }
+        .onChange(of: appState.startupErrorText) { _, newValue in
+            guard let newValue else { return }
+            AccessibilityNotification.Announcement(newValue).post()
+        }
+        .onChange(of: appState.isPairing) { wasPairing, isPairing in
+            if wasPairing && !isPairing {
+                headerIsFocused = true
+            }
+        }
     }
 
-    @ViewBuilder
     private var header: some View {
-        if appState.isUnconfigured {
-            Text(appState.deviceName)
-                .font(MoteTypography.deviceName)
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-                .accessibilityLabel(appState.deviceName)
-        } else {
-            WindowHeaderView(
-                deviceName: appState.deviceName,
-                state: appState.connectionState,
-                persistWarning: appState.persistReconnectingWarning,
-                transportText: appState.headerTransportText
-            )
-        }
+        WindowHeaderView(
+            deviceName: appState.deviceName,
+            state: appState.connectionState,
+            persistWarning: appState.persistReconnectingWarning,
+            transportText: appState.headerTransportText
+        )
     }
 
     private var connectionSection: some View {
@@ -69,33 +83,47 @@ struct MainWindowView: View {
             MoteRow(label: "Relay") {
                 MoteValueText(text: appState.relayHost, monospaced: true)
             }
-            Divider()
+            MoteGroupDivider()
             MoteRow(label: "Latency") {
-                MoteValueText(text: appState.latencyText, monospaced: true)
+                MoteValueText(text: appState.latencyText, monospacedDigit: true)
             }
             if let error = appState.connectionErrorText {
-                Divider()
+                MoteGroupDivider()
                 MoteInlineErrorView(title: error.title, detail: error.detail)
             }
+            if appState.needsCredentialPaste {
+                MoteGroupDivider()
+                CredentialRecoveryView(appState: appState)
+            }
             connectionAction
-                .padding(.top, MoteSpacing.micro)
+                .padding(.vertical, MoteSpacing.tight)
         }
     }
 
     @ViewBuilder
     private var connectionAction: some View {
-        if appState.wantsConnection {
+        if appState.showsDisconnectAction {
             Button("Disconnect") {
                 appState.disconnect()
             }
-            .buttonStyle(.bordered)
+            .moteButtonStyle()
         } else {
-            Button("Connect") {
+            Button(appState.connectActionTitle) {
                 appState.connect()
             }
-            .buttonStyle(.borderedProminent)
-            .tint(MoteColors.accent)
+            .moteButtonStyle(prominent: true)
             .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private var remoteActionsSection: some View {
+        MoteSection(title: "Remote Actions") {
+            MoteRow(label: "Lock") {
+                MoteValueText(
+                    text: appState.lockAvailabilityText,
+                    color: appState.lockPermissionGranted ? MoteColors.success : MoteColors.warning
+                )
+            }
         }
     }
 
@@ -109,26 +137,28 @@ struct MainWindowView: View {
             }
 
             if !appState.lockPermissionGranted {
-                Divider()
+                MoteGroupDivider()
                 VStack(alignment: .leading, spacing: MoteSpacing.tight) {
                     Text("Mote needs Accessibility permission to lock this Mac remotely.")
                         .font(MoteTypography.secondary)
                         .foregroundStyle(.secondary)
+                        .lineSpacing(MoteTypography.wrappingLineSpacing)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Open System Settings") {
                         appState.openAccessibilitySettings()
                     }
-                    .buttonStyle(.bordered)
+                    .moteButtonStyle()
+                    .accessibilityHint("Opens System Settings")
                 }
                 .padding(.vertical, MoteSpacing.tight)
-                .accessibilityElement(children: .combine)
+                .accessibilityElement(children: .contain)
             }
         }
     }
 
     private var startupSection: some View {
         MoteSection(title: "Startup") {
-            MoteRow(label: "Start Mote at Login") {
+            MoteRow(label: "Start Mote at Login", interactive: true, hidesLabel: true) {
                 Toggle("Start Mote at Login", isOn: startAtLoginBinding)
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -143,44 +173,49 @@ struct MainWindowView: View {
 
     private var deviceSection: some View {
         MoteSection(title: "Device") {
-            MoteRow(label: "Name") {
-                TextField("Device name", text: deviceNameBinding)
-                    .textFieldStyle(.roundedBorder)
+            MoteRow(label: "Name", interactive: true, hidesLabel: true) {
+                TextField("MacBook Pro", text: deviceNameBinding)
+                    .textFieldStyle(.plain)
                     .font(MoteTypography.primary)
                     .multilineTextAlignment(.trailing)
-                    .frame(width: 180)
-                    .accessibilityLabel("Device name")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityLabel("Name")
             }
-            Divider()
+            MoteGroupDivider()
             MoteRow(label: "Device ID") {
-                HStack(spacing: MoteSpacing.tight) {
+                HStack(spacing: MoteSpacing.micro) {
                     Text(appState.abbreviatedDeviceID)
                         .font(MoteTypography.technical)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .help(appState.deviceID)
-                    Button {
+                    CopyDeviceIDButton {
                         appState.copyDeviceID()
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                            .frame(width: 24, height: 24)
                     }
-                    .buttonStyle(.borderless)
-                    .help("Copy Device ID")
-                    .accessibilityLabel("Copy Device ID")
                 }
             }
-            Divider()
+            MoteGroupDivider()
             MoteRow(label: "Version") {
                 MoteValueText(text: AppVersion.display, monospaced: true)
             }
-            Divider()
-            Button("Shortcut setup") {
-                appState.openShortcutSetup()
+        }
+    }
+
+    private var shortcutsSection: some View {
+        MoteSection(title: "Shortcuts") {
+            VStack(alignment: .leading, spacing: MoteSpacing.tight) {
+                Text("Opens the setup page with this Device ID.")
+                    .font(MoteTypography.secondary)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(MoteTypography.wrappingLineSpacing)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Shortcut Setup") {
+                    appState.openShortcutSetup()
+                }
+                .moteButtonStyle()
+                .accessibilityHint("Copies the Device ID and opens the shortcut setup page.")
             }
-            .buttonStyle(.bordered)
-            .padding(.top, MoteSpacing.micro)
-            .accessibilityHint("Copies the Device ID and opens the shortcut setup page.")
+            .padding(.vertical, MoteSpacing.tight)
         }
     }
 
@@ -196,6 +231,16 @@ struct MainWindowView: View {
             get: { appState.startAtLogin },
             set: { appState.setStartAtLogin($0) }
         )
+    }
+
+    private func announcementSignature(for error: ConnectionStatusCopy.InlineError?) -> String? {
+        guard let error else {
+            return nil
+        }
+        if let detail = error.detail, !detail.isEmpty {
+            return "\(error.title) \(detail)"
+        }
+        return error.title
     }
 }
 
@@ -215,9 +260,30 @@ struct MainWindowView: View {
         .environment(previewAppState(.notConfigured, permission: false))
 }
 
+#Preview("Pairing") {
+    MainWindowView()
+        .environment(previewAppState(.pairing, permission: false))
+}
+
 #Preview("Permission Required") {
     MainWindowView()
         .environment(previewAppState(.connected, permission: false, latency: 0.018))
+}
+
+#Preview("Disabled") {
+    MainWindowView()
+        .environment(previewAppState(.disabled, permission: true, lastError: RelayCloseReason.deviceDisabled.rawValue))
+}
+
+#Preview("Credential Rotated") {
+    MainWindowView()
+        .environment(
+            previewAppState(
+                .error(RelayCloseReason.credentialRotated.rawValue),
+                permission: true,
+                lastError: RelayCloseReason.credentialRotated.rawValue
+            )
+        )
 }
 
 #Preview("Dark") {
@@ -226,11 +292,24 @@ struct MainWindowView: View {
         .preferredColorScheme(.dark)
 }
 
+#Preview("Narrow 460×480") {
+    MainWindowView()
+        .environment(previewAppState(.connected, permission: true, latency: 0.124))
+        .frame(width: 460, height: 480)
+}
+
+#Preview("Extra Wide") {
+    MainWindowView()
+        .environment(previewAppState(.disconnected, permission: true))
+        .frame(width: 900, height: 640)
+}
+
 @MainActor
 private func previewAppState(
     _ connection: ConnectionState,
     permission: Bool,
-    latency: TimeInterval? = nil
+    latency: TimeInterval? = nil,
+    lastError: String? = nil
 ) -> AppState {
     let state = AppState()
     state.deviceName = "MacBook Pro"
@@ -239,8 +318,12 @@ private func previewAppState(
     state.lockPermissionGranted = permission
     state.relayLatency = latency
     state.startAtLogin = true
-    if case .error = connection {
+    if let lastError {
+        state.lastError = lastError
+    } else if case .error = connection {
         state.lastError = "Relay unavailable"
+    } else if case .disabled = connection {
+        state.lastError = RelayCloseReason.deviceDisabled.rawValue
     }
     return state
 }

@@ -62,9 +62,26 @@ final class AppState {
         switch connectionState {
         case .notConfigured, .pairing:
             return true
-        case .disconnected, .connecting, .authenticating, .connected, .reconnecting, .error:
+        case .disconnected, .connecting, .authenticating, .connected, .reconnecting, .disabled, .error:
             return false
         }
+    }
+
+    var isLiveConnection: Bool {
+        switch connectionState {
+        case .connecting, .authenticating, .connected, .reconnecting:
+            return true
+        case .notConfigured, .pairing, .disconnected, .error, .disabled:
+            return false
+        }
+    }
+
+    var needsCredentialPaste: Bool {
+        ConnectionStatusCopy.needsCredentialPaste(state: connectionState, lastError: lastError)
+    }
+
+    var showsDisconnectAction: Bool {
+        wantsConnection && isLiveConnection
     }
 
     var isPairing: Bool {
@@ -99,14 +116,27 @@ final class AppState {
     }
 
     var startupErrorText: String? {
-        ConnectionStatusCopy.isStartupError(lastError) ? lastError : nil
+        ConnectionStatusCopy.startupErrorText(lastError)
+    }
+
+    var lockAvailabilityText: String {
+        lockPermissionGranted ? "Available" : "Unavailable"
+    }
+
+    var connectActionTitle: String {
+        switch connectionState {
+        case .disconnected, .error, .reconnecting, .disabled:
+            return "Reconnect"
+        case .notConfigured, .pairing, .connecting, .authenticating, .connected:
+            return "Connect"
+        }
     }
 
     var persistReconnectingWarning: Bool {
         switch connectionState {
         case .reconnecting:
             return lastError != nil && !ConnectionStatusCopy.isStartupError(lastError)
-        case .notConfigured, .pairing, .disconnected, .connecting, .authenticating, .connected, .error:
+        case .notConfigured, .pairing, .disconnected, .connecting, .authenticating, .connected, .error, .disabled:
             return false
         }
     }
@@ -194,7 +224,11 @@ final class AppState {
     }
 
     func refreshPermissionsAndLoginItem() {
-        lockPermissionGranted = isAccessibilityTrusted()
+        let trusted = isAccessibilityTrusted()
+        if trusted != lockPermissionGranted {
+            MoteLog.security.info("Lock permission \(trusted ? "granted" : "required", privacy: .public)")
+        }
+        lockPermissionGranted = trusted
         startAtLogin = LoginItemService.isEnabled
     }
 

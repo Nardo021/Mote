@@ -1,3 +1,4 @@
+import ApplicationServices
 import XCTest
 @testable import Mote
 
@@ -44,6 +45,37 @@ final class AccessibilityTrustMonitorTests: XCTestCase {
 
         monitor.poll()
         XCTAssertEqual(refreshCount, 1)
+    }
+}
+
+final class AccessibilityTrustTests: XCTestCase {
+    func testLiveProbeOverridesStaleDeniedDeclaration() {
+        XCTAssertTrue(
+            AccessibilityTrust.resolve(declared: false, probe: .trusted),
+            "Granted in System Settings must show as trusted even if AXIsProcessTrusted is still cached false"
+        )
+    }
+
+    func testLiveProbeOverridesStaleGrantedDeclaration() {
+        XCTAssertFalse(
+            AccessibilityTrust.resolve(declared: true, probe: .denied),
+            "Revoked accessibility must show as required even if AXIsProcessTrusted is still cached true"
+        )
+    }
+
+    func testInconclusiveProbeFallsBackToDeclaration() {
+        XCTAssertTrue(AccessibilityTrust.resolve(declared: true, probe: .unknown))
+        XCTAssertFalse(AccessibilityTrust.resolve(declared: false, probe: .unknown))
+    }
+
+    func testAPIDisabledMapsToDenied() {
+        XCTAssertEqual(AccessibilityTrust.probe(from: .apiDisabled), .denied)
+    }
+
+    func testSuccessfulAXReadMapsToTrusted() {
+        XCTAssertEqual(AccessibilityTrust.probe(from: .success), .trusted)
+        XCTAssertEqual(AccessibilityTrust.probe(from: .noValue), .trusted)
+        XCTAssertEqual(AccessibilityTrust.probe(from: .attributeUnsupported), .trusted)
     }
 }
 

@@ -607,7 +607,7 @@ Start Mote at Login   [ON]
 Device
 Name                  MacBook Pro
 Device ID             7B0F…
-Version               1.3.1 (5)
+Version               1.5.0 (8)
 ```
 
 `Lock` 为 `Available` 或 `Unavailable`。`Lock Permission` 为 `Granted` 或 `Required`。未配置时不显示 Connection / Remote Actions / Shortcuts，只显示 Pair 空状态。
@@ -1069,7 +1069,7 @@ Persistent WebSocket Transport
 │ DEVICE                                      │
 │ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
-│ Version                      1.3.1 (5)      │
+│ Version                      1.5.0 (8)      │
 └─────────────────────────────────────────────┘
 ```
 

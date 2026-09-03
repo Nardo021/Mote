@@ -2,7 +2,7 @@
 
 Mote 的原生 macOS 应用和后台 Agent。
 
-当前版本 **1.3.1**（build **5**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
+当前版本 **1.5.0**（build **8**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
 
 ## 技术栈
 
@@ -71,8 +71,10 @@ macos/
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
 7. **Remote Actions → Lock** 显示 `Available` 或 `Unavailable`（取决于辅助功能）。
-8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**。
-9. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
+8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**，或 Dashboard 禁用 / 轮换了凭据。
+9. Dashboard **Disable** → 状态为 **Disabled**，立即停止重连。Dashboard Enable 后按 **Reconnect**（凭据未变）。不要 Pair。
+10. Dashboard **Rotate credential** → 停止重连。Connection 区折叠 **Paste credential**，粘贴 Dashboard 显示的一次性新凭据后连接。已登记设备再 Pair 会 409。
+11. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
 
 连接状态文案：
 
@@ -84,6 +86,7 @@ Authenticating…
 Connected
 Reconnecting…
 Disconnected
+Disabled
 Connection Error
 ```
 
@@ -93,7 +96,7 @@ Connection Error
 
 - 只存放在钥匙串，service 为 `me.yanze.mote`，account 为 `device_connection`
 - 永不写入 UserDefaults、日志或源码
-- 生产主路径是 **Pair**；折叠的 **Paste credential instead** 仅用于轮换或 CLI 恢复
+- 生产主路径是 **Pair**；已登记后凭据被轮换时，在 Connection 区折叠的 **Paste credential** 粘贴 Dashboard 给出的新值
 - 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID，token 输入框是助手，不持久化
 
 ### 与 Mote Relay 配对
@@ -171,14 +174,14 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 默认约 `520 × 560`，最小约 `460 × 480`。内容最大宽度 520 px。内容按纵向分组：
 
 - 设备名 + 连接状态；已连接时显示 `Relay · 4 ms`
-- **Connection** — Relay 主机与延迟；未配置时不显示
+- **Connection** — Relay 主机与延迟；未配置时不显示。断开 / 禁用 / 凭据失效后主按钮为 **Reconnect**。轮换或无效凭据时出现折叠的 **Paste credential**
 - **Remote Actions** — `Lock`：`Available` 或 `Unavailable`
 - **Permissions** — Lock Permission：`Granted` 或 `Required`，缺权限时可打开系统设置
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
 - **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID、Version
-- **Shortcuts** — Device ID 已填；token 输入框为空，不持久化；**Add to Shortcuts** 打开 `/s/:deviceId`
+- **Shortcuts** — 说明 + **Open Shortcut Setup**（复制 Device ID 并打开 `/s/:deviceId`）
 
-未配置时显示 Pair 空状态（可展开粘贴凭据），而不是 `Disconnected` / `0 ms` / Relay 主机。配对中标题为 **Waiting for approval**。
+未配置顺序：状态头 → Pair 说明 → Device → Permissions → Startup → Shortcuts。不要显示 Connection / Remote Actions，也不要第二遍状态标题。配对中头为 **Waiting for Approval…**。
 
 ### 菜单栏
 

@@ -76,7 +76,6 @@ actor RelayClient {
         }
 
         guard !intentionalDisconnect else {
-            events.onState(.disconnected)
             return
         }
 
@@ -147,6 +146,9 @@ actor RelayClient {
                 if Task.isCancelled || gen != generation || intentionalDisconnect {
                     return
                 }
+                if await handleReceiveFailure(error, generation: gen) {
+                    return
+                }
                 MoteLog.network.error("Connection lost")
                 await handleUnexpectedDisconnect(generation: gen)
                 return
@@ -201,14 +203,7 @@ actor RelayClient {
         authTimeoutTask = nil
 
         guard result.isSuccessful else {
-            let message = result.error ?? "invalid_credentials"
-            lastError = message
-            events.onError(message)
-            events.onState(.error(message))
-            intentionalDisconnect = true
-            generation += 1
-            await tearDownSocket()
-            MoteLog.network.error("Authentication failed")
+            await handleAuthenticationFailure(result.error, generation: gen)
             return
         }
 
@@ -275,6 +270,67 @@ actor RelayClient {
         reconnectAttempt = 0
     }
 
+    private func handleReceiveFailure(_ error: Error, generation gen: UInt64) async -> Bool {
+        guard let transportError = error as? TransportError else {
+            return false
+        }
+        switch transportError {
+        case .cancelled:
+            return true
+        case .closed(let reason):
+            return await handleAdministrativeClose(reason, generation: gen)
+        case .notConnected, .invalidUTF8, .invalidRelayResponse:
+            return false
+        }
+    }
+
+    private func handleAdministrativeClose(_ reason: String?, generation gen: UInt64) async -> Bool {
+        guard let reason, let closeReason = RelayCloseReason(rawValue: reason) else {
+            return false
+        }
+        intentionalDisconnect = true
+        await settleAdministrativeClose(generation: gen, reason: closeReason)
+        return true
+    }
+
+    private func handleAuthenticationFailure(_ error: String?, generation gen: UInt64) async {
+        if lastError == RelayCloseReason.deviceDisabled.rawValue {
+            await settleAdministrativeClose(generation: gen, reason: .deviceDisabled)
+            return
+        }
+        if lastError == RelayCloseReason.credentialRotated.rawValue {
+            await settleAdministrativeClose(generation: gen, reason: .credentialRotated)
+            return
+        }
+
+        let message = error ?? "invalid_credentials"
+        lastError = message
+        events.onError(message)
+        events.onState(.error(message))
+        intentionalDisconnect = true
+        generation += 1
+        await tearDownSocket()
+        MoteLog.network.error("Authentication failed")
+    }
+
+    private func settleAdministrativeClose(generation gen: UInt64, reason: RelayCloseReason) async {
+        guard gen == generation else { return }
+        intentionalDisconnect = true
+        lastError = reason.rawValue
+        events.onError(reason.rawValue)
+        switch reason {
+        case .deviceDisabled:
+            events.onState(.disabled)
+        case .credentialRotated:
+            events.onState(.error(reason.rawValue))
+        }
+        generation += 1
+        isAuthenticated = false
+        events.onLatency(nil)
+        await tearDownSocket()
+        MoteLog.network.error("Administrative close \(reason.rawValue, privacy: .public)")
+    }
+
     private func handleUnexpectedDisconnect(generation gen: UInt64) async {
         guard gen == generation else { return }
         generation += 1
@@ -329,6 +385,7 @@ actor RelayClient {
     }
 
     private func startPathMonitorIfNeeded() {
+        guard !RuntimeContext.isRunningTests else { return }
         guard pathMonitor == nil else { return }
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { path in

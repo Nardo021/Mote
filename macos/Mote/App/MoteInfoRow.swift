@@ -13,8 +13,10 @@ struct MoteInlineErrorView: View {
         }
         .font(MoteTypography.secondary)
         .foregroundStyle(MoteColors.error)
+        .lineSpacing(MoteTypography.wrappingLineSpacing)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.vertical, MoteSpacing.micro)
+        .textSelection(.enabled)
         .accessibilityElement(children: .combine)
     }
 }

@@ -143,7 +143,7 @@ mote/
 
 | 区域         | 技术                                                                                                         | 状态              |
 | ------------ | ------------------------------------------------------------------------------------------------------------ | ----------------- |
-| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.3.1）   |
+| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.0）   |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                              | 已实现            |
 | Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                           | 由 Relay 静态托管 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket；配对另有 `/v1/ws/pair`                                                     | 已实现            |
@@ -155,7 +155,7 @@ mote/
 
 **Phase 1 — 仓库基础** 已完成。
 
-**Phase 2 — Mote for Mac** 已完成。原生 Mac 应用、菜单栏 Agent、钥匙串凭据、命令校验、锁屏动作和出站 WebSocket 均已实现。当前版本 `1.3.1`（build `5`）。
+**Phase 2 — Mote for Mac** 已完成。原生 Mac 应用、菜单栏 Agent、钥匙串凭据、命令校验、锁屏动作和出站 WebSocket 均已实现。当前版本 `1.5.0`（build `8`）。
 
 **Phase 3 — Mote Relay** 已完成。Fastify HTTP API、设备 WebSocket、配对、SQLite、CLI、Docker 镜像、Compose 栈和 PVE 文档均已实现。同一容器提供管理员 Dashboard。
 

@@ -15,6 +15,6 @@ enum DateHelpers {
 
     static func formatLatency(_ latency: TimeInterval) -> String {
         let milliseconds = (latency * 1000.0).rounded()
-        return "\(Int(milliseconds)) ms"
+        return "\(Int(milliseconds))\u{00A0}ms"
     }
 }

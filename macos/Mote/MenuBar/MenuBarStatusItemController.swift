@@ -84,8 +84,7 @@ final class MenuBarStatusItemController: NSObject {
             }
         }
 
-        menu.addItem(disabledItem("Lock Permission"))
-        menu.addItem(disabledItem(appState.lockPermissionText))
+        menu.addItem(disabledItem("Lock Permission: \(appState.lockPermissionText)"))
 
         let loginItem = NSMenuItem(
             title: "Start at Login",
@@ -99,7 +98,7 @@ final class MenuBarStatusItemController: NSObject {
         menu.addItem(.separator())
         addItem("Open Mote", action: #selector(openMote))
         if !appState.isUnconfigured {
-            if appState.wantsConnection {
+            if appState.showsDisconnectAction {
                 addItem("Disconnect", action: #selector(disconnect))
             } else {
                 addItem(reconnectTitle, action: #selector(connect))
@@ -112,7 +111,7 @@ final class MenuBarStatusItemController: NSObject {
 
     private var reconnectTitle: String {
         switch appState.connectionState {
-        case .disconnected, .error, .reconnecting:
+        case .disconnected, .error, .reconnecting, .disabled:
             return "Reconnect"
         case .notConfigured, .pairing, .connecting, .authenticating, .connected:
             return "Connect"
