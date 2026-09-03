@@ -16,12 +16,12 @@ final class AppState {
     var deviceID: String = ""
     var wantsConnection = true
     var shouldOpenSettings = false
+    var credentialInput = ""
+    var shouldFocusCredential = false
 
     #if DEBUG
-    var debugCredentialInput = ""
     var debugRelayOverride = ""
     var debugLastMockResult: MoteCommandResult?
-    var shouldFocusDeveloperCredential = false
     #endif
 
     let settings: SettingsStore
@@ -198,9 +198,39 @@ final class AppState {
 
     func beginConfiguration() {
         copyDeviceID()
-        #if DEBUG
-        shouldFocusDeveloperCredential = true
-        #endif
+        shouldFocusCredential = true
+    }
+
+    var canSaveCredential: Bool {
+        !credentialInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func saveDeviceCredential() async {
+        do {
+            try await credentials.save(credentialInput)
+            credentialInput = ""
+            lastError = nil
+            wantsConnection = true
+            settings.saveWantsConnection(true)
+            guard !RuntimeContext.isRunningTests else { return }
+            await agent.connect()
+        } catch {
+            lastError = "Keychain failure"
+        }
+    }
+
+    func clearDeviceCredential() async {
+        do {
+            try await credentials.delete()
+            lastError = nil
+            wantsConnection = false
+            settings.saveWantsConnection(false)
+            connectionState = .notConfigured
+            guard !RuntimeContext.isRunningTests else { return }
+            await agent.disconnect()
+        } catch {
+            lastError = "Keychain failure"
+        }
     }
 
     func executeLocalLockForDevelopment() async throws {
@@ -210,27 +240,11 @@ final class AppState {
 
     #if DEBUG
     func saveDebugCredential() async {
-        do {
-            try await credentials.save(debugCredentialInput)
-            debugCredentialInput = ""
-            lastError = nil
-            MoteLog.security.info("Debug credential stored")
-        } catch {
-            lastError = "Keychain failure"
-        }
+        await saveDeviceCredential()
     }
 
     func clearDebugCredential() async {
-        do {
-            try await credentials.delete()
-            lastError = nil
-            wantsConnection = false
-            settings.saveWantsConnection(false)
-            await agent.disconnect()
-            connectionState = .notConfigured
-        } catch {
-            lastError = "Keychain failure"
-        }
+        await clearDeviceCredential()
     }
 
     func saveDebugRelayOverride() {

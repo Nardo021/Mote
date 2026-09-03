@@ -11,9 +11,7 @@ struct MainWindowView: View {
                         .id("mote-top")
 
                     if appState.isUnconfigured {
-                        UnconfiguredStateView {
-                            appState.beginConfiguration()
-                        }
+                        UnconfiguredStateView()
                     } else {
                         connectionSection
                         remoteActionsSection
@@ -184,6 +182,10 @@ struct MainWindowView: View {
             Divider()
             MoteRow(label: "Version") {
                 MoteValueText(text: AppVersion.display, monospaced: true)
+            }
+            if !appState.isUnconfigured {
+                Divider()
+                DeviceCredentialEditor()
             }
         }
     }

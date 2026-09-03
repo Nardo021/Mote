@@ -26,11 +26,11 @@ struct DeveloperSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .onChange(of: appState.shouldFocusDeveloperCredential) { _, shouldFocus in
+        .onChange(of: appState.shouldFocusCredential) { _, shouldFocus in
             guard shouldFocus else { return }
             isExpanded = true
             credentialFieldFocused = true
-            appState.shouldFocusDeveloperCredential = false
+            appState.shouldFocusCredential = false
         }
     }
 }
@@ -66,22 +66,22 @@ private struct AdvancedDebugContent: View {
             VStack(alignment: .leading, spacing: MoteSpacing.tight) {
                 Text("Development Credential")
                     .font(MoteTypography.primary)
-                Text("DEBUG only. Stored in Keychain and never logged.")
+                Text("Stored in Keychain and never logged.")
                     .font(MoteTypography.metadata)
                     .foregroundStyle(.secondary)
-                SecureField("Device credential", text: $appState.debugCredentialInput)
+                SecureField("Device credential", text: $appState.credentialInput)
                     .textFieldStyle(.roundedBorder)
                     .focused(credentialFieldFocused)
                     .accessibilityLabel("Development device credential")
                 HStack(spacing: MoteSpacing.tight) {
                     Button("Save Credential") {
-                        Task { await appState.saveDebugCredential() }
+                        Task { await appState.saveDeviceCredential() }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(MoteColors.accent)
-                    .disabled(appState.debugCredentialInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!appState.canSaveCredential)
                     Button("Clear Credential", role: .destructive) {
-                        Task { await appState.clearDebugCredential() }
+                        Task { await appState.clearDeviceCredential() }
                     }
                     .buttonStyle(.bordered)
                 }
