@@ -116,7 +116,7 @@ curl -i https://relay.yanze.me/ready
 14. 创建快捷指令 token。
 15. 测试设备状态。
 16. 测试 lock 命令。
-17. 配置 Apple 快捷指令。
+17. 配置 Apple 快捷指令（[docs/shortcuts.md](../../docs/shortcuts.md)）。
 
 ## 引导 LXC
 
@@ -240,7 +240,7 @@ docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --
 docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
 ```
 
-8. 把 token 和设备 ID 放进 Apple 快捷指令（Phase 4）。快捷指令 URL 保持 `https://relay.yanze.me`。
+8. 把 token 和设备 ID 放进 Apple 快捷指令。步骤见 [docs/shortcuts.md](../../docs/shortcuts.md)。快捷指令 URL 保持 `https://relay.yanze.me`。
 9. 接通 Siri 前先用 curl 测试：
 
 ```text

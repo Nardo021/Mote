@@ -4,7 +4,7 @@ Mote 是一套轻量的 macOS 远程动作系统。
 
 **Relay** 只是后端组件。产品名是 **Mote**。
 
-Mote for Mac（Phase 2）和 Mote Relay（Phase 3）已经实现。Phase 4 的 Apple 快捷指令配置尚未完成，因此 Siri 还没有接通。
+Mote for Mac（Phase 2）和 Mote Relay（Phase 3）已经实现。Phase 4 的 Apple 快捷指令按 [shortcuts.md](shortcuts.md) 在 iPhone 上手建；没有原生 iOS 应用。
 
 ## 命名
 
@@ -185,7 +185,7 @@ http://127.0.0.1:3000
 ws://127.0.0.1:3000/v1/ws/device
 ```
 
-见 [deployment.md](deployment.md)。快捷指令 HTTP 形状见 [protocol.md](protocol.md)。
+见 [deployment.md](deployment.md)。快捷指令 HTTP 形状见 [protocol.md](protocol.md)。iPhone 操作步骤见 [shortcuts.md](shortcuts.md)。
 
 ## V2 架构兼容性
 

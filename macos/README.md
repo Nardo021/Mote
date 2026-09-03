@@ -178,6 +178,6 @@ CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command →
 
 ## 本阶段不包含
 
-- Apple 快捷指令配置（Phase 4）
+- Apple 快捷指令配置（Phase 4；步骤见 [docs/shortcuts.md](../docs/shortcuts.md)，不在本应用内）
 - Bonjour / 本地 TCP / BLE / iOS 应用
 - 任意 shell、AppleScript 或可执行路径执行

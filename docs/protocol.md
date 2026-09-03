@@ -289,6 +289,8 @@ Relay 可以发送：
 
 ## 快捷指令 HTTP API
 
+iPhone 上的建立步骤见 [shortcuts.md](shortcuts.md)。
+
 生产基址：`https://relay.yanze.me`
 
 快捷指令只需要 URL、`Authorization: Bearer`、JSON 正文，以及扁平的 `status` 字段。`id`、`created_at`、`expires_at` 和 `nonce` 由 Relay 生成。快捷指令不得发送这些字段。

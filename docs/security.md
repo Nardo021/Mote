@@ -18,7 +18,7 @@ Mote for Mac 把 `device_connection` 凭据存放在钥匙串。Mote Relay 只�
 send_command
 ```
 
-仅供 Apple 快捷指令或未来受信任的命令客户端使用。
+仅供 Apple 快捷指令或未来受信任的命令客户端使用。iPhone 配置见 [shortcuts.md](shortcuts.md)。
 
 请求头：
 

@@ -192,7 +192,7 @@ Compose 使用 `ports: "3000:3000"`，不要用 `network_mode: host`，也不要
 - Mac：`device_connection` 凭据
 - Dashboard：Relay 内的管理员会话 cookie
 
-交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。
+交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。iPhone 配置见 [shortcuts.md](shortcuts.md)。
 
 ## 安全边界
 

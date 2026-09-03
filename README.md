@@ -120,7 +120,7 @@ V2 可以在不重写后端或命令协议的前提下增加原生 iOS 应用和
 
 ```text
 mote/
-├── docs/          架构、协议、安全、部署、开发
+├── docs/          架构、协议、安全、部署、开发、快捷指令
 ├── macos/         Mote for Mac（Xcode 工程、应用、测试）
 ├── dashboard/     Mote Relay Dashboard（React + Vite）
 ├── relay/         Mote Relay（Node.js + TypeScript）
@@ -135,10 +135,10 @@ mote/
 | ------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Mote for Mac | Swift、SwiftUI、MenuBarExtra、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | Phase 2 已实现                    |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                                  | Phase 3 已实现                    |
-| Dashboard    | React、TypeScript、Vite                                                                                          | 由 Relay 静态托管                 |
+| Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                                | 由 Relay 静态托管                 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket                                                                                 | Mac 客户端与 Relay 接入路径已实现 |
 | 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.168.2.44:3000`                                    | 已文档化                          |
-| 触发（V1）   | Apple 快捷指令 + Siri                                                                                            | 配置待完成                        |
+| 触发（V1）   | Apple 快捷指令 + Siri                                                                                            | 配置步骤已文档化                  |
 
 ## 开发状态
 
@@ -148,11 +148,9 @@ mote/
 
 **Phase 3 — Mote Relay** 已完成。Fastify HTTP API、设备 WebSocket、SQLite 凭据、CLI、Docker 镜像、Compose 栈和 PVE 文档均已实现。同一容器现在也提供管理员 Dashboard。
 
-**Phase 4 — Apple 快捷指令** 配置待完成。没有原生 iOS 应用。
+**Phase 4 — Apple 快捷指令** 配置步骤已文档化。没有原生 iOS 应用，仓库不附带 `.shortcut` 文件。见 [docs/shortcuts.md](docs/shortcuts.md)。
 
 **Phase 5 — V2** 尚未实现。
-
-从 Siri 远程锁屏仍需要完成 Phase 4 的快捷指令。
 
 ## 安全原则
 
@@ -164,14 +162,14 @@ mote/
 - 密钥永不提交。macOS 设备凭据存放在钥匙串；Relay 只保存哈希。
 - 命令很快过期。离线锁屏不会排队。
 
-细节见 [docs/security.md](docs/security.md) 和 [docs/protocol.md](docs/protocol.md)。
+细节见 [docs/security.md](docs/security.md)、[docs/protocol.md](docs/protocol.md) 和 [docs/shortcuts.md](docs/shortcuts.md)。
 
 ## V1 路线图
 
 1. **Phase 1 — 仓库基础** — 已完成。
 2. **Phase 2 — Mote for Mac** — 已完成。
 3. **Phase 3 — Mote Relay** — 已完成。
-4. **Phase 4 — Apple 快捷指令** — Siri + 快捷指令触发 `lock`。V1 没有 iOS 应用。
+4. **Phase 4 — Apple 快捷指令** — 已文档化。Siri + 快捷指令触发 `lock`。V1 没有 iOS 应用。
 
 ## V2 路线图
 
@@ -190,6 +188,7 @@ V2 仅为兼容性而文档化。本仓库尚未实现。未来的本地直连�
 | ------------------------------- | ---------------------------------------- |
 | [架构](docs/architecture.md)    | 产品组件、V1/V2 形状、命名               |
 | [协议](docs/protocol.md)        | WebSocket 线上格式与快捷指令 HTTP API    |
+| [快捷指令](docs/shortcuts.md)   | iPhone 配置、Siri、curl 验证             |
 | [安全](docs/security.md)        | 凭据角色、哈希、执行边界                 |
 | [部署](docs/deployment.md)      | Compose、PVE Tunnel、源站校验            |
 | [开发](docs/development.md)     | 本地命令、质量约定、阶段状态             |

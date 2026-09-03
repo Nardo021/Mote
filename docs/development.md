@@ -75,7 +75,7 @@ npm run cli -- token create --name "Development Shortcut"
 
 ## Dashboard 本地开发
 
-Dashboard 是 Vite SPA，位于 `dashboard/`。开发时可以和 Relay 分开跑：
+Dashboard 是 Vite SPA，位于 `dashboard/`。UI 使用 shadcn/ui，颜色 token 仍对齐 [design.md](../design.md)。开发时可以和 Relay 分开跑：
 
 ```text
 # Terminal 1
@@ -117,9 +117,9 @@ printf '%s\n' "$PASSWORD" | npm run cli -- admin create --username admin --passw
 
 ## Phase 4 — Apple 快捷指令
 
-配置 Siri + 快捷指令以触发 `lock`。
+配置步骤见 [shortcuts.md](shortcuts.md)。用 `send_command` token 和 Device ID 在 iPhone 上建立「获取 URL 内容」快捷指令，再添加到 Siri。接通前先用 curl 打 `POST /v1/devices/:deviceId/commands`。
 
-V1 没有 iOS 应用。
+V1 没有 iOS 应用。仓库不附带 `.shortcut` 文件。
 
 ## Phase 5 — V2
 

@@ -98,7 +98,7 @@ docker compose exec -it relay node dist/cli.js admin create --username admin
 | `GET`  | `/health`                        | 无           | 进程存活                              |
 | `GET`  | `/ready`                         | 无           | 数据库 + 进程就绪；失败时 `503`       |
 
-健康检查不要求 Mac 在线。完整状态码见 [docs/protocol.md](../docs/protocol.md)。
+健康检查不要求 Mac 在线。完整状态码见 [docs/protocol.md](../docs/protocol.md)。iPhone 快捷指令配置见 [docs/shortcuts.md](../docs/shortcuts.md)。
 
 ## 命令语义
 
