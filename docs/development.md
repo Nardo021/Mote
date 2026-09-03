@@ -102,4 +102,4 @@ Xcode 工程是 `macos/Mote.xcodeproj`。应用显示名 **Mote**，bundle ident
 - Bonjour、蓝牙或其他 V2 传输代码
 - 任意 shell 执行
 - 分析 / 遥测 SaaS
-- 真实密钥、Team ID、局域网 IP 或生产证书
+- 应用源码中的真实密钥、Team ID、局域网 IP 或生产证书（当前生产 LXC 地址只属于基础设施文档）

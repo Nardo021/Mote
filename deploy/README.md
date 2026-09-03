@@ -1,57 +1,64 @@
 # 部署
 
-专用 Proxmox VE LXC 上的 **Mote Relay** 生产布局。
+专用 Proxmox VE LXC 上的 **Mote Relay** 生产布局。`cloudflared` 不在本目录管理。
 
 ```text
-PVE
-└── LXC: mote-relay
-    └── Debian
-        └── Docker
-            ├── mote-relay
-            └── caddy
+PVE Host
+│
+├── existing cloudflared
+│
+└── LXC 192.168.2.44
+     │
+     └── Docker
+          └── mote-relay
+               └── 3000:3000
 ```
 
 ```text
-Caddy :443 / :80
+relay.yanze.me
   ↓
-relay:3000
+existing Cloudflare Tunnel
+  ↓
+cloudflared on PVE host
+  ↓
+http://192.168.2.44:3000
+  ↓
+Mote Relay
 ```
 
-Node 进程不发布到宿主机。Caddy 是唯一的入站 HTTP/HTTPS 监听器。
+Compose 栈只运行 Relay。容器端口 `3000` 发布为 LXC 端口 `3000`，以便 PVE 宿主机到达源站。栈内没有 Caddy、Nginx、Traefik 或 `cloudflared`。
 
 ## 文件
 
-| 文件                 | 作用                                               |
-| -------------------- | -------------------------------------------------- |
-| `docker-compose.yml` | 构建 `../relay/Dockerfile`，运行 `relay` + `caddy` |
-| `Caddyfile`          | `relay.yanze.me` 与 `:80` 反向代理，支持 WebSocket |
-| `.env.example`       | 在宿主机复制为 `.env`（可选；Compose 有默认值）    |
-| `certs/`             | 可选挂载的公众信任证书                             |
-| `pve/README.md`      | LXC、Split DNS、Cloudflare Tunnel、TLS             |
+| 文件                 | 作用                                                         |
+| -------------------- | ------------------------------------------------------------ |
+| `docker-compose.yml` | 构建 `../relay/Dockerfile`，只运行 `relay`，发布 `3000:3000` |
+| `.env.example`       | 在 LXC 上复制为 `.env`（可选；Compose 有默认值）             |
+| `pve/README.md`      | LXC、现有 Cloudflare Tunnel、第一台设备流程                  |
 
-SQLite 位于 Docker volume `mote_data`（Relay 容器内为 `/data/mote.sqlite`）。它能在 `docker compose down`、容器重启、宿主机重启和镜像更新后继续存在。
+SQLite 位于 Docker volume `mote_data`（Relay 容器内为 `/data/mote.sqlite`）。它能在 `docker compose down`、容器重启、LXC 重启和镜像更新后继续存在。
 
-## 宿主机布局
+## LXC 布局
 
-建议在 LXC 上使用：
+建议把仓库放在 LXC 的 `/opt/mote`：
 
 ```text
 /opt/mote/
-├── docker-compose.yml
-├── Caddyfile
-├── .env
-└── certs/          可选挂载的公众信任证书
+├── deploy/
+│   ├── docker-compose.yml
+│   └── .env
+└── relay/
 ```
-
-从本目录复制这些文件。不要提交 `.env`。
 
 ```text
 cp .env.example .env
 docker compose up -d
 docker compose ps
-curl -sS http://127.0.0.1/health
-curl -sS http://127.0.0.1/ready
+curl -sS http://127.0.0.1:3000/health
+curl -sS http://127.0.0.1:3000/ready
 ```
+
+`docker compose ps` 应只显示 `mote-relay`（或等价的 Compose 服务名）。不应出现 `cloudflared` 或 `caddy`。
 
 对同一数据库使用 CLI：
 
@@ -68,4 +75,10 @@ https://relay.yanze.me
 wss://relay.yanze.me/v1/ws/device
 ```
 
-在家使用 Split DNS。外出使用 Cloudflare Tunnel。客户端都不要使用原始局域网 IP URL。细节见 [pve/README.md](pve/README.md) 和 [docs/deployment.md](../docs/deployment.md)。
+生产源站（仅供 PVE 宿主机上的现有 Tunnel 使用）是：
+
+```text
+http://192.168.2.44:3000
+```
+
+客户端都不要使用原始局域网 IP URL。细节见 [pve/README.md](pve/README.md) 和 [docs/deployment.md](../docs/deployment.md)。

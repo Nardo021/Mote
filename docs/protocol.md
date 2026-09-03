@@ -65,7 +65,23 @@ Mote Agent 为每个允许列表中的动作执行固定的本地实现。客户
 wss://relay.yanze.me/v1/ws/device
 ```
 
-由 HTTPS 基址 `https://relay.yanze.me` 推导。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。
+生产路径：
+
+```text
+Mac
+  ↓
+wss://relay.yanze.me/v1/ws/device
+  ↓
+Cloudflare
+  ↓
+Tunnel
+  ↓
+192.168.2.44:3000
+  ↓
+Mote Relay
+```
+
+不要另开 WebSocket 端口或单独的 WebSocket 主机名。由 HTTPS 基址 `https://relay.yanze.me` 推导。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。
 
 Mac 始终发起**出站**连接。从不需要路由器入站端口转发。
 
@@ -176,16 +192,16 @@ Relay → Mac（WebSocket 帧）：
 }
 ```
 
-| 字段 | 用途 |
-| --- | --- |
-| `type` | 设备 WebSocket 上始终为 `command`。 |
-| `version` | 协议版本。V1 为 `1`。 |
-| `id` | 唯一命令标识。重复 ID 不得执行两次。 |
-| `device_id` | 目标 Mac 设备。 |
-| `action` | 允许列表中的动作名。 |
-| `created_at` | 命令创建时的 Unix 纪元毫秒。 |
+| 字段         | 用途                                       |
+| ------------ | ------------------------------------------ |
+| `type`       | 设备 WebSocket 上始终为 `command`。        |
+| `version`    | 协议版本。V1 为 `1`。                      |
+| `id`         | 唯一命令标识。重复 ID 不得执行两次。       |
+| `device_id`  | 目标 Mac 设备。                            |
+| `action`     | 允许列表中的动作名。                       |
+| `created_at` | 命令创建时的 Unix 纪元毫秒。               |
 | `expires_at` | 超过该时刻后必须忽略命令的 Unix 纪元毫秒。 |
-| `nonce` | 用于防重放的不可预测值。必填且非空。 |
+| `nonce`      | 用于防重放的不可预测值。必填且非空。       |
 
 ### TTL
 
@@ -226,12 +242,12 @@ Mac → Relay：
 
 `failed` 时可附带可选的 `error` 字符串。
 
-| 字段 | 用途 |
-| --- | --- |
-| `type` | 始终为 `command_result`。 |
-| `version` | 协议版本。V1 为 `1`。 |
-| `command_id` | 该结果对应的命令 `id`。 |
-| `status` | 命令结果。 |
+| 字段           | 用途                                 |
+| -------------- | ------------------------------------ |
+| `type`         | 始终为 `command_result`。            |
+| `version`      | 协议版本。V1 为 `1`。                |
+| `command_id`   | 该结果对应的命令 `id`。              |
+| `status`       | 命令结果。                           |
 | `completed_at` | Agent 处理完命令时的 Unix 纪元毫秒。 |
 
 Mote for Mac 发送的 `status` 取值：
@@ -350,20 +366,20 @@ Authorization: Bearer <shortcut-token>
 
 ### HTTP 状态码
 
-| 状态码 | 含义 |
-| --- | --- |
-| 200 | 已从 Mac 收到命令结果 |
-| 400 | JSON 无效或字段缺失 |
-| 401 | 缺少或无效的 Bearer token |
-| 403 | Token 不是 `send_command` |
-| 404 | 未知设备 |
-| 409 | 设备离线（`status: offline`）或已禁用（`status: disabled`）；命令不排队 |
-| 413 | JSON 正文超过 `MOTE_MAX_BODY_BYTES`（默认 16 KiB） |
-| 422 | 动作已预留或未知 |
-| 429 | 命令速率限制（默认每 token 每 10 秒 10 次，`status: rate_limited`） |
-| 503 | `/ready` 未就绪，或进行中的命令过多 |
-| 504 | 在 Relay 截止时间前未收到 `command_result`（默认 12 秒） |
-| 500 | 未预期的服务器失败 |
+| 状态码 | 含义                                                                    |
+| ------ | ----------------------------------------------------------------------- |
+| 200    | 已从 Mac 收到命令结果                                                   |
+| 400    | JSON 无效或字段缺失                                                     |
+| 401    | 缺少或无效的 Bearer token                                               |
+| 403    | Token 不是 `send_command`                                               |
+| 404    | 未知设备                                                                |
+| 409    | 设备离线（`status: offline`）或已禁用（`status: disabled`）；命令不排队 |
+| 413    | JSON 正文超过 `MOTE_MAX_BODY_BYTES`（默认 16 KiB）                      |
+| 422    | 动作已预留或未知                                                        |
+| 429    | 命令速率限制（默认每 token 每 10 秒 10 次，`status: rate_limited`）     |
+| 503    | `/ready` 未就绪，或进行中的命令过多                                     |
+| 504    | 在 Relay 截止时间前未收到 `command_result`（默认 12 秒）                |
+| 500    | 未预期的服务器失败                                                      |
 
 校验错误使用：
 

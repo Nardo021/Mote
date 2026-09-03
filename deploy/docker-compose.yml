@@ -22,8 +22,8 @@ services:
       MOTE_MAX_BODY_BYTES: ${MOTE_MAX_BODY_BYTES:-16384}
     volumes:
       - mote_data:/data
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     restart: unless-stopped
     healthcheck:
       test:
@@ -38,25 +38,5 @@ services:
       retries: 3
       start_period: 10s
 
-  caddy:
-    container_name: mote-caddy
-    image: caddy:2-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-      - ./certs:/certs:ro
-    depends_on:
-      relay:
-        condition: service_healthy
-    restart: unless-stopped
-
 volumes:
   mote_data:
-  caddy_data:
-  caddy_config:

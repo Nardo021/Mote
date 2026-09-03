@@ -21,49 +21,82 @@ Mote iOS → 可用时走本地直连 → Relay 回退
 - 没有 iOS 应用。
 - iPhone 使用 Apple 快捷指令 + Siri。
 - 快捷指令始终访问 `https://relay.yanze.me`（在家和外出使用同一主机名）。
-- 在家时，Split DNS 把该主机名解析到本地 Proxmox VE LXC。
-- 外出时，同一主机名经 Cloudflare Tunnel 到达。
+- Mote for Mac 始终连接 `wss://relay.yanze.me/v1/ws/device`。
+- 在家和外出都走同一条 Cloudflare Tunnel 路径。V1 不使用 Split DNS。
 - Mote for Mac 与 Mote Relay 保持一条持久、已认证的 WebSocket。
 - V1 唯一动作为 `lock`。
 - 架构中永不包含任意 shell 执行。
 
+## V1 基础设施
+
+Mote 不管理 Cloudflare。现有 Tunnel 和 `cloudflared` 已经运行在 Proxmox VE 宿主机上。
+
+```text
+Proxmox VE host:
+- existing Cloudflare Tunnel / cloudflared
+
+Mote LXC:
+- Debian
+- Docker
+- Mote Relay
+- SQLite
+
+Cloudflare route:
+relay.yanze.me
+→ http://192.168.2.44:3000
+```
+
+```text
+PVE Host
+│
+├── existing cloudflared
+│
+└── CT: mote-relay
+     IP: 192.168.2.44
+     │
+     └── Docker
+          └── Relay :3000
+```
+
 ## 架构摘要
 
 ```text
-Apple Siri
-    │
-    ▼
+                   PUBLIC
 Apple Shortcut
-    │
-    │ HTTPS POST
-    ▼
+      │
+      │ HTTPS
+      ▼
 relay.yanze.me
-    │
-    ├── 在家:
-    │     Split DNS
-    │       ↓
-    │     本地 PVE LXC
-    │
-    └── 外出:
-          公网 DNS
-            ↓
-          Cloudflare
-            ↓
-          Cloudflare Tunnel
-            ↓
-          PVE LXC
-              ↓
-          Mote Relay
-              │
-              │ 持久、已认证的 WebSocket
-              ▼
-          Mote Agent
-              │
-              ▼
-          macOS 锁屏
+Mote for Mac
+      │
+      │ WSS
+      ▼
+relay.yanze.me
+      │
+      ▼
+Cloudflare
+      │
+      ▼
+Existing Tunnel
+      │
+      ▼
+cloudflared on PVE host
+      │
+      ▼
+192.168.2.44:3000
+      │
+      ▼
+Mote Relay
+      │
+      │ 持久、已认证的 WebSocket
+      ▼
+Mote Agent
+      │
+      ▼
+macOS 锁屏
 ```
 
-快捷指令不需要知道手机当前在家庭局域网还是远程。
+快捷指令和 Mac 都不要使用 `http://192.168.2.44:3000`。该地址只是 Cloudflare 源站配置，不是客户端 URL。
 
 V2 可以在不重写后端或命令协议的前提下增加原生 iOS 应用和本地传输。Relay 路径会作为永久回退。见 [docs/architecture.md](docs/architecture.md)。
 
@@ -74,7 +107,7 @@ mote/
 ├── docs/          架构、协议、安全、部署、开发
 ├── macos/         Mote for Mac（Xcode 工程、应用、测试）
 ├── relay/         Mote Relay（Node.js + TypeScript）
-├── deploy/        Docker Compose、Caddy、PVE 说明
+├── deploy/        Docker Compose 与 PVE 说明
 ├── scripts/       辅助脚本
 └── .github/       后续 CI 工作流
 ```
@@ -86,8 +119,7 @@ mote/
 | Mote for Mac | Swift、SwiftUI、MenuBarExtra、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | Phase 2 已实现                    |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                                  | Phase 3 已实现                    |
 | 传输         | HTTPS + 持久、已认证的 WebSocket                                                                                 | Mac 客户端与 Relay 接入路径已实现 |
-| 家庭访问     | Split DNS → 本地 PVE LXC                                                                                         | 已文档化                          |
-| 远程访问     | Cloudflare Tunnel → PVE LXC                                                                                      | 已文档化                          |
+| 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.168.2.44:3000`                                    | 已文档化                          |
 | 触发（V1）   | Apple 快捷指令 + Siri                                                                                            | 配置待完成                        |
 
 ## 开发状态
@@ -132,7 +164,7 @@ mote/
 - 与 Mac 的本地直连
 - 自动回退到 Mote Relay
 
-V2 仅为兼容性而文档化。本仓库尚未实现。
+V2 仅为兼容性而文档化。本仓库尚未实现。未来的本地直连（例如 Bonjour）属于 **Future / not implemented**，不是当前 V1 部署路径。
 
 ## 文档
 
@@ -141,10 +173,10 @@ V2 仅为兼容性而文档化。本仓库尚未实现。
 | [架构](docs/architecture.md)    | 产品组件、V1/V2 形状、命名               |
 | [协议](docs/protocol.md)        | WebSocket 线上格式与快捷指令 HTTP API    |
 | [安全](docs/security.md)        | 凭据角色、哈希、执行边界                 |
-| [部署](docs/deployment.md)      | Compose、Split DNS、TLS 概览             |
+| [部署](docs/deployment.md)      | Compose、PVE Tunnel、源站校验            |
 | [开发](docs/development.md)     | 本地命令、质量约定、阶段状态             |
 | [设计语言](design.md)           | 视觉与文案规范；窗口尺寸以已落地界面为准 |
 | [Mote for Mac](macos/README.md) | Mac 客户端构建、配对、验证               |
 | [Mote Relay](relay/README.md)   | Relay 开发、CLI、HTTP API                |
-| [部署文件](deploy/README.md)    | Compose / Caddy                          |
-| [PVE](deploy/pve/README.md)     | LXC、隧道、第一台设备流程                |
+| [部署文件](deploy/README.md)    | Compose / Relay 发布端口                 |
+| [PVE](deploy/pve/README.md)     | LXC、现有 Tunnel、第一台设备流程         |

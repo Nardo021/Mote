@@ -44,10 +44,6 @@ yarn-error.log*
 relay/data/*
 !relay/data/.gitkeep
 
-# Deploy TLS material (keep the folder)
-deploy/certs/*
-!deploy/certs/.gitkeep
-
 # macOS
 .DS_Store
 .AppleDouble
