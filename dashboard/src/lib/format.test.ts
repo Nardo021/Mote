@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
 import {
+  commandUrl,
   formatDuration,
   formatRelativeTime,
   lastCommandLabel,
   shortenId,
+  shortcutSetupUrl,
   titleCaseAction,
 } from "./format.js";
 import { devicePresence, devicePresenceLabel } from "./status.js";
@@ -31,6 +33,23 @@ describe("format helpers", () => {
       "Lock · Completed",
     );
     assert.equal(titleCaseAction("lock"), "Lock");
+  });
+
+  it("builds public shortcut and command URLs without a token", () => {
+    assert.equal(
+      shortcutSetupUrl(
+        "https://relay.yanze.me/",
+        "7b0f1234-aaaa-4111-8111-0000000091ac",
+      ),
+      "https://relay.yanze.me/s/7b0f1234-aaaa-4111-8111-0000000091ac",
+    );
+    assert.equal(
+      commandUrl(
+        "https://relay.yanze.me",
+        "7b0f1234-aaaa-4111-8111-0000000091ac",
+      ),
+      "https://relay.yanze.me/v1/devices/7b0f1234-aaaa-4111-8111-0000000091ac/commands",
+    );
   });
 });
 

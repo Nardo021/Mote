@@ -65,12 +65,13 @@ macos/
 ## 运行时行为
 
 1. 启动时加载持久的 `device_id` 和设置。
-2. 缺少设备凭据 → 主窗口显示 **Mote is not configured**，不会假装已连接或显示虚假延迟。
-3. 凭据存在且已启用 Connect → 出站 `wss://relay.yanze.me/v1/ws/device`。
-4. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
-5. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。设置窗口里 **Remote Actions** 显示 `Enabled` 或 `Permission required`。
-6. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**。
-7. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
+2. 缺少设备凭据 → 主窗口显示 **Mote is not configured** 和 **Pair**。不会假装已连接或显示虚假延迟。
+3. Pair 后 Dashboard 批准 → 凭据写入钥匙串并立刻 `startIfPossible()`，无需重启。
+4. 凭据存在且已启用 Connect → 出站 `wss://relay.yanze.me/v1/ws/device`。
+5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
+6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。设置窗口里 **Remote Actions** 显示 `Enabled` 或 `Permission required`。
+7. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**。
+8. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
 
 ## 凭据
 
@@ -78,19 +79,26 @@ macos/
 
 - 只存放在钥匙串，service 为 `me.yanze.mote`，account 为 `device_connection`
 - 永不写入 UserDefaults、日志或源码
-- 生产界面没有明文 token 编辑器
+- 生产主路径是 **Pair**；折叠的凭据粘贴仅用于轮换或 CLI 恢复
+- 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID
 
 ### 与 Mote Relay 配对
 
-Mote for Mac 在本地生成 `device_id` 并在设置中显示。先在 Relay 上登记该 ID，再把 Relay 签发的设备凭据存入钥匙串。
+1. 打开 Mote，点 **Pair**。
+2. Dashboard **Devices** 出现待批准请求，点 **Allow**。
+3. Mac 实时写入钥匙串并连接。无需重启。
+
+CLI 仍可用于恢复：
 
 ```text
 docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
 ```
 
+然后在 Mac 折叠区粘贴设备凭据。
+
 ### 临时 DEBUG 配对
 
-Release 没有明文 token 编辑器。开发时：
+开发时：
 
 - DEBUG 设置 → **Developer** 区可以把设备凭据保存到钥匙串
 - 可选环境变量：`MOTE_DEVICE_CREDENTIAL`（钥匙串为空时的 DEBUG 回退；除非你保存，否则不持久化）
@@ -154,8 +162,9 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 - **Permissions** — Lock Permission：`Granted` 或 `Required`，缺权限时可打开系统设置
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
 - **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID
+- **Shortcuts** — Device ID 已填；token 输入框为空，不持久化
 
-未配置时显示空状态，而不是 `Disconnected` / `0 ms` / Relay 主机。
+未配置时显示 Pair 空状态，而不是 `Disconnected` / `0 ms` / Relay 主机。
 
 ### 菜单栏
 
@@ -178,6 +187,6 @@ CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command →
 
 ## 本阶段不包含
 
-- Apple 快捷指令配置（Phase 4；步骤见 [docs/shortcuts.md](../docs/shortcuts.md)，不在本应用内）
+- 在 iPhone 上静默安装已填 token 的快捷指令（见 [docs/shortcuts.md](../docs/shortcuts.md)）
 - Bonjour / 本地 TCP / BLE / iOS 应用
 - 任意 shell、AppleScript 或可执行路径执行

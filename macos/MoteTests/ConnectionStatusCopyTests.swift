@@ -4,6 +4,7 @@ import XCTest
 final class ConnectionStatusCopyTests: XCTestCase {
     func testUnconfiguredHidesConnectionDetails() {
         XCTAssertFalse(ConnectionStatusCopy.showsConfiguredDetails(.notConfigured))
+        XCTAssertFalse(ConnectionStatusCopy.showsConfiguredDetails(.pairing))
         XCTAssertNil(ConnectionStatusCopy.headerTransportLine(state: .notConfigured, latencyText: "4 ms"))
         XCTAssertNil(ConnectionStatusCopy.menuRelayLine(host: "relay.yanze.me", latencyText: "4 ms", state: .notConfigured))
     }
@@ -31,6 +32,9 @@ final class ConnectionStatusCopyTests: XCTestCase {
 
         let invalid = ConnectionStatusCopy.inlineError(state: .error("invalid_credentials"), lastError: "invalid_credentials")
         XCTAssertEqual(invalid?.title, "Device credential is invalid.")
+
+        let pairing = ConnectionStatusCopy.inlineError(state: .pairing, lastError: "Pairing was denied.")
+        XCTAssertEqual(pairing?.title, "Pairing was denied.")
 
         XCTAssertNil(ConnectionStatusCopy.inlineError(state: .connected, lastError: nil))
         XCTAssertNil(ConnectionStatusCopy.inlineError(state: .disconnected, lastError: "Could not update Start at Login"))

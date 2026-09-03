@@ -63,7 +63,10 @@ Dashboard 使用独立的 `admins` 表，而不是 Bearer token。
 - Relay 只持久化 SHA-256 十六进制摘要。
 - 校验时对出示的密钥做哈希，再用 `timingSafeEqual` 比较摘要。
 - CLI 只打印一次密钥，且永不写入源文件。
-- 日志使用 `device_id`、`command_id` 和 `token_id`。不得包含 Bearer token、设备凭据或 Authorization 头。
+- 日志使用 `device_id`、`command_id`、`token_id` 和 `pair_request_id`。不得包含 Bearer token、设备凭据、`pair_secret` 或 Authorization 头。
+- 配对请求只保存 `pair_secret` 的 SHA-256 哈希。设备明文凭据在批准时生成，推给配对 WebSocket，不入库。
+- 公开 `POST /v1/pair/requests` 按 IP 与 `device_id` 限流。错误的 `pair_secret` 不能领取凭据。
+- `GET /s/:deviceId` 是公开安装页：只带 Device ID 和命令 URL，不带 token，也不展示设备是否在线。
 
 ## 传输
 

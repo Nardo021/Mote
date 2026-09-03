@@ -1,15 +1,12 @@
 import { hashSecret } from "../auth/tokenHash.js";
 import { Permission } from "../auth/permissions.js";
 import { AppError, ErrorCode, invalidRequest } from "../utils/errors.js";
-import { createId, createSecret } from "../utils/ids.js";
+import { createId, createSecret, isUuid } from "../utils/ids.js";
 import { nowMs } from "../utils/time.js";
 import type { DeviceRepository } from "./deviceRepository.js";
 import type { CreatedDevice, DeviceRecord } from "./deviceTypes.js";
 import type { TokenRepository } from "./tokenRepository.js";
 import type { CreatedApiToken } from "./tokenTypes.js";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class DeviceService {
   constructor(
@@ -24,7 +21,7 @@ export class DeviceService {
     }
     const id =
       deviceId === undefined || deviceId === "" ? createId() : deviceId;
-    if (!UUID_PATTERN.test(id)) {
+    if (!isUuid(id)) {
       throw invalidRequest("Device ID must be a UUID.");
     }
     if (this.devices.findById(id)) {

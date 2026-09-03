@@ -67,6 +67,8 @@ relay.yanze.me
 ├── /admin/api/*         Admin API
 ├── /v1/*                Machine API
 ├── /v1/ws/device        Mac WebSocket
+├── /v1/ws/pair          Pairing WebSocket
+├── /s/:deviceId         Shortcut setup page
 ├── /health
 └── /ready
 ```
@@ -135,7 +137,7 @@ mote/
 | ------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Mote for Mac | Swift、SwiftUI、MenuBarExtra、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | Phase 2 已实现                    |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                                  | Phase 3 已实现                    |
-| Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                                | 由 Relay 静态托管                 |
+| Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                               | 由 Relay 静态托管                 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket                                                                                 | Mac 客户端与 Relay 接入路径已实现 |
 | 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.168.2.44:3000`                                    | 已文档化                          |
 | 触发（V1）   | Apple 快捷指令 + Siri                                                                                            | 配置步骤已文档化                  |

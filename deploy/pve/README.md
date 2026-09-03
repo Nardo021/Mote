@@ -224,15 +224,10 @@ Mote Relay
 ## 第一台设备流程
 
 1. 启动 Mote Relay（`docker compose up -d`）。
-2. 启动 Mote for Mac，从设置中复制 Device ID。
-3. 创建设备（密钥只打印一次）：
-
-```text
-docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
-```
-
-4. 把设备凭据保存到 Mote for Mac（DEBUG 钥匙串字段，或文档中的配对路径）。生产 Relay URL 保持 `https://relay.yanze.me`，不要改成 `http://192.168.2.44:3000`。
-5. 确认 Mac 到达 `wss://relay.yanze.me/v1/ws/device` 并变为 Connected。
+2. 启动 Mote for Mac，点 **Pair**。
+3. 打开 `https://relay.yanze.me/`，在 Devices 批准该请求。Mac 应立刻 Connected，无需粘贴凭据或重启。
+4. 生产 Relay URL 保持 `https://relay.yanze.me`，不要改成 `http://192.168.2.44:3000`。
+5. 确认 Mac 到达 `wss://relay.yanze.me/v1/ws/device` 并保持 Connected。
 6. 用快捷指令 token（下一步创建）或下面的 `curl` 检查状态。
 7. 创建快捷指令 token：
 
@@ -240,7 +235,7 @@ docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --
 docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
 ```
 
-8. 把 token 和设备 ID 放进 Apple 快捷指令。步骤见 [docs/shortcuts.md](../../docs/shortcuts.md)。快捷指令 URL 保持 `https://relay.yanze.me`。
+8. 打开设备详情的 Shortcut Link（`https://relay.yanze.me/s/<DEVICE_ID>`）或 Mac 的 Shortcuts 区。Device ID 已填；token 从 Tokens 页自己粘贴。步骤见 [docs/shortcuts.md](../../docs/shortcuts.md)。
 9. 接通 Siri 前先用 curl 测试：
 
 ```text

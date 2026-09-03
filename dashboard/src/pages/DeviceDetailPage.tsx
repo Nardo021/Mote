@@ -10,7 +10,9 @@ import {
   lockDevice,
   rotateDeviceCredential,
 } from "../api/devices.js";
+import { getSystem } from "../api/system.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
+import { CopyButton } from "../components/CopyButton.js";
 import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { SecretDialog } from "../components/SecretDialog.js";
@@ -25,10 +27,12 @@ import { TopBar } from "../components/TopBar.js";
 import { usePolling } from "../hooks/usePolling.js";
 import { friendlyError } from "../lib/errors.js";
 import {
+  commandUrl,
   formatAbsoluteTime,
   formatDuration,
   formatRelativeTime,
   shortenId,
+  shortcutSetupUrl,
   titleCaseAction,
   titleCaseStatus,
 } from "../lib/format.js";
@@ -39,6 +43,7 @@ type Pending = "lock" | "rotate" | "disable" | null;
 export function DeviceDetailPage() {
   const { id } = useParams();
   const [device, setDevice] = useState<AdminDevice | null>(null);
+  const [publicUrl, setPublicUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
@@ -49,7 +54,9 @@ export function DeviceDetailPage() {
       return;
     }
     try {
-      setDevice(await getDevice(id));
+      const [loaded, system] = await Promise.all([getDevice(id), getSystem()]);
+      setDevice(loaded);
+      setPublicUrl(system.public_url);
       setError(null);
     } catch (cause) {
       setError(friendlyError(cause, "Could not load device."));
@@ -132,9 +139,12 @@ export function DeviceDetailPage() {
       <Section title="Device">
         <PropertyList>
           <PropertyRow label="Device ID">
-            <span className="mono" title={device.id}>
-              {shortenId(device.id)}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mono" title={device.id}>
+                {shortenId(device.id)}
+              </span>
+              <CopyButton value={device.id} label="Copy Device ID" />
+            </div>
           </PropertyRow>
           <PropertyRow label="Status">
             <DeviceStatusBadge device={device} />
@@ -156,9 +166,7 @@ export function DeviceDetailPage() {
             {device.online ? "WebSocket" : "—"}
           </PropertyRow>
           <PropertyRow label="Last Heartbeat">
-            {device.online
-              ? formatRelativeTime(device.last_heartbeat_at)
-              : "—"}
+            {device.online ? formatRelativeTime(device.last_heartbeat_at) : "—"}
           </PropertyRow>
         </PropertyList>
       </Section>
@@ -181,6 +189,41 @@ export function DeviceDetailPage() {
             {formatAbsoluteTime(device.last_command?.created_at)}
           </PropertyRow>
         </PropertyList>
+      </Section>
+      <Section title="Shortcuts">
+        <PropertyList>
+          <PropertyRow label="Setup link">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mono break-all">
+                {publicUrl ? shortcutSetupUrl(publicUrl, device.id) : "—"}
+              </span>
+              {publicUrl ? (
+                <CopyButton
+                  value={shortcutSetupUrl(publicUrl, device.id)}
+                  label="Copy Shortcut Link"
+                />
+              ) : null}
+            </div>
+          </PropertyRow>
+          <PropertyRow label="Command URL">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mono break-all">
+                {publicUrl ? commandUrl(publicUrl, device.id) : "—"}
+              </span>
+              {publicUrl ? (
+                <CopyButton
+                  value={commandUrl(publicUrl, device.id)}
+                  label="Copy Command URL"
+                />
+              ) : null}
+            </div>
+          </PropertyRow>
+        </PropertyList>
+        <p className="mt-3 text-muted-foreground">
+          The setup page includes this Device ID. Create a shortcut token on the
+          Tokens page and paste it yourself. The token is never added to these
+          links.
+        </p>
       </Section>
       <Section title="Actions">
         <ActionPanel>

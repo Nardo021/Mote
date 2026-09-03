@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 
 import { registerAdminRoutes } from "../admin/routes.js";
 import type { AppContext } from "../appContext.js";
+import { registerPairRoutes } from "../pairing/pairRoutes.js";
+import { registerShortcutSetupPage } from "../pairing/shortcutSetupPage.js";
 import { registerCommandRoutes } from "./commands.js";
 import { registerDashboardStatic } from "./dashboard.js";
 import { registerDeviceRoutes } from "./devices.js";
@@ -16,6 +18,8 @@ export async function registerRoutes(
   await registerHealthRoutes(app, ctx);
   await registerDeviceRoutes(app, ctx);
   await registerCommandRoutes(app, ctx);
+  await registerPairRoutes(app, ctx);
+  await registerShortcutSetupPage(app, ctx);
   await registerAdminRoutes(app, ctx);
   await registerDashboardStatic(app, ctx);
 }

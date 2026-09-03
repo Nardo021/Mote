@@ -2,6 +2,7 @@ import Foundation
 
 enum ConnectionState: Equatable, Sendable {
     case notConfigured
+    case pairing
     case disconnected
     case connecting
     case authenticating
@@ -13,6 +14,8 @@ enum ConnectionState: Equatable, Sendable {
         switch self {
         case .notConfigured:
             return "Not Configured"
+        case .pairing:
+            return "Waiting for Approval…"
         case .disconnected:
             return "Disconnected"
         case .connecting:
@@ -32,6 +35,8 @@ enum ConnectionState: Equatable, Sendable {
         switch self {
         case .notConfigured:
             return "notConfigured"
+        case .pairing:
+            return "pairing"
         case .disconnected:
             return "disconnected"
         case .connecting:
@@ -55,6 +60,8 @@ enum ConnectionState: Equatable, Sendable {
             return "◌"
         case .notConfigured, .disconnected:
             return "○"
+        case .pairing:
+            return "◌"
         }
     }
 
@@ -64,7 +71,7 @@ enum ConnectionState: Equatable, Sendable {
 
     var isActivelyConnecting: Bool {
         switch self {
-        case .connecting, .authenticating, .reconnecting:
+        case .connecting, .authenticating, .reconnecting, .pairing:
             return true
         case .notConfigured, .disconnected, .connected, .error:
             return false
@@ -75,7 +82,7 @@ enum ConnectionState: Equatable, Sendable {
         switch self {
         case .connected:
             return .success
-        case .connecting, .authenticating:
+        case .connecting, .authenticating, .pairing:
             return .accent
         case .reconnecting:
             return persistWarning ? .warning : .accent

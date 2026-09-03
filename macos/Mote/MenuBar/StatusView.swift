@@ -35,7 +35,7 @@ struct StatusView: View {
         switch state {
         case .connected, .error:
             return "circle.fill"
-        case .connecting, .authenticating, .reconnecting, .disconnected, .notConfigured:
+        case .connecting, .authenticating, .reconnecting, .pairing, .disconnected, .notConfigured:
             return "circle"
         }
     }
@@ -50,7 +50,7 @@ struct StatusView: View {
             return MoteColors.error
         case .reconnecting where persistWarning:
             return MoteColors.warning
-        case .notConfigured, .disconnected, .connecting, .authenticating, .connected, .reconnecting:
+        case .notConfigured, .pairing, .disconnected, .connecting, .authenticating, .connected, .reconnecting:
             return .primary
         }
     }

@@ -95,7 +95,7 @@ V1 唯一动作是 `lock`。`sleep`、`mute`、`unmute` 和 `play_pause` 已预�
 
 ### 设备身份
 
-Mote for Mac 在首次启动时生成持久的 `device_id`，并在设置中显示。Relay 通过 CLI（`device create --id`）登记该 ID。若省略 `--id`，Relay 也可以自己生成 UUID；Phase 2 没有生产界面覆盖 Mac 生成的 ID，因此支持的配对路径是从 Mac 复制。
+Mote for Mac 在首次启动时生成持久的 `device_id`，并在设置中显示。未配置时主按钮是 **Pair**：Mac 向 Relay 提交配对请求，Dashboard 批准后 Relay 创建设备并把 `device_connection` 凭据推给正在等待的 Mac。CLI `device create --id` 仍可用于恢复或离线登记。
 
 ### 连接模型
 
@@ -132,7 +132,13 @@ Fastify / Mote Relay
       │    Machine API
       │
       ├── /v1/ws/device
-      │    WebSocket
+      │    Authenticated device WebSocket
+      │
+      ├── /v1/ws/pair
+      │    Pairing WebSocket
+      │
+      ├── /s/:deviceId
+      │    Public shortcut setup page
       │
       ├── /health
       └── /ready

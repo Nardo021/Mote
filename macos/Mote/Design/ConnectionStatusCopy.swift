@@ -8,7 +8,7 @@ enum ConnectionStatusCopy {
 
     static func showsConfiguredDetails(_ state: ConnectionState) -> Bool {
         switch state {
-        case .notConfigured:
+        case .notConfigured, .pairing:
             return false
         case .disconnected, .connecting, .authenticating, .connected, .reconnecting, .error:
             return true
@@ -21,7 +21,7 @@ enum ConnectionStatusCopy {
             return latencyText == "—" ? "Relay" : "Relay · \(latencyText)"
         case .connecting, .authenticating, .reconnecting:
             return "Relay"
-        case .notConfigured, .disconnected, .error:
+        case .notConfigured, .disconnected, .error, .pairing:
             return nil
         }
     }
@@ -32,7 +32,7 @@ enum ConnectionStatusCopy {
             return latencyText == "—" ? host : "\(host) · \(latencyText)"
         case .connecting, .authenticating, .reconnecting:
             return host
-        case .notConfigured, .disconnected, .error:
+        case .notConfigured, .disconnected, .error, .pairing:
             return nil
         }
     }
@@ -49,6 +49,11 @@ enum ConnectionStatusCopy {
         switch state {
         case .notConfigured, .connected, .disconnected:
             return nil
+        case .pairing:
+            guard let lastError, !lastError.isEmpty else {
+                return nil
+            }
+            return InlineError(title: lastError, detail: nil)
         case .connecting, .authenticating, .reconnecting:
             guard let lastError, !lastError.isEmpty else {
                 return nil

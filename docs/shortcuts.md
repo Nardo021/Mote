@@ -22,12 +22,22 @@ Mote Agent → macOS 锁屏
 
 1. Mote Relay 已在生产环境运行，公网为 `https://relay.yanze.me`。
 2. Mote for Mac 已配对、菜单栏为 **Connected**，且 **Lock Permission** 为 **Granted**。
-3. 你有这台 Mac 的 Device ID（设置窗口 **Device** 区，可复制完整 UUID）。
+3. 你有这台 Mac 的 Device ID。Dashboard 设备详情可以 **Copy Shortcut Link**，打开 `https://relay.yanze.me/s/<DEVICE_ID>`；Mac 的 **Shortcuts** 区也会预填 Device ID 并打开同一页。页面**不会**带上 shortcut token。
 4. `relay.yanze.me` 前面没有交互式 Cloudflare Access。快捷指令无法完成浏览器登录。
 
 不要在快捷指令里使用 `http://192.168.2.44:3000`、`http://127.0.0.1:3000` 或任何局域网地址。客户端始终走 `https://relay.yanze.me`。
 
 本地 Relay 用本机 `curl` 验证，不要用手机打开发机回环地址。
+
+## 安装页
+
+每个设备都有公开安装页：
+
+```text
+https://relay.yanze.me/s/<DEVICE_ID>
+```
+
+页上已填 Device ID 和 `POST /v1/devices/<DEVICE_ID>/commands`。Token 必须在 Dashboard **Tokens** 自己创建后粘贴进快捷指令。可选环境变量 `MOTE_SHORTCUT_ICLOUD_URL` 会在页上增加一条你事先分享的 iCloud 快捷指令链接；Apple 无法通过 URL 预填导入问题。
 
 ## 创建快捷指令 token
 
@@ -103,6 +113,7 @@ curl ^
    ```
 
    把 `<DEVICE_ID>` 换成完整 UUID，不要用设置里的缩写。
+
 5. 展开该动作（**显示更多** / Show More）：
    - **方法**（Method）：`POST`
    - **标头**（Headers）增加两行（值里的空格必须保留）：
@@ -168,15 +179,15 @@ https://www.icloud.com/shortcuts/<分享 ID>
 
 命令接口在有意义时带顶层 `status`。锁屏快捷指令可以只看这个字段：
 
-| `status` | HTTP | 含义 |
-| -------- | ---- | ---- |
-| `completed` | 200 | Mac 已锁屏 |
-| `permission_required` | 200 | Mac 在线，但辅助功能未授权 |
-| `failed` / `expired` / `invalid` / `unsupported` | 200 | 命令未执行；看 Mac 或 Relay 活动日志 |
-| `offline` | 409 | Mac 未连接；不排队 |
-| `disabled` | 409 | 设备已在 Relay 禁用 |
-| `timeout` | 504 | Relay 在截止前没收到 `command_result` |
-| `rate_limited` | 429 | 该 token 提交过快（默认 10 秒内 10 次） |
+| `status`                                         | HTTP | 含义                                    |
+| ------------------------------------------------ | ---- | --------------------------------------- |
+| `completed`                                      | 200  | Mac 已锁屏                              |
+| `permission_required`                            | 200  | Mac 在线，但辅助功能未授权              |
+| `failed` / `expired` / `invalid` / `unsupported` | 200  | 命令未执行；看 Mac 或 Relay 活动日志    |
+| `offline`                                        | 409  | Mac 未连接；不排队                      |
+| `disabled`                                       | 409  | 设备已在 Relay 禁用                     |
+| `timeout`                                        | 504  | Relay 在截止前没收到 `command_result`   |
+| `rate_limited`                                   | 429  | 该 token 提交过快（默认 10 秒内 10 次） |
 
 `401` 是 token 缺失或无效。`403` 是用了非 `send_command` 凭据（例如误用设备密钥）。`404` 是 Device ID 写错。
 
@@ -189,14 +200,14 @@ https://www.icloud.com/shortcuts/<分享 ID>
 
 ## 故障排除
 
-| 现象 | 先查 |
-| ---- | ---- |
-| Siri 说完成了但 Mac 没锁 | curl 是否已是 `completed`；Mac 辅助功能；是否锁的是另一台已登记设备 |
-| 快捷指令报不允许访问网络 | 首次权限；聚焦模式 / 屏幕使用时间是否限制快捷指令 |
-| `offline` | 菜单栏是否 Connected；合盖睡眠后等重连 |
-| `permission_required` | Mac 设置 → 隐私与安全性 → 辅助功能 → 允许 Mote |
-| `401` / `403` | Bearer 少了 `Bearer ` 前缀或空格；用了设备凭据 |
-| 一直转到 Cloudflare 登录页 | 去掉该主机名上的交互式 Access |
-| 能 curl 不能快捷指令 | URL 是否少了 `https://`；是否误用「获取网页内容」；请求体是否真的是 JSON `action=lock` |
+| 现象                       | 先查                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| Siri 说完成了但 Mac 没锁   | curl 是否已是 `completed`；Mac 辅助功能；是否锁的是另一台已登记设备                    |
+| 快捷指令报不允许访问网络   | 首次权限；聚焦模式 / 屏幕使用时间是否限制快捷指令                                      |
+| `offline`                  | 菜单栏是否 Connected；合盖睡眠后等重连                                                 |
+| `permission_required`      | Mac 设置 → 隐私与安全性 → 辅助功能 → 允许 Mote                                         |
+| `401` / `403`              | Bearer 少了 `Bearer ` 前缀或空格；用了设备凭据                                         |
+| 一直转到 Cloudflare 登录页 | 去掉该主机名上的交互式 Access                                                          |
+| 能 curl 不能快捷指令       | URL 是否少了 `https://`；是否误用「获取网页内容」；请求体是否真的是 JSON `action=lock` |
 
 不要为了「方便」把生产快捷指令改成打局域网 IP。

@@ -4,9 +4,13 @@ import Fastify from "fastify";
 
 import { registerRoutes } from "./api/routes.js";
 import { bindCommandLogger, type AppContext } from "./appContext.js";
-import { DEVICE_WEBSOCKET_PATH } from "./config/constants.js";
+import {
+  DEVICE_WEBSOCKET_PATH,
+  PAIR_WEBSOCKET_PATH,
+} from "./config/constants.js";
 import { loggerOptions } from "./utils/logger.js";
 import { AppError, ErrorCode, toErrorEnvelope } from "./utils/errors.js";
+import { handlePairSocket } from "./pairing/pairSocket.js";
 import { handleDeviceSocket } from "./websocket/deviceSocket.js";
 import { startStaleConnectionSweeper } from "./websocket/heartbeat.js";
 import { nowMs } from "./utils/time.js";
@@ -114,6 +118,10 @@ export async function buildApp(ctx: AppContext) {
 
   app.get(DEVICE_WEBSOCKET_PATH, { websocket: true }, (socket, request) => {
     handleDeviceSocket(socket, { ip: request.ip, log: request.log }, ctx);
+  });
+
+  app.get(PAIR_WEBSOCKET_PATH, { websocket: true }, (socket, request) => {
+    handlePairSocket(socket, request, ctx);
   });
 
   const sessionCleanup = setInterval(

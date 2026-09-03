@@ -1,7 +1,10 @@
 import { createAppContext, type AppContext } from "../src/appContext.js";
 import { buildApp } from "../src/app.js";
 import { loadConfig, type EnvConfig } from "../src/config/env.js";
-import { openMemoryDatabase, type MoteDatabase } from "../src/storage/database.js";
+import {
+  openMemoryDatabase,
+  type MoteDatabase,
+} from "../src/storage/database.js";
 import type { FastifyInstance } from "fastify";
 import { WebSocket } from "ws";
 
@@ -35,7 +38,9 @@ export function testConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
   });
 }
 
-export async function startTestServer(overrides: Partial<EnvConfig> = {}): Promise<TestServer> {
+export async function startTestServer(
+  overrides: Partial<EnvConfig> = {},
+): Promise<TestServer> {
   const config = testConfig(overrides);
   const db = openMemoryDatabase();
   const ctx = createAppContext(config, db);
@@ -61,7 +66,10 @@ export async function stopTestServer(server: TestServer): Promise<void> {
   server.db.close();
 }
 
-export function nextMessage(socket: WebSocket, timeoutMs = 1_000): Promise<Record<string, unknown>> {
+export function nextMessage(
+  socket: WebSocket,
+  timeoutMs = 1_000,
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
@@ -85,7 +93,10 @@ export function nextMessage(socket: WebSocket, timeoutMs = 1_000): Promise<Recor
   });
 }
 
-export function waitForClose(socket: WebSocket, timeoutMs = 1_000): Promise<void> {
+export function waitForClose(
+  socket: WebSocket,
+  timeoutMs = 1_000,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     if (socket.readyState === WebSocket.CLOSED) {
       resolve();
@@ -107,7 +118,10 @@ export function waitForClose(socket: WebSocket, timeoutMs = 1_000): Promise<void
   });
 }
 
-export async function waitUntil(predicate: () => boolean, timeoutMs = 500): Promise<void> {
+export async function waitUntil(
+  predicate: () => boolean,
+  timeoutMs = 500,
+): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (predicate()) {
@@ -125,6 +139,45 @@ export async function openSocket(url: string): Promise<WebSocket> {
     socket.once("error", reject);
   });
   return socket;
+}
+
+export async function openSocketListening(url: string): Promise<{
+  socket: WebSocket;
+  next: (timeoutMs?: number) => Promise<Record<string, unknown>>;
+}> {
+  const socket = new WebSocket(url);
+  const queued: Record<string, unknown>[] = [];
+  const waiters: Array<(message: Record<string, unknown>) => void> = [];
+  socket.on("message", (data) => {
+    const parsed = JSON.parse(String(data)) as Record<string, unknown>;
+    const waiter = waiters.shift();
+    if (waiter) {
+      waiter(parsed);
+      return;
+    }
+    queued.push(parsed);
+  });
+  await new Promise<void>((resolve, reject) => {
+    socket.once("open", () => resolve());
+    socket.once("error", reject);
+  });
+  return {
+    socket,
+    next(timeoutMs = 1_000) {
+      if (queued.length > 0) {
+        return Promise.resolve(queued.shift() as Record<string, unknown>);
+      }
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("Timed out waiting for WebSocket message"));
+        }, timeoutMs);
+        waiters.push((message) => {
+          clearTimeout(timer);
+          resolve(message);
+        });
+      });
+    },
+  };
 }
 
 export async function authenticateDeviceSocket(

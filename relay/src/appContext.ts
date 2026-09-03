@@ -19,6 +19,9 @@ import { TokenRepository } from "./devices/tokenRepository.js";
 import type { MoteDatabase } from "./storage/database.js";
 import { SlidingWindowRateLimiter } from "./utils/rateLimit.js";
 import { nowMs } from "./utils/time.js";
+import { PairRequestRepository } from "./pairing/pairRepository.js";
+import { PairSocketRegistry } from "./pairing/pairRegistry.js";
+import { PairService } from "./pairing/pairService.js";
 import { ConnectionRegistry } from "./websocket/connectionRegistry.js";
 
 export type AppContext = {
@@ -39,6 +42,10 @@ export type AppContext = {
   rateLimiter: SlidingWindowRateLimiter;
   adminLoginRateLimiter: SlidingWindowRateLimiter;
   lastSeen: LastSeenTracker;
+  pairing: PairService;
+  pairSockets: PairSocketRegistry;
+  pairDeviceRateLimiter: SlidingWindowRateLimiter;
+  pairIpRateLimiter: SlidingWindowRateLimiter;
 };
 
 export function createAppContext(
@@ -78,6 +85,23 @@ export function createAppContext(
     },
   );
   sessions.purgeExpired();
+  const pairSockets = new PairSocketRegistry();
+  const pairDeviceRateLimiter = new SlidingWindowRateLimiter(
+    config.pairRateLimitMax,
+    config.pairRateLimitWindowMs,
+  );
+  const pairIpRateLimiter = new SlidingWindowRateLimiter(
+    config.pairIpRateLimitMax,
+    config.pairIpRateLimitWindowMs,
+  );
+  const pairing = new PairService(
+    new PairRequestRepository(db),
+    devices,
+    pairSockets,
+    config.pairTtlMs,
+    pairDeviceRateLimiter,
+    pairIpRateLimiter,
+  );
 
   return {
     config,
@@ -97,6 +121,10 @@ export function createAppContext(
     rateLimiter,
     adminLoginRateLimiter,
     lastSeen,
+    pairing,
+    pairSockets,
+    pairDeviceRateLimiter,
+    pairIpRateLimiter,
   };
 }
 

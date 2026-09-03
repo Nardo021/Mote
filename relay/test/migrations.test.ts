@@ -18,6 +18,7 @@ describe("database migration", () => {
     assert.ok(names.includes("admins"));
     assert.ok(names.includes("admin_sessions"));
     assert.ok(names.includes("command_events"));
+    assert.ok(names.includes("pair_requests"));
     assert.ok(names.includes("schema_migrations"));
     db.close();
   });

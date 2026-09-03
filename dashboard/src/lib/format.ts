@@ -110,6 +110,20 @@ export function shortenId(id: string): string {
   return `${id.slice(0, 4)}…${id.slice(-4)}`;
 }
 
+export function joinPublicPath(publicUrl: string, path: string): string {
+  const base = publicUrl.replace(/\/$/, "");
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${suffix}`;
+}
+
+export function shortcutSetupUrl(publicUrl: string, deviceId: string): string {
+  return joinPublicPath(publicUrl, `/s/${deviceId}`);
+}
+
+export function commandUrl(publicUrl: string, deviceId: string): string {
+  return joinPublicPath(publicUrl, `/v1/devices/${deviceId}/commands`);
+}
+
 export function lastCommandLabel(
   command: { action: string; status: string } | null,
 ): string {

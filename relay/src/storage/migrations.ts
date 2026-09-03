@@ -81,6 +81,27 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE devices ADD COLUMN app_version TEXT;
     `,
   },
+  {
+    id: 4,
+    sql: `
+      CREATE TABLE IF NOT EXISTS pair_requests (
+        id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        device_name TEXT NOT NULL,
+        pair_secret_hash TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (
+          status IN ('pending', 'approved', 'rejected', 'cancelled', 'expired')
+        ),
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_pair_requests_device_id
+        ON pair_requests (device_id);
+      CREATE INDEX IF NOT EXISTS idx_pair_requests_status_expires
+        ON pair_requests (status, expires_at);
+    `,
+  },
 ];
 
 function ensureMigrationsTable(db: Database): void {

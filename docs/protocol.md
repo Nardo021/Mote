@@ -55,7 +55,60 @@ Mote Agent 为每个允许列表中的动作执行固定的本地实现。客户
 - 它保存在本地，不能每次启动都变。
 - 它不是硬件序列号或 MAC 地址。
 - 目标 `device_id` 与当前这台 Mac 不匹配的命令会被拒绝。
-- Mote Relay 通过 `device create --id` 登记同一个 ID。若省略 `--id`，Relay 可以自己生成 UUID；Phase 2 没有生产界面覆盖 Mac 的 ID，因此 V1 配对是把 Mac 上的值复制到 Relay。
+- Mote Relay 通过 Pair 批准或 CLI `device create --id` 登记同一个 ID。CLI 若省略 `--id` 会自己生成 UUID；生产路径是 Mac 点 Pair，Dashboard 批准后写入同一 ID。
+
+## 配对
+
+未配置的 Mac 先走配对通道，再使用设备 WebSocket。配对套接字**没有** 5 秒认证超时。
+
+```text
+POST https://relay.yanze.me/v1/pair/requests
+{ "device_id": "<uuid>", "device_name": "MacBook Pro" }
+```
+
+成功响应：
+
+```json
+{
+  "request_id": "<uuid>",
+  "pair_secret": "<one-time-secret>",
+  "expires_at": 1770000000000
+}
+```
+
+然后 Mac 连接：
+
+```text
+wss://relay.yanze.me/v1/ws/pair?request_id=<id>&pair_secret=<secret>
+```
+
+Relay 下行：
+
+| type            | 含义                                                                             |
+| --------------- | -------------------------------------------------------------------------------- |
+| `pair_pending`  | 请求已挂起，正在等待管理员                                                       |
+| `pair_approved` | 含 `device_id`、`credential`、`name`。Mac 把凭据写入钥匙串并改连 `/v1/ws/device` |
+| `pair_rejected` | 管理员拒绝或 Mac 取消                                                            |
+| `pair_expired`  | 超时或被新的 Pair 覆盖                                                           |
+
+管理员：
+
+```text
+GET  /admin/api/pair-requests
+POST /admin/api/pair-requests/:id/approve   { "name": "optional" }
+POST /admin/api/pair-requests/:id/reject
+```
+
+Mac 取消：
+
+```text
+POST /v1/pair/requests/:id/cancel
+{ "pair_secret": "<secret>" }
+```
+
+同一 `device_id` 同时只保留一条 pending。明文凭据不入库；批准时生成并推给配对套接字，也可在 Dashboard 显示一次。公开 `POST` 按 IP 与 device_id 限流。默认 10 分钟过期。
+
+CLI `device create` 仍可用于恢复。折叠的「Paste credential instead」是轮换或 CLI 创建后的兜底。
 
 ## 设备 WebSocket
 

@@ -17,7 +17,10 @@ final class AppState {
     var wantsConnection = true
     var shouldOpenSettings = false
     var credentialInput = ""
+    var shortcutTokenInput = ""
     var shouldFocusCredential = false
+    private var pairingTask: Task<Void, Never>?
+    private var activePair: PairCreated?
 
     #if DEBUG
     var debugRelayOverride = ""
@@ -27,15 +30,18 @@ final class AppState {
     let settings: SettingsStore
     let credentials: CredentialManager
     let agent: AgentCoordinator
+    let pairing: any PairingServicing
 
     init(
         settings: SettingsStore = SettingsStore(),
         credentials: CredentialManager = CredentialManager(),
-        executor: any MoteActionExecuting = ActionExecutor()
+        executor: any MoteActionExecuting = ActionExecutor(),
+        pairing: any PairingServicing = RelayPairingClient()
     ) {
         self.settings = settings
         self.credentials = credentials
         self.agent = AgentCoordinator(settings: settings, credentials: credentials, executor: executor)
+        self.pairing = pairing
         bindAgent()
     }
 
@@ -52,7 +58,16 @@ final class AppState {
     }
 
     var isUnconfigured: Bool {
-        connectionState == .notConfigured
+        switch connectionState {
+        case .notConfigured, .pairing:
+            return true
+        case .disconnected, .connecting, .authenticating, .connected, .reconnecting, .error:
+            return false
+        }
+    }
+
+    var isPairing: Bool {
+        connectionState == .pairing
     }
 
     var abbreviatedDeviceID: String {
@@ -94,7 +109,7 @@ final class AppState {
         switch connectionState {
         case .reconnecting:
             return lastError != nil && !ConnectionStatusCopy.isStartupError(lastError)
-        case .notConfigured, .disconnected, .connecting, .authenticating, .connected, .error:
+        case .notConfigured, .pairing, .disconnected, .connecting, .authenticating, .connected, .error:
             return false
         }
     }
@@ -213,9 +228,108 @@ final class AppState {
             wantsConnection = true
             settings.saveWantsConnection(true)
             guard !RuntimeContext.isRunningTests else { return }
-            await agent.connect()
+            await agent.startIfPossible()
         } catch {
             lastError = "Keychain failure"
+        }
+    }
+
+    func beginPairing() {
+        pairingTask?.cancel()
+        pairingTask = Task {
+            await runPairing()
+        }
+    }
+
+    func waitForPairingToFinish() async {
+        await pairingTask?.value
+    }
+
+    func cancelPairing() {
+        pairingTask?.cancel()
+        let pair = activePair
+        activePair = nil
+        connectionState = .notConfigured
+        lastError = nil
+        guard let pair else { return }
+        Task {
+            try? await pairing.cancel(
+                configuration: relayConfiguration,
+                requestID: pair.requestID,
+                pairSecret: pair.pairSecret
+            )
+        }
+    }
+
+    func copyShortcutBearerHeader() {
+        let token = shortcutTokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
+        let header = token.hasPrefix("Bearer ") ? token : "Bearer \(token)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(header, forType: .string)
+    }
+
+    func openShortcutSetup() {
+        copyDeviceID()
+        NSWorkspace.shared.open(relayConfiguration.shortcutSetupURL(deviceID: deviceID))
+    }
+
+    var canCopyShortcutBearer: Bool {
+        !shortcutTokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func runPairing() async {
+        connectionState = .pairing
+        lastError = nil
+        do {
+            let created = try await pairing.createRequest(
+                configuration: relayConfiguration,
+                deviceID: deviceID,
+                deviceName: deviceName
+            )
+            try Task.checkCancellation()
+            activePair = created
+            let decision = try await pairing.waitForDecision(
+                configuration: relayConfiguration,
+                requestID: created.requestID,
+                pairSecret: created.pairSecret
+            )
+            try Task.checkCancellation()
+            switch decision {
+            case .approved(_, let credential, _):
+                try await credentials.save(credential)
+                credentialInput = ""
+                lastError = nil
+                wantsConnection = true
+                settings.saveWantsConnection(true)
+                activePair = nil
+                guard !RuntimeContext.isRunningTests else {
+                    connectionState = .disconnected
+                    return
+                }
+                await agent.startIfPossible()
+            case .rejected:
+                activePair = nil
+                connectionState = .notConfigured
+                lastError = "Pairing was denied."
+            case .expired:
+                activePair = nil
+                connectionState = .notConfigured
+                lastError = "Pairing expired. Try again."
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            if Task.isCancelled {
+                return
+            }
+            activePair = nil
+            connectionState = .notConfigured
+            if let pairingError = error as? PairingError, case .requestFailed(let message) = pairingError {
+                lastError = message
+            } else {
+                lastError = "Could not start pairing."
+            }
         }
     }
 

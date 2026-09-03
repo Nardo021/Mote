@@ -10,10 +10,12 @@ final class ConnectionStateTests: XCTestCase {
         XCTAssertEqual(ConnectionState.disconnected.title, "Disconnected")
         XCTAssertEqual(ConnectionState.error("Relay unavailable").title, "Connection Error")
         XCTAssertEqual(ConnectionState.notConfigured.title, "Not Configured")
+        XCTAssertEqual(ConnectionState.pairing.title, "Waiting for Approval…")
     }
 
     func testMenuTitlesIncludeSymbolAndText() {
         XCTAssertEqual(ConnectionState.connected.menuTitle, "● Connected")
+        XCTAssertEqual(ConnectionState.pairing.menuTitle, "◌ Waiting for Approval…")
         XCTAssertEqual(ConnectionState.connecting.menuTitle, "◌ Connecting…")
         XCTAssertEqual(ConnectionState.disconnected.menuTitle, "○ Disconnected")
         XCTAssertEqual(ConnectionState.error("invalid_credentials").menuTitle, "● Connection Error")
@@ -21,12 +23,14 @@ final class ConnectionStateTests: XCTestCase {
 
     func testDebugLabelsAreRawStateNames() {
         XCTAssertEqual(ConnectionState.connected.debugLabel, "connected")
+        XCTAssertEqual(ConnectionState.pairing.debugLabel, "pairing")
         XCTAssertEqual(ConnectionState.authenticating.debugLabel, "authenticating")
         XCTAssertEqual(ConnectionState.error("x").debugLabel, "error")
     }
 
     func testStatusToneMatchesConnectionHealth() {
         XCTAssertEqual(ConnectionState.connected.statusTone(persistWarning: false), .success)
+        XCTAssertEqual(ConnectionState.pairing.statusTone(persistWarning: false), .accent)
         XCTAssertEqual(ConnectionState.connecting.statusTone(persistWarning: false), .accent)
         XCTAssertEqual(ConnectionState.authenticating.statusTone(persistWarning: false), .accent)
         XCTAssertEqual(ConnectionState.reconnecting.statusTone(persistWarning: false), .accent)

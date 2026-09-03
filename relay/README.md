@@ -52,7 +52,7 @@ npm run cli -- device list
 
 ## 引导
 
-Mote for Mac 自己生成持久的 `device_id` 并在设置中显示。先登记该 ID，再把 Relay 签发的设备凭据存入 Mac 钥匙串。
+Mote for Mac 自己生成持久的 `device_id`。生产路径是 Mac 点 **Pair**，再在 Dashboard 批准。CLI 仍可用于恢复：
 
 ```text
 npm run build
@@ -61,7 +61,7 @@ npm run cli -- token create --name "Development Shortcut"
 npm run cli -- admin create --username admin
 ```
 
-若省略 `--id`，Relay 会生成 UUID。Phase 2 的 Mote for Mac 无法设置这个生成的 ID，因此支持的 V1 配对路径是：从 Mac 复制 Device ID，再传入 `--id`。
+若省略 `--id`，Relay 会生成 UUID。那只会登记一个 Mac 不知道的 ID，因此 CLI 恢复路径仍应传入 Mac 上的 ID。
 
 密钥只打印一次。服务端只保存 SHA-256 哈希。
 

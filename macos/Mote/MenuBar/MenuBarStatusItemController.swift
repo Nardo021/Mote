@@ -69,7 +69,11 @@ final class MenuBarStatusItemController: NSObject {
         menu.addItem(disabledItem("Mote"))
 
         if appState.isUnconfigured {
-            menu.addItem(disabledItem("Mote is not configured"))
+            if appState.isPairing {
+                menu.addItem(disabledItem(appState.connectionState.menuTitle))
+            } else {
+                menu.addItem(disabledItem("Mote is not configured"))
+            }
             menu.addItem(disabledItem(appState.deviceName))
         } else {
             menu.addItem(disabledItem(appState.connectionState.menuTitle))
@@ -110,7 +114,7 @@ final class MenuBarStatusItemController: NSObject {
         switch appState.connectionState {
         case .disconnected, .error, .reconnecting:
             return "Reconnect"
-        case .notConfigured, .connecting, .authenticating, .connected:
+        case .notConfigured, .pairing, .connecting, .authenticating, .connected:
             return "Connect"
         }
     }

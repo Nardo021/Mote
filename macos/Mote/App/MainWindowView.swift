@@ -20,6 +20,9 @@ struct MainWindowView: View {
                     permissionsSection
                     startupSection
                     deviceSection
+                    if !appState.isUnconfigured {
+                        shortcutsSection
+                    }
 
                     #if DEBUG
                     DeveloperSettingsView()
@@ -187,6 +190,59 @@ struct MainWindowView: View {
                 Divider()
                 DeviceCredentialEditor()
             }
+        }
+    }
+
+    private var shortcutsSection: some View {
+        @Bindable var appState = appState
+        return MoteSection(title: "Shortcuts") {
+            MoteRow(label: "Device ID") {
+                HStack(spacing: MoteSpacing.tight) {
+                    Text(appState.deviceID)
+                        .font(MoteTypography.technical)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                    Button {
+                        appState.copyDeviceID()
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy Device ID")
+                    .accessibilityLabel("Copy Device ID")
+                }
+            }
+            Divider()
+            MoteRow(label: "Shortcut token", alignment: .top) {
+                VStack(alignment: .trailing, spacing: MoteSpacing.micro) {
+                    SecureField("Shortcut token", text: $appState.shortcutTokenInput)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 180)
+                        .accessibilityLabel("Shortcut token")
+                        .accessibilityHint("Not saved by Mote. Paste it into Shortcuts yourself.")
+                    Button("Copy Bearer header") {
+                        appState.copyShortcutBearerHeader()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!appState.canCopyShortcutBearer)
+                    .controlSize(.small)
+                }
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: MoteSpacing.tight) {
+                Text("Mote does not store or send this token. Create it in the Relay Tokens page, then paste it into Shortcuts.")
+                    .font(MoteTypography.secondary)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Add to Shortcuts") {
+                    appState.openShortcutSetup()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Copies the Device ID and opens the shortcut setup page.")
+            }
+            .padding(.vertical, MoteSpacing.tight)
         }
     }
 

@@ -33,7 +33,8 @@ export function isApiStylePath(url: string): boolean {
     path === "/health" ||
     path === "/ready" ||
     path.startsWith("/v1/") ||
-    path.startsWith("/admin/api/")
+    path.startsWith("/admin/api/") ||
+    path.startsWith("/s/")
   );
 }
 

@@ -9,6 +9,11 @@ import {
   DEFAULT_LAST_SEEN_PERSIST_MS,
   DEFAULT_MAX_BODY_BYTES,
   DEFAULT_MAX_PENDING_COMMANDS,
+  DEFAULT_PAIR_IP_RATE_LIMIT_MAX,
+  DEFAULT_PAIR_IP_RATE_LIMIT_WINDOW_MS,
+  DEFAULT_PAIR_RATE_LIMIT_MAX,
+  DEFAULT_PAIR_RATE_LIMIT_WINDOW_MS,
+  DEFAULT_PAIR_TTL_MS,
   DEFAULT_PORT,
   DEFAULT_RATE_LIMIT_MAX,
   DEFAULT_RATE_LIMIT_WINDOW_MS,
@@ -36,6 +41,12 @@ export type EnvConfig = {
   maxPendingCommands: number;
   staleSweepIntervalMs: number;
   dashboardDist: string;
+  pairTtlMs: number;
+  pairRateLimitMax: number;
+  pairRateLimitWindowMs: number;
+  pairIpRateLimitMax: number;
+  pairIpRateLimitWindowMs: number;
+  shortcutIcloudUrl: string | null;
 };
 
 function parseRuntimeEnv(value: string | undefined): RuntimeEnv {
@@ -162,5 +173,43 @@ export function loadConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
       overrides.dashboardDist ??
       process.env.MOTE_DASHBOARD_DIST ??
       defaultDashboardDist(env),
+    pairTtlMs:
+      overrides.pairTtlMs ??
+      parseInteger(process.env.MOTE_PAIR_TTL_MS, DEFAULT_PAIR_TTL_MS),
+    pairRateLimitMax:
+      overrides.pairRateLimitMax ??
+      parseInteger(
+        process.env.MOTE_PAIR_RATE_LIMIT_MAX,
+        DEFAULT_PAIR_RATE_LIMIT_MAX,
+      ),
+    pairRateLimitWindowMs:
+      overrides.pairRateLimitWindowMs ??
+      parseInteger(
+        process.env.MOTE_PAIR_RATE_LIMIT_WINDOW_MS,
+        DEFAULT_PAIR_RATE_LIMIT_WINDOW_MS,
+      ),
+    pairIpRateLimitMax:
+      overrides.pairIpRateLimitMax ??
+      parseInteger(
+        process.env.MOTE_PAIR_IP_RATE_LIMIT_MAX,
+        DEFAULT_PAIR_IP_RATE_LIMIT_MAX,
+      ),
+    pairIpRateLimitWindowMs:
+      overrides.pairIpRateLimitWindowMs ??
+      parseInteger(
+        process.env.MOTE_PAIR_IP_RATE_LIMIT_WINDOW_MS,
+        DEFAULT_PAIR_IP_RATE_LIMIT_WINDOW_MS,
+      ),
+    shortcutIcloudUrl:
+      overrides.shortcutIcloudUrl ??
+      optionalUrl(process.env.MOTE_SHORTCUT_ICLOUD_URL),
   };
+}
+
+function optionalUrl(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }

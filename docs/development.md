@@ -52,6 +52,7 @@ npm run cli -- token create --name "Development Shortcut"
 ```text
 http://127.0.0.1:3000
 ws://127.0.0.1:3000/v1/ws/device
+ws://127.0.0.1:3000/v1/ws/pair
 ```
 
 生产：
@@ -63,13 +64,17 @@ wss://relay.yanze.me/v1/ws/device
 
 针对本地 Relay 的开发配对：
 
+1. DEBUG 版 Mote for Mac 把 Relay URL 覆盖设为 `http://127.0.0.1:3000`。
+2. 点 **Pair**，在本地 Dashboard 批准。
+3. 或继续用 CLI 后粘贴凭据：
+
 ```text
 npm run build
 npm run cli -- device create --name "Development Mac" --id <MAC_DEVICE_ID>
 npm run cli -- token create --name "Development Shortcut"
 ```
 
-在 DEBUG 版 Mote for Mac 中，把 Relay URL 覆盖设为 `http://127.0.0.1:3000`，并把设备凭据保存到钥匙串。不要在 Release 中关闭 TLS 检查。
+不要在 Release 中关闭 TLS 检查。
 
 见 [relay/README.md](../relay/README.md) 和 [design.md](../design.md)。
 

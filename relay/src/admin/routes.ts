@@ -15,6 +15,7 @@ import {
   clearSessionCookie,
   setSessionCookie,
 } from "./guards.js";
+import { parseOptionalName } from "../pairing/pairRoutes.js";
 import { presentAdminDevice } from "./presenters.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -216,6 +217,47 @@ export async function registerAdminRoutes(
           },
           recent_activity: recent,
         };
+      });
+
+      admin.get("/pair-requests", async (request) => {
+        requireAdmin(request, ctx);
+        return { requests: ctx.pairing.listPending() };
+      });
+
+      admin.post("/pair-requests/:id/approve", async (request) => {
+        const session = requireAdmin(request, ctx);
+        const params = request.params as { id: string };
+        const result = ctx.pairing.approve(
+          params.id,
+          parseOptionalName(request.body),
+        );
+        request.log.info(
+          {
+            admin_id: session.adminId,
+            pair_request_id: params.id,
+            device_id: result.device.id,
+          },
+          "pair request approved",
+        );
+        return {
+          credential: result.credential,
+          device: {
+            id: result.device.id,
+            name: result.device.name,
+            created_at: result.device.createdAt,
+          },
+        };
+      });
+
+      admin.post("/pair-requests/:id/reject", async (request) => {
+        const session = requireAdmin(request, ctx);
+        const params = request.params as { id: string };
+        ctx.pairing.reject(params.id);
+        request.log.info(
+          { admin_id: session.adminId, pair_request_id: params.id },
+          "pair request rejected",
+        );
+        return { ok: true };
       });
 
       admin.get("/devices", async (request) => {

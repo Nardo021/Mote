@@ -7,6 +7,19 @@ final class RelayConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.yanze.me")
         XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://relay.yanze.me/v1/ws/device")
         XCTAssertEqual(configuration.hostDisplayName, "relay.yanze.me")
+        XCTAssertEqual(
+            configuration.pairRequestsURL.absoluteString,
+            "https://relay.yanze.me/v1/pair/requests"
+        )
+        XCTAssertEqual(
+            configuration.shortcutSetupURL(deviceID: "7B0F0000-0000-0000-0000-0000000091AC").absoluteString,
+            "https://relay.yanze.me/s/7B0F0000-0000-0000-0000-0000000091AC"
+        )
+        XCTAssertTrue(
+            configuration.pairWebSocketURL(requestID: "req", pairSecret: "sec")
+                .absoluteString
+                .hasPrefix("wss://relay.yanze.me/v1/ws/pair?")
+        )
     }
 
     func testHTTPOverrideBecomesWS() throws {
