@@ -5,6 +5,7 @@ export type AuthMessage = {
   version: ProtocolVersion;
   device_id: string;
   credential: string;
+  app_version?: string;
 };
 
 export type AuthResultOk = {

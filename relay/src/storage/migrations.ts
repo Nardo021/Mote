@@ -75,6 +75,12 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_command_events_status ON command_events (status);
     `,
   },
+  {
+    id: 3,
+    sql: `
+      ALTER TABLE devices ADD COLUMN app_version TEXT;
+    `,
+  },
 ];
 
 function ensureMigrationsTable(db: Database): void {

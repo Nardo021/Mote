@@ -22,6 +22,27 @@ describe("database migration", () => {
     db.close();
   });
 
+  it("adds a nullable app_version column to devices", () => {
+    const db = openMemoryDatabase();
+    const columns = db.prepare("PRAGMA table_info(devices)").all() as Array<{
+      name: string;
+      notnull: number;
+    }>;
+    const appVersion = columns.find((column) => column.name === "app_version");
+    assert.ok(appVersion);
+    assert.equal(appVersion.notnull, 0);
+
+    db.prepare(
+      `INSERT INTO devices (id, name, credential_hash, enabled, created_at, updated_at, last_seen_at)
+       VALUES ('dev-2', 'Mac', 'hash', 1, 1, 1, NULL)`,
+    ).run();
+    const row = db
+      .prepare("SELECT app_version FROM devices WHERE id = 'dev-2'")
+      .get() as { app_version: string | null };
+    assert.equal(row.app_version, null);
+    db.close();
+  });
+
   it("is idempotent and does not destroy existing rows", () => {
     const db = openMemoryDatabase();
     db.prepare(

@@ -8,6 +8,19 @@ import {
   type OutgoingDeviceMessage,
 } from "./messages.js";
 
+export const APP_VERSION_MAX_LENGTH = 64;
+
+export function normalizeAppVersion(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed === "" || trimmed.length > APP_VERSION_MAX_LENGTH) {
+    return undefined;
+  }
+  return trimmed;
+}
+
 export type ProtocolParseFailure =
   | "malformed_json"
   | "invalid_message"
@@ -40,12 +53,17 @@ function parseAuth(value: Record<string, unknown>): AuthMessage | undefined {
   if (deviceId === undefined || credential === undefined) {
     return undefined;
   }
-  return {
+  const message: AuthMessage = {
     type: "auth",
     version: PROTOCOL_VERSION,
     device_id: deviceId,
     credential,
   };
+  const appVersion = normalizeAppVersion(value.app_version);
+  if (appVersion !== undefined) {
+    message.app_version = appVersion;
+  }
+  return message;
 }
 
 function parseHeartbeat(value: Record<string, unknown>): HeartbeatMessage | undefined {

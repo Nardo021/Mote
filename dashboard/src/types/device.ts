@@ -15,6 +15,7 @@ export type AdminDevice = {
   connected_at: number | null;
   last_seen_at: number | null;
   last_heartbeat_at: number | null;
+  app_version: string | null;
   created_at: number;
   updated_at: number;
   last_command: LastCommand | null;

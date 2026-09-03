@@ -115,6 +115,23 @@ describe("device WebSocket", () => {
     await waitForClose(socket);
   });
 
+  it("persists app_version from auth and keeps it when omitted on reconnect", async () => {
+    const first = await authenticateDeviceSocket(
+      server.wsUrl,
+      TEST_DEVICE_ID,
+      credential,
+      "1.0.0 (1)",
+    );
+    assert.equal(server.ctx.devices.getDevice(TEST_DEVICE_ID)?.appVersion, "1.0.0 (1)");
+    first.close();
+    await waitForClose(first);
+
+    const second = await authenticateDeviceSocket(server.wsUrl, TEST_DEVICE_ID, credential);
+    assert.equal(server.ctx.devices.getDevice(TEST_DEVICE_ID)?.appVersion, "1.0.0 (1)");
+    second.close();
+    await waitForClose(second);
+  });
+
   it("ignores malformed frames after authentication", async () => {
     const socket = await authenticateDeviceSocket(server.wsUrl, TEST_DEVICE_ID, credential);
     socket.send("not-json");

@@ -8,8 +8,8 @@ export class DeviceRepository {
   insert(record: DeviceRecord): void {
     this.db
       .prepare(
-        `INSERT INTO devices (id, name, credential_hash, enabled, created_at, updated_at, last_seen_at)
-         VALUES (@id, @name, @credential_hash, @enabled, @created_at, @updated_at, @last_seen_at)`,
+        `INSERT INTO devices (id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version)
+         VALUES (@id, @name, @credential_hash, @enabled, @created_at, @updated_at, @last_seen_at, @app_version)`,
       )
       .run({
         id: record.id,
@@ -19,13 +19,14 @@ export class DeviceRepository {
         created_at: record.createdAt,
         updated_at: record.updatedAt,
         last_seen_at: record.lastSeenAt,
+        app_version: record.appVersion,
       });
   }
 
   findById(id: string): DeviceRecord | undefined {
     const row = this.db
       .prepare(
-        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at
+        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version
          FROM devices WHERE id = ?`,
       )
       .get(id) as DeviceRow | undefined;
@@ -35,7 +36,7 @@ export class DeviceRepository {
   list(): DeviceRecord[] {
     const rows = this.db
       .prepare(
-        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at
+        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version
          FROM devices ORDER BY created_at ASC`,
       )
       .all() as DeviceRow[];
@@ -60,6 +61,13 @@ export class DeviceRepository {
     const result = this.db
       .prepare("UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?")
       .run(lastSeenAt, lastSeenAt, id);
+    return result.changes > 0;
+  }
+
+  updateAppVersion(id: string, appVersion: string): boolean {
+    const result = this.db
+      .prepare("UPDATE devices SET app_version = ?, updated_at = ? WHERE id = ?")
+      .run(appVersion, nowMs(), id);
     return result.changes > 0;
   }
 }

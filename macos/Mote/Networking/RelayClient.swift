@@ -112,7 +112,10 @@ actor RelayClient {
             try await nextTransport.connect()
             guard gen == generation else { return }
             events.onState(.authenticating)
-            try await sendJSON(AuthMessage(deviceID: deviceID, credential: credential), generation: gen)
+            try await sendJSON(
+                AuthMessage(deviceID: deviceID, credential: credential, appVersion: AppVersion.display),
+                generation: gen
+            )
             startReceiveLoop(generation: gen)
             startAuthTimeout(generation: gen)
         } catch {

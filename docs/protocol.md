@@ -116,9 +116,12 @@ WebSocket 建立后，Mac 立即发送：
   "type": "auth",
   "version": 1,
   "device_id": "device_uuid",
-  "credential": "device_secret"
+  "credential": "device_secret",
+  "app_version": "1.0.0 (1)"
 }
 ```
+
+`app_version` 是可选的应用版本字符串（例如 `CFBundleShortVersionString (CFBundleVersion)`），与协议字段 `version` 无关。缺省、空串、非字符串或超过 64 个字符时，Relay 仍接受认证，且不覆盖该设备已保存的版本。
 
 Relay 成功响应：
 

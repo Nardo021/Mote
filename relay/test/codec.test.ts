@@ -16,6 +16,44 @@ describe("protocol codec", () => {
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.equal(result.message.type, "auth");
+      if (result.message.type === "auth") {
+        assert.equal(result.message.app_version, undefined);
+      }
+    }
+  });
+
+  it("parses an optional app_version on auth", () => {
+    const result = parseIncomingDeviceMessage(
+      JSON.stringify({
+        type: "auth",
+        version: 1,
+        device_id: "device-1",
+        credential: "secret",
+        app_version: " 1.0.0 (1) ",
+      }),
+    );
+    assert.equal(result.ok, true);
+    if (result.ok && result.message.type === "auth") {
+      assert.equal(result.message.app_version, "1.0.0 (1)");
+    }
+  });
+
+  it("ignores invalid app_version values without rejecting auth", () => {
+    const cases = [123, "", "   ", "x".repeat(65)];
+    for (const app_version of cases) {
+      const result = parseIncomingDeviceMessage(
+        JSON.stringify({
+          type: "auth",
+          version: 1,
+          device_id: "device-1",
+          credential: "secret",
+          app_version,
+        }),
+      );
+      assert.equal(result.ok, true);
+      if (result.ok && result.message.type === "auth") {
+        assert.equal(result.message.app_version, undefined);
+      }
     }
   });
 

@@ -122,6 +122,10 @@ export function DeviceDetailPage() {
             <DeviceStatusBadge device={device} />
           </div>
           <div className="row">
+            <span className="row-label">App Version</span>
+            <span className="mono">{device.app_version ?? "—"}</span>
+          </div>
+          <div className="row">
             <span className="row-label">Last Seen</span>
             <span>{formatRelativeTime(device.last_seen_at)}</span>
           </div>

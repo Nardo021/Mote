@@ -131,6 +131,7 @@ export async function authenticateDeviceSocket(
   url: string,
   deviceId: string,
   credential: string,
+  appVersion?: string,
 ): Promise<WebSocket> {
   const socket = await openSocket(url);
   socket.send(
@@ -139,6 +140,7 @@ export async function authenticateDeviceSocket(
       version: 1,
       device_id: deviceId,
       credential,
+      ...(appVersion === undefined ? {} : { app_version: appVersion }),
     }),
   );
   const result = await nextMessage(socket);

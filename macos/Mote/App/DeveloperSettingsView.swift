@@ -101,6 +101,10 @@ private struct AdvancedDebugContent: View {
                 MoteValueText(text: "Mote Protocol v\(ProtocolConstants.version)", monospaced: true)
             }
             Divider()
+            MoteRow(label: "App Version") {
+                MoteValueText(text: AppVersion.display, monospaced: true)
+            }
+            Divider()
             MoteRow(label: "Last Command ID") {
                 MoteValueText(text: lastCommandText, monospaced: true)
             }

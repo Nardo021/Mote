@@ -19,6 +19,7 @@ export type AdminDevice = {
   connected_at: number | null;
   last_seen_at: number | null;
   last_heartbeat_at: number | null;
+  app_version: string | null;
   created_at: number;
   updated_at: number;
   last_command: AdminLastCommand | null;
@@ -53,6 +54,7 @@ export function presentAdminDevice(
     connected_at: connection?.authenticatedAt ?? null,
     last_seen_at: device.lastSeenAt,
     last_heartbeat_at: connection?.lastHeartbeat ?? null,
+    app_version: device.appVersion,
     created_at: device.createdAt,
     updated_at: device.updatedAt,
     last_command: presentLastCommand(lastCommand),

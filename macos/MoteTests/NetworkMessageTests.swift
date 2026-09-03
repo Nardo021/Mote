@@ -3,13 +3,18 @@ import XCTest
 
 final class NetworkMessageTests: XCTestCase {
     func testAuthMessageUsesSnakeCaseKeys() throws {
-        let message = AuthMessage(deviceID: "device-1", credential: "not-logged")
+        let message = AuthMessage(
+            deviceID: "device-1",
+            credential: "not-logged",
+            appVersion: "1.0.0 (1)"
+        )
         let data = try ProtocolJSON.encode(message)
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         XCTAssertEqual(object?["type"] as? String, "auth")
         XCTAssertEqual(object?["device_id"] as? String, "device-1")
         XCTAssertEqual(object?["credential"] as? String, "not-logged")
         XCTAssertEqual(object?["version"] as? Int, 1)
+        XCTAssertEqual(object?["app_version"] as? String, "1.0.0 (1)")
     }
 
     func testHeartbeatAndAck() throws {

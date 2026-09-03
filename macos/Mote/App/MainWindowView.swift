@@ -181,6 +181,10 @@ struct MainWindowView: View {
                     .accessibilityLabel("Copy Device ID")
                 }
             }
+            Divider()
+            MoteRow(label: "Version") {
+                MoteValueText(text: AppVersion.display, monospaced: true)
+            }
         }
     }
 

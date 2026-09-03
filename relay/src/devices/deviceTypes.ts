@@ -6,6 +6,7 @@ export type DeviceRecord = {
   createdAt: number;
   updatedAt: number;
   lastSeenAt: number | null;
+  appVersion: string | null;
 };
 
 export type DeviceRow = {
@@ -16,6 +17,7 @@ export type DeviceRow = {
   created_at: number;
   updated_at: number;
   last_seen_at: number | null;
+  app_version: string | null;
 };
 
 export type CreatedDevice = {
@@ -41,5 +43,6 @@ export function mapDeviceRow(row: DeviceRow): DeviceRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastSeenAt: row.last_seen_at,
+    appVersion: row.app_version,
   };
 }

@@ -213,7 +213,7 @@ async function run(argv: string[]): Promise<number> {
       }
       for (const device of rows) {
         process.stdout.write(
-          `${device.id}\t${device.name}\tenabled=${device.enabled ? "yes" : "no"}\tlast_seen_at=${device.lastSeenAt ?? "-"}\n`,
+          `${device.id}\t${device.name}\tenabled=${device.enabled ? "yes" : "no"}\tlast_seen_at=${device.lastSeenAt ?? "-"}\tapp_version=${device.appVersion ?? "-"}\n`,
         );
       }
       return 0;

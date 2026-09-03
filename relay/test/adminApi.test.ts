@@ -168,6 +168,7 @@ describe("admin API", () => {
     assert.equal(list.statusCode, 200);
     const first = list.json().devices[0];
     assert.equal(first.name, "MacBook Pro");
+    assert.equal(first.app_version, null);
     assert.equal(first.credential, undefined);
     assert.equal(first.credential_hash, undefined);
 
@@ -197,10 +198,27 @@ describe("admin API", () => {
     assert.equal(rotated.statusCode, 200);
     assert.equal(typeof rotated.json().credential, "string");
     credential = rotated.json().credential as string;
-
     const row = server.ctx.deviceRepository.findById(deviceId);
     assert.ok(row);
     assert.equal(row.credentialHash, hashSecret(credential));
+  });
+
+  it("exposes the last reported app_version on admin devices", async () => {
+    const mac = await authenticateDeviceSocket(
+      server.wsUrl,
+      deviceId,
+      credential,
+      "1.2.3 (4)",
+    );
+    const detail = await server.app.inject({
+      method: "GET",
+      url: `/admin/api/devices/${deviceId}`,
+      headers: adminHeaders(cookie),
+    });
+    assert.equal(detail.statusCode, 200);
+    assert.equal(detail.json().app_version, "1.2.3 (4)");
+    mac.close();
+    await waitForClose(mac);
   });
 
   it("creates and rotates shortcut tokens without exposing stored secrets", async () => {

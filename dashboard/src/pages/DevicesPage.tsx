@@ -77,6 +77,13 @@ export function DevicesPage() {
               ),
             },
             {
+              key: "version",
+              header: "Version",
+              render: (device) => (
+                <span className="mono">{device.app_version ?? "—"}</span>
+              ),
+            },
+            {
               key: "seen",
               header: "Last Seen",
               render: (device) => formatRelativeTime(device.last_seen_at),

@@ -100,6 +100,9 @@ export function handleDeviceSocket(socket: WebSocket, request: DeviceSocketReque
       }
       authenticated = connection;
       persistLastSeen(ctx, result.device.id, at, true);
+      if (parsed.message.app_version !== undefined) {
+        ctx.devices.recordAppVersion(result.device.id, parsed.message.app_version);
+      }
       socket.send(encodeOutgoing(authResultOk()));
       request.log.info({ device_id: result.device.id, connection_id: connectionId }, "device authenticated");
       request.log.info({ device_id: result.device.id, connection_id: connectionId }, "device connected");

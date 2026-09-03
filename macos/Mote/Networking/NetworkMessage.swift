@@ -9,12 +9,14 @@ struct AuthMessage: Encodable, Sendable {
     var version: Int = ProtocolConstants.version
     var deviceID: String
     var credential: String
+    var appVersion: String
 
     enum CodingKeys: String, CodingKey {
         case type
         case version
         case deviceID = "device_id"
         case credential
+        case appVersion = "app_version"
     }
 }
 

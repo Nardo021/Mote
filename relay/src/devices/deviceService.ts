@@ -44,6 +44,7 @@ export class DeviceService {
       createdAt,
       updatedAt: createdAt,
       lastSeenAt: null,
+      appVersion: null,
     });
     return { id, name: trimmed, credential, createdAt };
   }
@@ -90,6 +91,10 @@ export class DeviceService {
 
   markLastSeen(id: string, at: number = nowMs()): void {
     this.devices.updateLastSeen(id, at);
+  }
+
+  recordAppVersion(id: string, appVersion: string): void {
+    this.devices.updateAppVersion(id, appVersion);
   }
 
   createShortcutToken(name: string): CreatedApiToken {
