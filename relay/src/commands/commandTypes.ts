@@ -2,7 +2,8 @@ export const ImplementedAction = {
   lock: "lock",
 } as const;
 
-export type ImplementedAction = (typeof ImplementedAction)[keyof typeof ImplementedAction];
+export type ImplementedAction =
+  (typeof ImplementedAction)[keyof typeof ImplementedAction];
 
 export const ReservedAction = {
   sleep: "sleep",
@@ -11,7 +12,8 @@ export const ReservedAction = {
   play_pause: "play_pause",
 } as const;
 
-export type ReservedAction = (typeof ReservedAction)[keyof typeof ReservedAction];
+export type ReservedAction =
+  (typeof ReservedAction)[keyof typeof ReservedAction];
 
 export type KnownAction = ImplementedAction | ReservedAction;
 
@@ -36,6 +38,28 @@ export function isReservedAction(value: string): value is ReservedAction {
 
 export function isKnownAction(value: string): value is KnownAction {
   return isImplementedAction(value) || isReservedAction(value);
+}
+
+export const CommandSource = {
+  shortcut: "shortcut",
+  dashboard: "dashboard",
+  ios: "ios",
+} as const;
+
+export type CommandSource = (typeof CommandSource)[keyof typeof CommandSource];
+
+export function isCommandSource(value: string): value is CommandSource {
+  switch (value) {
+    case CommandSource.shortcut:
+    case CommandSource.dashboard:
+    case CommandSource.ios:
+      return true;
+    default: {
+      const _exhaustive: never = value as never;
+      void _exhaustive;
+      return false;
+    }
+  }
 }
 
 export type ShortcutCommandBody = {

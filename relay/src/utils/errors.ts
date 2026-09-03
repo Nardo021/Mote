@@ -10,6 +10,9 @@ export const ErrorCode = {
   COMMAND_FAILED: "COMMAND_FAILED",
   RATE_LIMITED: "RATE_LIMITED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  ADMIN_DISABLED: "ADMIN_DISABLED",
+  SESSION_EXPIRED: "SESSION_EXPIRED",
+  CSRF_FORBIDDEN: "CSRF_FORBIDDEN",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -26,7 +29,12 @@ export class AppError extends Error {
   readonly statusCode: number;
   readonly extra: ErrorExtra;
 
-  constructor(code: ErrorCode, message: string, statusCode: number, extra: ErrorExtra = {}) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    statusCode: number,
+    extra: ErrorExtra = {},
+  ) {
     super(message);
     this.name = "AppError";
     this.code = code;
@@ -68,11 +76,15 @@ export function toErrorEnvelope(error: AppError): ErrorEnvelope {
   return envelope;
 }
 
-export function unauthorized(message = "Missing or invalid bearer token."): AppError {
+export function unauthorized(
+  message = "Missing or invalid bearer token.",
+): AppError {
   return new AppError(ErrorCode.UNAUTHORIZED, message, 401);
 }
 
-export function forbidden(message = "Credential does not have permission to send commands."): AppError {
+export function forbidden(
+  message = "Credential does not have permission to send commands.",
+): AppError {
   return new AppError(ErrorCode.FORBIDDEN, message, 403);
 }
 
@@ -81,5 +93,7 @@ export function invalidRequest(message = "Invalid request."): AppError {
 }
 
 export function rateLimited(message = "Too many command requests."): AppError {
-  return new AppError(ErrorCode.RATE_LIMITED, message, 429, { status: "rate_limited" });
+  return new AppError(ErrorCode.RATE_LIMITED, message, 429, {
+    status: "rate_limited",
+  });
 }

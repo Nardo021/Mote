@@ -38,7 +38,14 @@ Debian（若模板支持 Docker，非特权 LXC 即可）
 
 ```text
 cd /opt/mote/deploy
+docker compose build --pull
 docker compose up -d
+```
+
+然后创建管理员（只需一次）：
+
+```text
+docker compose exec -it relay node dist/cli.js admin create --username admin
 ```
 
 7. 验证：
@@ -182,6 +189,7 @@ V1 不使用 Split DNS。在家和外出都走 Cloudflare Tunnel。未来 V2 可
 
 - 快捷指令：Bearer `send_command` token
 - Mac：`device_connection` 凭据
+- Dashboard：Relay 内的管理员会话 cookie
 
 交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。
 

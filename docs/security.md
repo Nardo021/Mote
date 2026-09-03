@@ -8,7 +8,7 @@ Mote for Mac 把 `device_connection` 凭据存放在钥匙串。Mote Relay 只�
 
 ## 凭据角色
 
-存在两种凭据角色。它们不可互换。服务器按存储位置强制角色，而不是由客户端自行声明角色。
+存在三种互不兼容的身份。服务器按存储位置强制角色，而不是由客户端自行声明角色。管理员会话不能使用 Shortcut token 或设备凭据。
 
 ### 快捷指令凭据
 
@@ -42,7 +42,20 @@ device_connection
 
 该凭据可以把一台 Mac 挂到 Mote Relay，并接收发给该设备的命令。它不得被接受为快捷指令/命令客户端凭据。
 
-在设备 WebSocket 上出示 `send_command` 密钥会被拒绝。在命令 HTTP 路径上出示 `device_connection` 密钥会被拒绝。
+在设备 WebSocket 上出示 `send_command` 密钥会被拒绝。在命令 HTTP 路径上出示 `device_connection` 密钥会被拒绝。这两种凭据都不能登录 Dashboard。
+
+### 管理员账户
+
+Dashboard 使用独立的 `admins` 表，而不是 Bearer token。
+
+- 密码用 Argon2id 哈希（`@noble/hashes`，编码串含盐与参数）。不使用单独的 SHA-256、明文或 MD5。
+- 浏览器只收到随机会话 token，放在 `mote_admin_session` HttpOnly cookie 中。服务端只保存 SHA-256 哈希。
+- Cookie：`HttpOnly`、生产环境 `Secure`、`SameSite=Lax`、`Path=/`，默认 7 天。
+- 状态改变的 `/admin/api/*` 请求还要校验 Origin / Referer，以及 JSON `Content-Type`。
+- 登录按来源每分钟最多 5 次。
+- 新设备凭据和 Shortcut token 只在创建或轮换时返回一次。Dashboard 不把它们写入 `localStorage` 或 `sessionStorage`。
+- 管理员创建与密码恢复只通过 CLI。没有注册、邮件找回或 OAuth。
+- 命令活动只保留最近 10,000 条。`duration_ms` 是命令从创建到完成的墙钟时间，不是心跳 RTT。
 
 ## Token 处理
 
@@ -89,13 +102,16 @@ Mote Relay 转发允许列表中的命令。它不会替客户端执行操作系
 - JSON 正文上限（默认 16 KiB）
 - 内存中的命令速率限制（默认每 token 每 10 秒 10 次）
 - 没有宽松 CORS（未启用 `Access-Control-Allow-Origin: *`）
-- 没有浏览器会话 cookie
+- 机器 API 不使用浏览器会话 cookie
+- Dashboard 使用 HttpOnly 管理员会话 cookie；`/admin/api/*` 响应为 `Cache-Control: no-store`
+- 登录有独立的内存速率限制
+- HTML 响应带有 CSP、`X-Content-Type-Options`、`Referrer-Policy` 和 `frame-ancestors 'none'`
 
 ## 部署说明
 
 - 在家和外出都走同一条 Cloudflare Tunnel，终止在同一 Mote Relay 实例。V1 不使用 Split DNS。
 - `cloudflared` 运行在 PVE 宿主机上。Mote LXC / Compose 不持有 Tunnel token，也不调用 Cloudflare API。
-- 不要在 Mote V1 前面放交互式 Cloudflare Access。快捷指令的 Bearer `send_command` token 和 Mac 的 `device_connection` 凭据已经负责认证。交互式登录会干扰快捷指令和持久 WebSocket。
+- 不要在 Mote V1 前面放交互式 Cloudflare Access。快捷指令的 Bearer `send_command` token、Mac 的 `device_connection` 凭据，以及 Dashboard 管理员会话已经负责认证。交互式登录会干扰快捷指令和持久 WebSocket。
 - 把 `192.168.2.44:3000` 发布到家庭 LAN 并不削弱 Relay 认证。Bearer、设备 WebSocket 认证、凭据角色分离、命令允许列表、速率限制、TTL、无命令队列和重复保护全部保留。健康检查可以保持当前的未认证设计。
 - Compose 文件和文档只使用环境变量占位符。不要把 Cloudflare 密钥放进 Mote 部署。
 - 管理 CLI 不得暴露到公网。

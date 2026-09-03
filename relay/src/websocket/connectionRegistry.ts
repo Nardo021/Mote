@@ -55,7 +55,26 @@ export class ConnectionRegistry {
   }
 
   staleConnections(now: number, staleMs: number): DeviceConnection[] {
-    return this.list().filter((connection) => now - connection.lastHeartbeat > staleMs);
+    return this.list().filter(
+      (connection) => now - connection.lastHeartbeat > staleMs,
+    );
+  }
+
+  closeDevice(
+    deviceId: string,
+    code = 1000,
+    reason = "device_disabled",
+  ): boolean {
+    const current = this.connections.get(deviceId);
+    if (!current) {
+      return false;
+    }
+    try {
+      current.socket.close(code, reason);
+    } catch {
+      // ignore
+    }
+    return true;
   }
 
   closeAll(): void {

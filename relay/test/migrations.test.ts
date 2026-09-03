@@ -8,11 +8,16 @@ describe("database migration", () => {
   it("creates the devices and api_tokens tables", () => {
     const db = openMemoryDatabase();
     const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
+      )
       .all() as Array<{ name: string }>;
     const names = tables.map((row) => row.name);
     assert.ok(names.includes("devices"));
     assert.ok(names.includes("api_tokens"));
+    assert.ok(names.includes("admins"));
+    assert.ok(names.includes("admin_sessions"));
+    assert.ok(names.includes("command_events"));
     assert.ok(names.includes("schema_migrations"));
     db.close();
   });
@@ -27,7 +32,9 @@ describe("database migration", () => {
     const second = migrate(db);
     assert.equal(second, 0);
     assert.deepEqual(appliedMigrationIds(db), appliedBefore);
-    const row = db.prepare("SELECT name FROM devices WHERE id = 'dev-1'").get() as { name: string };
+    const row = db
+      .prepare("SELECT name FROM devices WHERE id = 'dev-1'")
+      .get() as { name: string };
     assert.equal(row.name, "Mac");
     db.close();
   });

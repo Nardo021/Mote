@@ -8,14 +8,15 @@ Mote for Mac（Phase 2）和 Mote Relay（Phase 3）已经实现。Phase 4 的 A
 
 ## 命名
 
-| 名称             | 角色                      |
-| ---------------- | ------------------------- |
-| Mote             | 产品                      |
-| Mote for Mac     | 原生 macOS 应用           |
-| Mote Agent       | Mote for Mac 内的后台组件 |
-| Mote Relay       | 后端服务                  |
-| `relay.yanze.me` | 生产环境公网主机名        |
-| `mote`           | 仓库名                    |
+| 名称                 | 角色                      |
+| -------------------- | ------------------------- |
+| Mote                 | 产品                      |
+| Mote for Mac         | 原生 macOS 应用           |
+| Mote Agent           | Mote for Mac 内的后台组件 |
+| Mote Relay           | 后端服务                  |
+| Mote Relay Dashboard | Relay 内的管理界面        |
+| `relay.yanze.me`     | 生产环境公网主机名        |
+| `mote`               | 仓库名                    |
 
 ## V1 架构
 
@@ -81,7 +82,8 @@ PVE Host
 
 - **Apple 快捷指令** — 向 `https://relay.yanze.me` 发送已认证的 HTTPS 请求。在家和外出使用同一主机名。
 - **Cloudflare Tunnel（PVE 宿主机）** — 现有 Tunnel 把该主机名发布到 LXC 上的 Relay。TLS 终止在 Cloudflare。
-- **Mote Relay** — 认证快捷指令、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令。管理只通过 CLI，没有 Web 后台。Relay 对 Cloudflare 无感知：它不调用 Cloudflare API，也不保存 Tunnel token。
+- **Mote Relay** — 认证快捷指令、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令。同一 Fastify 进程还托管 **Mote Relay Dashboard** 和 `/admin/api/*`。Relay 对 Cloudflare 无感知：它不调用 Cloudflare API，也不保存 Tunnel token。
+- **Mote Relay Dashboard** — 浏览器管理界面。由 Relay 静态提供，不是单独的服务器或容器。
 - **Mote Agent** — Mote for Mac 的持久后台组件。维护 WebSocket，并执行允许列表中的本地动作。
 - **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。
 
@@ -98,6 +100,43 @@ Mote for Mac 在首次启动时生成持久的 `device_id`，并在设置中显�
 ### 连接模型
 
 Mac 主动发起出站连接 `wss://relay.yanze.me/v1/ws/device`。路径是：
+
+```text
+Mote Relay
+├── Public Dashboard
+├── Admin API
+├── Machine API
+├── WebSocket
+├── Device Registry
+├── Command Service
+├── Auth
+└── SQLite
+```
+
+```text
+Cloudflare Tunnel
+      │
+      ▼
+192.168.2.44:3000
+      │
+      ▼
+Fastify / Mote Relay
+      │
+      ├── /
+      │    Dashboard static SPA
+      │
+      ├── /admin/api/*
+      │    Admin API
+      │
+      ├── /v1/*
+      │    Machine API
+      │
+      ├── /v1/ws/device
+      │    WebSocket
+      │
+      ├── /health
+      └── /ready
+```
 
 ```text
 Mac
@@ -200,4 +239,4 @@ Mote iOS → 可用时走本地直连 → Relay 回退
 - Kubernetes 或微服务
 - 任意 shell、可执行路径或 AppleScript 执行
 - 通用远程代码执行后端
-- Web 管理界面（V1 管理仅通过 CLI）
+- 原生 iOS 应用以外的额外管理服务器、反向代理或 Dashboard 容器

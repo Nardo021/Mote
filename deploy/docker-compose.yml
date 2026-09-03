@@ -2,8 +2,8 @@ services:
   relay:
     container_name: mote-relay
     build:
-      context: ../relay
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: relay/Dockerfile
     image: mote-relay:local
     env_file:
       - path: .env

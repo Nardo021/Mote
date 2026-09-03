@@ -35,6 +35,7 @@ export type EnvConfig = {
   rateLimitWindowMs: number;
   maxPendingCommands: number;
   staleSweepIntervalMs: number;
+  dashboardDist: string;
 };
 
 function parseRuntimeEnv(value: string | undefined): RuntimeEnv {
@@ -70,6 +71,13 @@ function defaultDatabasePath(env: RuntimeEnv): string {
   return resolve("data/mote.sqlite");
 }
 
+function defaultDashboardDist(env: RuntimeEnv): string {
+  if (env === "production") {
+    return "/app/dashboard";
+  }
+  return resolve(process.cwd(), "../dashboard/dist");
+}
+
 export function loadDotEnvFile(filePath: string): void {
   if (!existsSync(filePath)) {
     return;
@@ -87,7 +95,7 @@ export function loadDotEnvFile(filePath: string): void {
     const key = line.slice(0, separator).trim();
     let value = line.slice(separator + 1).trim();
     if (
-      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
     ) {
       value = value.slice(1, -1);
@@ -108,20 +116,51 @@ export function loadConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
     env,
     host: overrides.host ?? process.env.MOTE_HOST ?? defaultHost(env),
     port: overrides.port ?? parseInteger(process.env.MOTE_PORT, DEFAULT_PORT),
-    publicUrl: overrides.publicUrl ?? process.env.MOTE_PUBLIC_URL ?? defaultPublicUrl(env),
-    databasePath: overrides.databasePath ?? process.env.MOTE_DATABASE_PATH ?? defaultDatabasePath(env),
-    logLevel: overrides.logLevel ?? process.env.MOTE_LOG_LEVEL ?? (env === "test" ? "silent" : "info"),
-    commandTtlMs: overrides.commandTtlMs ?? parseInteger(process.env.MOTE_COMMAND_TTL_MS, DEFAULT_COMMAND_TTL_MS),
+    publicUrl:
+      overrides.publicUrl ??
+      process.env.MOTE_PUBLIC_URL ??
+      defaultPublicUrl(env),
+    databasePath:
+      overrides.databasePath ??
+      process.env.MOTE_DATABASE_PATH ??
+      defaultDatabasePath(env),
+    logLevel:
+      overrides.logLevel ??
+      process.env.MOTE_LOG_LEVEL ??
+      (env === "test" ? "silent" : "info"),
+    commandTtlMs:
+      overrides.commandTtlMs ??
+      parseInteger(process.env.MOTE_COMMAND_TTL_MS, DEFAULT_COMMAND_TTL_MS),
     commandTimeoutMs:
-      overrides.commandTimeoutMs ?? parseInteger(process.env.MOTE_COMMAND_TIMEOUT_MS, DEFAULT_COMMAND_TIMEOUT_MS),
+      overrides.commandTimeoutMs ??
+      parseInteger(
+        process.env.MOTE_COMMAND_TIMEOUT_MS,
+        DEFAULT_COMMAND_TIMEOUT_MS,
+      ),
     heartbeatStaleMs:
-      overrides.heartbeatStaleMs ?? parseInteger(process.env.MOTE_HEARTBEAT_STALE_MS, DEFAULT_HEARTBEAT_STALE_MS),
-    authTimeoutMs: overrides.authTimeoutMs ?? parseInteger(process.env.MOTE_AUTH_TIMEOUT_MS, DEFAULT_AUTH_TIMEOUT_MS),
-    maxBodyBytes: overrides.maxBodyBytes ?? parseInteger(process.env.MOTE_MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
-    lastSeenPersistMs: overrides.lastSeenPersistMs ?? DEFAULT_LAST_SEEN_PERSIST_MS,
+      overrides.heartbeatStaleMs ??
+      parseInteger(
+        process.env.MOTE_HEARTBEAT_STALE_MS,
+        DEFAULT_HEARTBEAT_STALE_MS,
+      ),
+    authTimeoutMs:
+      overrides.authTimeoutMs ??
+      parseInteger(process.env.MOTE_AUTH_TIMEOUT_MS, DEFAULT_AUTH_TIMEOUT_MS),
+    maxBodyBytes:
+      overrides.maxBodyBytes ??
+      parseInteger(process.env.MOTE_MAX_BODY_BYTES, DEFAULT_MAX_BODY_BYTES),
+    lastSeenPersistMs:
+      overrides.lastSeenPersistMs ?? DEFAULT_LAST_SEEN_PERSIST_MS,
     rateLimitMax: overrides.rateLimitMax ?? DEFAULT_RATE_LIMIT_MAX,
-    rateLimitWindowMs: overrides.rateLimitWindowMs ?? DEFAULT_RATE_LIMIT_WINDOW_MS,
-    maxPendingCommands: overrides.maxPendingCommands ?? DEFAULT_MAX_PENDING_COMMANDS,
-    staleSweepIntervalMs: overrides.staleSweepIntervalMs ?? DEFAULT_STALE_SWEEP_INTERVAL_MS,
+    rateLimitWindowMs:
+      overrides.rateLimitWindowMs ?? DEFAULT_RATE_LIMIT_WINDOW_MS,
+    maxPendingCommands:
+      overrides.maxPendingCommands ?? DEFAULT_MAX_PENDING_COMMANDS,
+    staleSweepIntervalMs:
+      overrides.staleSweepIntervalMs ?? DEFAULT_STALE_SWEEP_INTERVAL_MS,
+    dashboardDist:
+      overrides.dashboardDist ??
+      process.env.MOTE_DASHBOARD_DIST ??
+      defaultDashboardDist(env),
   };
 }

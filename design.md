@@ -1425,3 +1425,7 @@ controlBackground
 如果系统提供的行为更好。
 
 Mote 的设计语言应补充 macOS，而不是对抗它。
+
+## 43. Web Dashboard
+
+**Mote Relay Dashboard** 使用本文件中的同一套浅色/深色 token，而不是另一套管理后台品牌。它是浏览器里的克制控制台：内容宽度约 1100–1200 px，紧凑行，细边框，没有大型分析卡片。系统外观（`prefers-color-scheme`）即可，不必做手动主题开关。

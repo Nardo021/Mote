@@ -30,7 +30,21 @@ Mote Relay
 
 ## Compose
 
-`deploy/docker-compose.yml` 从 `relay/Dockerfile` 构建 Relay 镜像。活动栈只有 Relay。容器把 `3000` 发布到 LXC 网卡，供 PVE 宿主机上的 `cloudflared` 访问 `http://192.168.2.44:3000`。
+`deploy/docker-compose.yml` 以仓库根目录为 build context，用 `relay/Dockerfile` 构建单一 Relay 镜像（内含 Dashboard 静态资源）。活动栈只有 Relay。容器把 `3000` 发布到 LXC 网卡，供 PVE 宿主机上的 `cloudflared` 访问 `http://192.168.2.44:3000`。
+
+更新后的部署仍是：
+
+```text
+git pull
+docker compose build --pull
+docker compose up -d
+```
+
+没有单独的 Dashboard 部署步骤。引导管理员：
+
+```text
+docker compose exec -it relay node dist/cli.js admin create --username admin
+```
 
 不要用 `expose` 只在 Docker 网络内开放端口。PVE 宿主机上的 `cloudflared` 不在该 Docker 网络里，也无法解析 `relay` 这个 Compose 服务名。
 
@@ -176,6 +190,7 @@ Compose 使用 `ports: "3000:3000"`，不要用 `network_mode: host`，也不要
 
 - 快捷指令：Bearer `send_command` token
 - Mac：`device_connection` 凭据
+- Dashboard：Relay 内的管理员会话 cookie
 
 交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。
 

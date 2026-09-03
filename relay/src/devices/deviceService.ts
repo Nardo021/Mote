@@ -22,12 +22,17 @@ export class DeviceService {
     if (trimmed === "") {
       throw invalidRequest("Device name is required.");
     }
-    const id = deviceId === undefined || deviceId === "" ? createId() : deviceId;
+    const id =
+      deviceId === undefined || deviceId === "" ? createId() : deviceId;
     if (!UUID_PATTERN.test(id)) {
       throw invalidRequest("Device ID must be a UUID.");
     }
     if (this.devices.findById(id)) {
-      throw new AppError(ErrorCode.INVALID_REQUEST, "Device ID already exists.", 409);
+      throw new AppError(
+        ErrorCode.INVALID_REQUEST,
+        "Device ID already exists.",
+        409,
+      );
     }
     const credential = createSecret();
     const createdAt = nowMs();
@@ -67,7 +72,16 @@ export class DeviceService {
     return { ...device, enabled: false, updatedAt: nowMs() };
   }
 
-  rotateDeviceCredential(id: string): { device: DeviceRecord; credential: string } {
+  enableDevice(id: string): DeviceRecord {
+    const device = this.requireDevice(id);
+    this.devices.setEnabled(id, true);
+    return { ...device, enabled: true, updatedAt: nowMs() };
+  }
+
+  rotateDeviceCredential(id: string): {
+    device: DeviceRecord;
+    credential: string;
+  } {
     const device = this.requireDevice(id);
     const credential = createSecret();
     this.devices.updateCredentialHash(id, hashSecret(credential));
@@ -127,6 +141,12 @@ export class DeviceService {
     const token = this.requireToken(id);
     this.tokens.setEnabled(id, false);
     return { ...token, enabled: false };
+  }
+
+  enableToken(id: string) {
+    const token = this.requireToken(id);
+    this.tokens.setEnabled(id, true);
+    return { ...token, enabled: true };
   }
 
   rotateShortcutToken(id: string): CreatedApiToken {

@@ -1,3 +1,4 @@
+import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 
@@ -11,7 +12,12 @@ import { startStaleConnectionSweeper } from "./websocket/heartbeat.js";
 import { nowMs } from "./utils/time.js";
 
 function errorCode(error: unknown): string | undefined {
-  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
     return error.code;
   }
   return undefined;
@@ -45,6 +51,7 @@ export async function buildApp(ctx: AppContext) {
     },
   });
 
+  await app.register(cookie);
   await app.register(websocket);
 
   app.setErrorHandler((error, request, reply) => {
@@ -58,45 +65,85 @@ export async function buildApp(ctx: AppContext) {
       code === "FST_ERR_CTP_INVALID_MEDIA_TYPE" ||
       code === "FST_ERR_CTP_EMPTY_JSON_BODY"
     ) {
-      return reply.code(400).send(
-        toErrorEnvelope(new AppError(ErrorCode.INVALID_REQUEST, "Invalid request.", 400)),
-      );
+      return reply
+        .code(400)
+        .send(
+          toErrorEnvelope(
+            new AppError(ErrorCode.INVALID_REQUEST, "Invalid request.", 400),
+          ),
+        );
     }
     if (code === "FST_ERR_CTP_BODY_TOO_LARGE") {
-      return reply.code(413).send(
-        toErrorEnvelope(new AppError(ErrorCode.INVALID_REQUEST, "Request body is too large.", 413)),
-      );
+      return reply
+        .code(413)
+        .send(
+          toErrorEnvelope(
+            new AppError(
+              ErrorCode.INVALID_REQUEST,
+              "Request body is too large.",
+              413,
+            ),
+          ),
+        );
     }
     request.log.error({ err: error }, "unexpected error");
-    return reply.code(500).send(
-      toErrorEnvelope(new AppError(ErrorCode.INTERNAL_ERROR, "Unexpected server failure.", 500)),
-    );
-  });
-
-  app.setNotFoundHandler((_request, reply) => {
-    return reply.code(404).send(
-      toErrorEnvelope(new AppError(ErrorCode.INVALID_REQUEST, "Not found.", 404)),
-    );
+    return reply
+      .code(500)
+      .send(
+        toErrorEnvelope(
+          new AppError(
+            ErrorCode.INTERNAL_ERROR,
+            "Unexpected server failure.",
+            500,
+          ),
+        ),
+      );
   });
 
   await registerRoutes(app, ctx);
 
+  app.setNotFoundHandler((_request, reply) => {
+    return reply
+      .code(404)
+      .send(
+        toErrorEnvelope(
+          new AppError(ErrorCode.INVALID_REQUEST, "Not found.", 404),
+        ),
+      );
+  });
+
   app.get(DEVICE_WEBSOCKET_PATH, { websocket: true }, (socket, request) => {
     handleDeviceSocket(socket, { ip: request.ip, log: request.log }, ctx);
   });
+
+  const sessionCleanup = setInterval(
+    () => {
+      ctx.sessions.purgeExpired();
+    },
+    60 * 60 * 1000,
+  );
+  sessionCleanup.unref?.();
 
   const sweeper = startStaleConnectionSweeper(
     ctx.connections,
     ctx.config.heartbeatStaleMs,
     ctx.config.staleSweepIntervalMs,
     (connection) => {
-      app.log.warn({ device_id: connection.deviceId, connection_id: connection.connectionId }, "stale device connection");
+      app.log.warn(
+        {
+          device_id: connection.deviceId,
+          connection_id: connection.connectionId,
+        },
+        "stale device connection",
+      );
       try {
         connection.socket.close(1001, "heartbeat_stale");
       } catch {
         // ignore
       }
-      if (ctx.connections.remove(connection.deviceId, connection.connectionId)) {
+      if (
+        ctx.connections.remove(connection.deviceId, connection.connectionId)
+      ) {
         ctx.devices.markLastSeen(connection.deviceId, nowMs());
         ctx.lastSeen.clear(connection.deviceId);
         app.log.info({ device_id: connection.deviceId }, "device disconnected");
@@ -105,6 +152,7 @@ export async function buildApp(ctx: AppContext) {
   );
 
   app.addHook("onClose", async () => {
+    clearInterval(sessionCleanup);
     sweeper.stop();
     ctx.pending.failAll();
     ctx.connections.closeAll();

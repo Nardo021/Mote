@@ -8,6 +8,7 @@ Mote Relay 的凭据管理使用 Relay CLI：
 cd relay
 npm run cli -- device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
 npm run cli -- token create --name "Leo iPhone"
+npm run cli -- admin create --username admin
 ```
 
 生产：

@@ -4,7 +4,7 @@
 
 Mote 是一套轻量的 macOS 远程动作系统。
 
-V1 没有 iOS 应用。iPhone 通过 Apple 快捷指令和 Siri 触发唯一允许的动作 —— `lock`。快捷指令向 `relay.yanze.me` 发送经过认证的 HTTPS 请求。**Mote Relay** 再通过持久、已认证的 WebSocket 把命令转发给 **Mote Agent**（运行在 **Mote for Mac** 中）。
+V1 没有 iOS 应用。iPhone 通过 Apple 快捷指令和 Siri 触发唯一允许的动作 —— `lock`。快捷指令向 `relay.yanze.me` 发送经过认证的 HTTPS 请求。**Mote Relay** 再通过持久、已认证的 WebSocket 把命令转发给 **Mote Agent**（运行在 **Mote for Mac** 中）。同一进程在 `https://relay.yanze.me/` 提供 **Mote Relay Dashboard**。
 
 ```text
 V1:
@@ -61,8 +61,24 @@ PVE Host
 ## 架构摘要
 
 ```text
+relay.yanze.me
+│
+├── /                    Dashboard
+├── /admin/api/*         Admin API
+├── /v1/*                Machine API
+├── /v1/ws/device        Mac WebSocket
+├── /health
+└── /ready
+```
+
+```text
                    PUBLIC
 Apple Shortcut
+      │
+      │ HTTPS
+      ▼
+relay.yanze.me
+Browser
       │
       │ HTTPS
       ▼
@@ -88,12 +104,12 @@ cloudflared on PVE host
       ▼
 Mote Relay
       │
-      │ 持久、已认证的 WebSocket
-      ▼
-Mote Agent
-      │
-      ▼
-macOS 锁屏
+      ├── Dashboard + Admin API
+      └── 持久、已认证的 WebSocket
+            ▼
+         Mote Agent
+            ▼
+         macOS 锁屏
 ```
 
 快捷指令和 Mac 都不要使用 `http://192.168.2.44:3000`。该地址只是 Cloudflare 源站配置，不是客户端 URL。
@@ -106,6 +122,7 @@ V2 可以在不重写后端或命令协议的前提下增加原生 iOS 应用和
 mote/
 ├── docs/          架构、协议、安全、部署、开发
 ├── macos/         Mote for Mac（Xcode 工程、应用、测试）
+├── dashboard/     Mote Relay Dashboard（React + Vite）
 ├── relay/         Mote Relay（Node.js + TypeScript）
 ├── deploy/        Docker Compose 与 PVE 说明
 ├── scripts/       辅助脚本
@@ -118,6 +135,7 @@ mote/
 | ------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Mote for Mac | Swift、SwiftUI、MenuBarExtra、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | Phase 2 已实现                    |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                                  | Phase 3 已实现                    |
+| Dashboard    | React、TypeScript、Vite                                                                                          | 由 Relay 静态托管                 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket                                                                                 | Mac 客户端与 Relay 接入路径已实现 |
 | 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.168.2.44:3000`                                    | 已文档化                          |
 | 触发（V1）   | Apple 快捷指令 + Siri                                                                                            | 配置待完成                        |
@@ -128,7 +146,7 @@ mote/
 
 **Phase 2 — Mote for Mac** 已完成。原生 Mac 应用、菜单栏 Agent、钥匙串凭据、命令校验、锁屏动作和出站 WebSocket 客户端均已实现。
 
-**Phase 3 — Mote Relay** 已完成。Fastify HTTP API、设备 WebSocket、SQLite 凭据、CLI、Docker 镜像、Compose 栈和 PVE 文档均已实现。
+**Phase 3 — Mote Relay** 已完成。Fastify HTTP API、设备 WebSocket、SQLite 凭据、CLI、Docker 镜像、Compose 栈和 PVE 文档均已实现。同一容器现在也提供管理员 Dashboard。
 
 **Phase 4 — Apple 快捷指令** 配置待完成。没有原生 iOS 应用。
 
@@ -141,7 +159,7 @@ mote/
 - 动作来自预定义允许列表。V1 唯一动作是 `lock`。
 - 禁止任意 shell 命令、可执行路径，以及远程下发的 AppleScript。
 - Mote Relay 不是通用远程代码执行系统。
-- 快捷指令凭据（`send_command`）与 Mac 设备凭据（`device_connection`）不可互换。
+- 快捷指令凭据（`send_command`）与 Mac 设备凭据（`device_connection`）不可互换。管理员使用独立的用户名/密码会话，不能用 Shortcut token 或设备凭据登录 Dashboard。
 - 生产流量仅使用 HTTPS/WSS。
 - 密钥永不提交。macOS 设备凭据存放在钥匙串；Relay 只保存哈希。
 - 命令很快过期。离线锁屏不会排队。

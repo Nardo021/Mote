@@ -73,6 +73,48 @@ npm run cli -- token create --name "Development Shortcut"
 
 见 [relay/README.md](../relay/README.md) 和 [design.md](../design.md)。
 
+## Dashboard 本地开发
+
+Dashboard 是 Vite SPA，位于 `dashboard/`。开发时可以和 Relay 分开跑：
+
+```text
+# Terminal 1
+cd relay
+npm run dev
+
+# Terminal 2
+cd dashboard
+npm install
+npm run dev
+```
+
+Vite 开发服务器把 `/admin/api`、`/v1`、`/health` 和 `/ready` 代理到 `http://127.0.0.1:3000`。Cookie 仍然走同一浏览器源。
+
+生产构建：
+
+```text
+cd dashboard
+npm run typecheck
+npm test
+npm run build
+```
+
+Docker 镜像会把 `dashboard/dist` 拷进 Relay 容器。不要在生产环境跑 Vite。
+
+引导管理员：
+
+```text
+cd relay
+npm run build
+npm run cli -- admin create --username admin
+```
+
+无 TTY 时：
+
+```text
+printf '%s\n' "$PASSWORD" | npm run cli -- admin create --username admin --password-stdin
+```
+
 ## Phase 4 — Apple 快捷指令
 
 配置 Siri + 快捷指令以触发 `lock`。
@@ -95,7 +137,7 @@ Xcode 工程是 `macos/Mote.xcodeproj`。应用显示名 **Mote**，bundle ident
 ## 不要添加的内容
 
 - iOS 应用或任何 iOS target
-- React / Next / Vue 前端或管理后台
+- Next / Nuxt / SvelteKit / 单独的 Dashboard 服务器
 - Redis、PostgreSQL、ORM
 - NestJS、Express
 - Kubernetes、微服务、MQTT

@@ -1,3 +1,9 @@
+import { stdin as input, stdout as output } from "node:process";
+
+import { AdminRepository } from "./admin/adminRepository.js";
+import { AdminService } from "./admin/adminService.js";
+import { SessionRepository } from "./admin/sessionRepository.js";
+import { SessionService } from "./admin/sessionService.js";
 import { loadConfig, loadLocalEnvFiles } from "./config/env.js";
 import { DeviceRepository } from "./devices/deviceRepository.js";
 import { DeviceService } from "./devices/deviceService.js";
@@ -53,9 +59,22 @@ Usage:
   node dist/cli.js token list
   node dist/cli.js token disable <token-id>
   node dist/cli.js token rotate <token-id>
+  node dist/cli.js admin create --username admin
+  node dist/cli.js admin list
+  node dist/cli.js admin password --username admin
+  node dist/cli.js admin disable --username admin
+  node dist/cli.js admin enable --username admin
 
 The CLI uses the same SQLite database as the server (MOTE_DATABASE_PATH).
 Generated secrets are printed once. ${SECRET_WARNING}
+
+Admin passwords are prompted interactively when a TTY is available.
+For non-interactive use, pipe the password:
+
+  printf '%s\\n' "$PASSWORD" | docker compose exec -T relay \\
+    node dist/cli.js admin create --username admin --password-stdin
+
+Do not pass passwords as command-line flags.
 `;
   process.stdout.write(text);
 }
@@ -64,8 +83,17 @@ function createServices() {
   loadLocalEnvFiles();
   const config = loadConfig();
   const db = openDatabase(config.databasePath);
-  const devices = new DeviceService(new DeviceRepository(db), new TokenRepository(db));
-  return { db, devices };
+  const devices = new DeviceService(
+    new DeviceRepository(db),
+    new TokenRepository(db),
+  );
+  const adminRepository = new AdminRepository(db);
+  const admins = new AdminService(adminRepository);
+  const sessions = new SessionService(
+    new SessionRepository(db),
+    adminRepository,
+  );
+  return { db, devices, admins, sessions };
 }
 
 function printDeviceCreated(id: string, credential: string): void {
@@ -90,7 +118,75 @@ It will not be displayed again.
 `);
 }
 
-function run(argv: string[]): number {
+async function promptHidden(label: string): Promise<string> {
+  if (!input.isTTY || !output.isTTY) {
+    throw new Error(
+      "Interactive password prompt requires a TTY. Use --password-stdin.",
+    );
+  }
+  return new Promise((resolve, reject) => {
+    output.write(label);
+    const wasRaw = input.isRaw;
+    input.setRawMode(true);
+    let value = "";
+    const onData = (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      if (text === "\n" || text === "\r" || text === "\u0004") {
+        cleanup();
+        output.write("\n");
+        resolve(value);
+        return;
+      }
+      if (text === "\u0003") {
+        cleanup();
+        reject(new Error("Cancelled"));
+        return;
+      }
+      if (text === "\u007f" || text === "\b") {
+        value = value.slice(0, -1);
+        return;
+      }
+      if (text.charCodeAt(0) >= 32) {
+        value += text;
+      }
+    };
+    const cleanup = () => {
+      input.off("data", onData);
+      input.setRawMode(wasRaw ?? false);
+    };
+    input.on("data", onData);
+  });
+}
+
+async function readStdinPassword(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of input) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks)
+    .toString("utf8")
+    .replace(/\r?\n$/, "");
+}
+
+async function readPassword(flags: Flags, confirm: boolean): Promise<string> {
+  if (flags.has("password-stdin")) {
+    const password = await readStdinPassword();
+    if (password === "") {
+      throw new Error("Password is required on stdin.");
+    }
+    return password;
+  }
+  const password = await promptHidden("Password: ");
+  if (confirm) {
+    const again = await promptHidden("Confirm password: ");
+    if (password !== again) {
+      throw new Error("Passwords do not match.");
+    }
+  }
+  return password;
+}
+
+async function run(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgv(argv);
   const [group, action, target] = positional;
 
@@ -99,10 +195,13 @@ function run(argv: string[]): number {
     return 0;
   }
 
-  const { db, devices } = createServices();
+  const { db, devices, admins, sessions } = createServices();
   try {
     if (group === "device" && action === "create") {
-      const created = devices.createDevice(requiredFlag(flags, "name"), flags.get("id"));
+      const created = devices.createDevice(
+        requiredFlag(flags, "name"),
+        flags.get("id"),
+      );
       printDeviceCreated(created.id, created.credential);
       return 0;
     }
@@ -176,20 +275,73 @@ It will not be displayed again.
       printTokenCreated(rotated.token);
       return 0;
     }
+    if (group === "admin" && action === "create") {
+      const username = requiredFlag(flags, "username");
+      const password = await readPassword(flags, true);
+      const created = admins.create(username, password);
+      process.stdout.write(`Administrator created.
+Username:
+${created.username}
+Sign in at the Mote Relay Dashboard.
+`);
+      return 0;
+    }
+    if (group === "admin" && action === "list") {
+      const rows = admins.list();
+      if (rows.length === 0) {
+        process.stdout.write(
+          "No administrators. Create one with: node dist/cli.js admin create --username admin\n",
+        );
+        return 0;
+      }
+      for (const admin of rows) {
+        process.stdout.write(
+          `${admin.username}\tenabled=${admin.enabled ? "yes" : "no"}\tlast_login_at=${admin.lastLoginAt ?? "-"}\n`,
+        );
+      }
+      return 0;
+    }
+    if (group === "admin" && action === "password") {
+      const username = requiredFlag(flags, "username");
+      const admin = admins.requireByUsername(username);
+      const password = await readPassword(flags, true);
+      admins.setPassword(admin.id, password);
+      sessions.revokeAllForAdmin(admin.id);
+      process.stdout.write(
+        `Password updated for ${admin.username}. Existing sessions were signed out.\n`,
+      );
+      return 0;
+    }
+    if (group === "admin" && action === "disable") {
+      const username = requiredFlag(flags, "username");
+      const admin = admins.setEnabled(username, false);
+      sessions.revokeAllForAdmin(admin.id);
+      process.stdout.write(`Administrator ${admin.username} disabled.\n`);
+      return 0;
+    }
+    if (group === "admin" && action === "enable") {
+      const username = requiredFlag(flags, "username");
+      const admin = admins.setEnabled(username, true);
+      process.stdout.write(`Administrator ${admin.username} enabled.\n`);
+      return 0;
+    }
     throw new Error("Unknown command. Use --help.");
   } finally {
     db.close();
   }
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
-    process.exitCode = run(process.argv.slice(2));
+    process.exitCode = await run(process.argv.slice(2));
   } catch (error) {
-    const message = error instanceof AppError || error instanceof Error ? error.message : "CLI failed";
+    const message =
+      error instanceof AppError || error instanceof Error
+        ? error.message
+        : "CLI failed";
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
   }
 }
 
-main();
+void main();

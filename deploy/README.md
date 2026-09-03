@@ -30,11 +30,11 @@ Compose 栈只运行 Relay。容器端口 `3000` 发布为 LXC 端口 `3000`，�
 
 ## 文件
 
-| 文件                 | 作用                                                         |
-| -------------------- | ------------------------------------------------------------ |
-| `docker-compose.yml` | 构建 `../relay/Dockerfile`，只运行 `relay`，发布 `3000:3000` |
-| `.env.example`       | 在 LXC 上复制为 `.env`（可选；Compose 有默认值）             |
-| `pve/README.md`      | LXC、现有 Cloudflare Tunnel、第一台设备流程                  |
+| 文件                 | 作用                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `docker-compose.yml` | 以仓库根为 context 构建 `relay/Dockerfile`，只运行 `relay`，发布 `3000:3000` |
+| `.env.example`       | 在 LXC 上复制为 `.env`（可选；Compose 有默认值）                             |
+| `pve/README.md`      | LXC、现有 Cloudflare Tunnel、第一台设备流程                                  |
 
 SQLite 位于 Docker volume `mote_data`（Relay 容器内为 `/data/mote.sqlite`）。它能在 `docker compose down`、容器重启、LXC 重启和镜像更新后继续存在。
 
@@ -44,6 +44,7 @@ SQLite 位于 Docker volume `mote_data`（Relay 容器内为 `/data/mote.sqlite`
 
 ```text
 /opt/mote/
+├── dashboard/
 ├── deploy/
 │   ├── docker-compose.yml
 │   └── .env
@@ -64,6 +65,14 @@ curl -sS http://127.0.0.1:3000/ready
 
 ```text
 docker compose exec relay node dist/cli.js device list
+docker compose exec -it relay node dist/cli.js admin create --username admin
+```
+
+无 TTY 时：
+
+```text
+printf '%s\n' "$PASSWORD" | docker compose exec -T relay \
+  node dist/cli.js admin create --username admin --password-stdin
 ```
 
 ## 主机名

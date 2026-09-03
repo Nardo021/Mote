@@ -1,0 +1,44 @@
+:root {
+  --mote-canvas: #f7f8fa;
+  --mote-surface: #ffffff;
+  --mote-surface-secondary: #f1f3f6;
+  --mote-border: #e1e4e8;
+  --mote-border-strong: #cdd2d9;
+  --mote-text: #17191c;
+  --mote-text-secondary: #626871;
+  --mote-text-tertiary: #9097a1;
+  --mote-accent: #4f7cff;
+  --mote-accent-hover: #416deb;
+  --mote-accent-soft: #e9efff;
+  --mote-success: #2f9e63;
+  --mote-warning: #c88719;
+  --mote-error: #d54848;
+  --mote-offline: #8a9099;
+  --mote-sidebar-width: 220px;
+  --mote-content-max: 1120px;
+  --mote-radius-sm: 6px;
+  --mote-radius: 8px;
+  --mote-radius-md: 10px;
+  --mote-focus: 0 0 0 3px
+    color-mix(in srgb, var(--mote-accent) 28%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mote-canvas: #101114;
+    --mote-surface: #17191d;
+    --mote-surface-secondary: #1e2126;
+    --mote-border: #2c3037;
+    --mote-border-strong: #3a3f48;
+    --mote-text: #f4f5f7;
+    --mote-text-secondary: #a8adb5;
+    --mote-text-tertiary: #737a84;
+    --mote-accent: #6b91ff;
+    --mote-accent-hover: #7fa0ff;
+    --mote-accent-soft: #1e2b52;
+    --mote-success: #49c47d;
+    --mote-warning: #e7a83a;
+    --mote-error: #f06a6a;
+    --mote-offline: #777e88;
+  }
+}

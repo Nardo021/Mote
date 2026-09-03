@@ -401,6 +401,8 @@ GET /health   → { "status": "ok" }
 GET /ready    → { "status": "ok" } 或 503 { "status": "not_ready" }
 ```
 
+`GET /` 返回 Dashboard HTML，不是 JSON。`/v1/*` 与 `/admin/api/*` 的未知路径仍返回 JSON 404。
+
 `/ready` 检查进程已初始化且 SQLite 可查询。Mac 离线不影响 Relay 健康。
 
 ## 重连（Mac）

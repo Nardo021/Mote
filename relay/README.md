@@ -8,7 +8,8 @@
 
 - Node.js 22+
 - TypeScript（strict、ESM）
-- Fastify + `@fastify/websocket`
+- Fastify + `@fastify/websocket` + `@fastify/static` + `@fastify/cookie`
+- Dashboard：React + TypeScript + Vite（构建后由本进程静态托管）
 - 通过 `better-sqlite3` 使用 SQLite
 
 ## 开发
@@ -22,8 +23,17 @@ npm run dev
 默认本地端点：
 
 ```text
-http://127.0.0.1:3000
+http://127.0.0.1:3000            Dashboard（需先构建 dashboard，或另开 Vite）
+http://127.0.0.1:3000/admin/api  Admin API
 ws://127.0.0.1:3000/v1/ws/device
+```
+
+本地同时开发 Dashboard：
+
+```text
+cd ../dashboard
+npm install
+npm run dev
 ```
 
 若要用文件配置，把 `.env.example` 复制为 `.env`。已有环境变量优先。
@@ -48,6 +58,7 @@ Mote for Mac 自己生成持久的 `device_id` 并在设置中显示。先登记
 npm run build
 npm run cli -- device create --name "Development Mac" --id <MAC_DEVICE_ID>
 npm run cli -- token create --name "Development Shortcut"
+npm run cli -- admin create --username admin
 ```
 
 若省略 `--id`，Relay 会生成 UUID。Phase 2 的 Mote for Mac 无法设置这个生成的 ID，因此支持的 V1 配对路径是：从 Mac 复制 Device ID，再传入 `--id`。
@@ -70,6 +81,7 @@ npm run cli -- token rotate <token-id>
 ```text
 docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
 docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
+docker compose exec -it relay node dist/cli.js admin create --username admin
 ```
 
 ## HTTP API
@@ -81,6 +93,8 @@ docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
 | `POST` | `/v1/devices/:deviceId/commands` | Bearer       | 发送 `{"action":"lock"}`              |
 | `GET`  | `/v1/devices/:deviceId/status`   | Bearer       | 在线 / 最近见到                       |
 | `GET`  | `/v1/ws/device`                  | 设备 WS 认证 | Mote Agent 套接字（升级为 WebSocket） |
+| `GET`  | `/`                              | 无           | Dashboard SPA                         |
+| `*`    | `/admin/api/*`                   | 管理员会话   | Dashboard 管理 API                    |
 | `GET`  | `/health`                        | 无           | 进程存活                              |
 | `GET`  | `/ready`                         | 无           | 数据库 + 进程就绪；失败时 `503`       |
 
@@ -102,10 +116,12 @@ docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
 ```text
 src/
   index.ts           进程入口
-  cli.ts             凭据管理
+  cli.ts             凭据与管理员管理
   app.ts             Fastify 应用
   config/            环境与常量
-  api/               HTTP 路由
+  api/               HTTP 路由与 Dashboard 静态托管
+  admin/             管理员账户、会话、管理 API
+  activity/          命令活动日志
   websocket/         设备套接字与注册表
   auth/              按角色分离的凭据检查
   devices/           SQLite 设备与 token 存储
@@ -115,5 +131,5 @@ src/
   utils/             ID、错误、速率限制
 test/                单元测试与模拟集成测试
 data/                本地 SQLite 目录（内容已 gitignore）
-Dockerfile           多阶段生产镜像（非 root，健康检查打 `/health`）
+Dockerfile           多阶段生产镜像（含 Dashboard，非 root）
 ```
