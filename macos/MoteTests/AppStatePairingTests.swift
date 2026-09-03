@@ -77,24 +77,6 @@ final class AppStatePairingTests: XCTestCase {
         XCTAssertEqual(state.connectionState, .notConfigured)
         XCTAssertEqual(pairing.cancelCount, 1)
     }
-
-    func testCopyShortcutBearerHeaderDoesNotPersistToken() {
-        let state = AppState(credentials: CredentialManager(store: InMemoryKeychainStore()))
-        state.shortcutTokenInput = "shortcut-token"
-        state.copyShortcutBearerHeader()
-        XCTAssertEqual(state.shortcutTokenInput, "shortcut-token")
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "Bearer shortcut-token")
-    }
-
-    func testEmptyShortcutTokenIsNotCopied() {
-        let state = AppState(credentials: CredentialManager(store: InMemoryKeychainStore()))
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("keep", forType: .string)
-        state.shortcutTokenInput = "   "
-        XCTAssertFalse(state.canCopyShortcutBearer)
-        state.copyShortcutBearerHeader()
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "keep")
-    }
 }
 
 final class MockPairingService: PairingServicing, @unchecked Sendable {

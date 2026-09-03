@@ -37,10 +37,6 @@ enum ConnectionStatusCopy {
         }
     }
 
-    static func lockActionStatus(permissionGranted: Bool) -> String {
-        permissionGranted ? "Available" : "Unavailable"
-    }
-
     static func inlineError(state: ConnectionState, lastError: String?) -> InlineError? {
         if lastError == "Could not update Start at Login" {
             return nil
@@ -82,7 +78,7 @@ enum ConnectionStatusCopy {
 
     private static let invalidCredentialError = InlineError(
         title: "Device credential is invalid.",
-        detail: "Configure a valid Mote device credential to reconnect."
+        detail: "The stored device credential was rejected."
     )
 
     private static func isInvalidCredential(_ message: String) -> Bool {

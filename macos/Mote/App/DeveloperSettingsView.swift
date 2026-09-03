@@ -3,7 +3,6 @@ import SwiftUI
 #if DEBUG
 struct DeveloperSettingsView: View {
     @Environment(AppState.self) private var appState
-    @FocusState private var credentialFieldFocused: Bool
     @State private var isExpanded = false
     @State private var isLocking = false
     @State private var localLockMessage: String?
@@ -15,7 +14,6 @@ struct DeveloperSettingsView: View {
             DisclosureGroup(isExpanded: $isExpanded) {
                 AdvancedDebugContent(
                     appState: appState,
-                    credentialFieldFocused: $credentialFieldFocused,
                     isLocking: $isLocking,
                     localLockMessage: $localLockMessage
                 )
@@ -26,18 +24,11 @@ struct DeveloperSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .onChange(of: appState.shouldFocusCredential) { _, shouldFocus in
-            guard shouldFocus else { return }
-            isExpanded = true
-            credentialFieldFocused = true
-            appState.shouldFocusCredential = false
-        }
     }
 }
 
 private struct AdvancedDebugContent: View {
     @Bindable var appState: AppState
-    var credentialFieldFocused: FocusState<Bool>.Binding
     @Binding var isLocking: Bool
     @Binding var localLockMessage: String?
 
@@ -71,7 +62,6 @@ private struct AdvancedDebugContent: View {
                     .foregroundStyle(.secondary)
                 SecureField("Device credential", text: $appState.credentialInput)
                     .textFieldStyle(.roundedBorder)
-                    .focused(credentialFieldFocused)
                     .accessibilityLabel("Development device credential")
                 HStack(spacing: MoteSpacing.tight) {
                     Button("Save Credential") {

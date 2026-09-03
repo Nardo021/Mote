@@ -32,6 +32,7 @@ final class ConnectionStatusCopyTests: XCTestCase {
 
         let invalid = ConnectionStatusCopy.inlineError(state: .error("invalid_credentials"), lastError: "invalid_credentials")
         XCTAssertEqual(invalid?.title, "Device credential is invalid.")
+        XCTAssertEqual(invalid?.detail, "The stored device credential was rejected.")
 
         let pairing = ConnectionStatusCopy.inlineError(state: .pairing, lastError: "Pairing was denied.")
         XCTAssertEqual(pairing?.title, "Pairing was denied.")
@@ -39,10 +40,5 @@ final class ConnectionStatusCopyTests: XCTestCase {
         XCTAssertNil(ConnectionStatusCopy.inlineError(state: .connected, lastError: nil))
         XCTAssertNil(ConnectionStatusCopy.inlineError(state: .disconnected, lastError: "Could not update Start at Login"))
         XCTAssertTrue(ConnectionStatusCopy.isStartupError("Could not update Start at Login"))
-    }
-
-    func testLockActionStatus() {
-        XCTAssertEqual(ConnectionStatusCopy.lockActionStatus(permissionGranted: true), "Available")
-        XCTAssertEqual(ConnectionStatusCopy.lockActionStatus(permissionGranted: false), "Unavailable")
     }
 }

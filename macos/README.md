@@ -2,7 +2,7 @@
 
 Mote 的原生 macOS 应用和后台 Agent。
 
-当前版本 **1.2.0**（build **3**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
+当前版本 **1.3.0**（build **4**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
 
 ## 技术栈
 

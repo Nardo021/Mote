@@ -17,8 +17,6 @@ final class AppState {
     var wantsConnection = true
     var shouldOpenSettings = false
     var credentialInput = ""
-    var shortcutTokenInput = ""
-    var shouldFocusCredential = false
     private var pairingTask: Task<Void, Never>?
     private var activePair: PairCreated?
 
@@ -83,10 +81,6 @@ final class AppState {
 
     var lockPermissionText: String {
         lockPermissionGranted ? "Granted" : "Required"
-    }
-
-    var lockActionText: String {
-        ConnectionStatusCopy.lockActionStatus(permissionGranted: lockPermissionGranted)
     }
 
     var headerTransportText: String? {
@@ -211,11 +205,6 @@ final class AppState {
         NSPasteboard.general.setString(deviceID, forType: .string)
     }
 
-    func beginConfiguration() {
-        copyDeviceID()
-        shouldFocusCredential = true
-    }
-
     var canSaveCredential: Bool {
         !credentialInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -261,21 +250,9 @@ final class AppState {
         }
     }
 
-    func copyShortcutBearerHeader() {
-        let token = shortcutTokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
-        let header = token.hasPrefix("Bearer ") ? token : "Bearer \(token)"
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(header, forType: .string)
-    }
-
     func openShortcutSetup() {
         copyDeviceID()
         NSWorkspace.shared.open(relayConfiguration.shortcutSetupURL(deviceID: deviceID))
-    }
-
-    var canCopyShortcutBearer: Bool {
-        !shortcutTokenInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func runPairing() async {
