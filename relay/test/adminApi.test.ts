@@ -203,6 +203,74 @@ describe("admin API", () => {
     assert.equal(row.credentialHash, hashSecret(credential));
   });
 
+  it("renames a device and rejects a blank name", async () => {
+    const renamed = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/devices/${deviceId}/rename`,
+      headers: adminHeaders(cookie),
+      payload: { name: "书房 Mac mini" },
+    });
+    assert.equal(renamed.statusCode, 200);
+    assert.equal(renamed.json().name, "书房 Mac mini");
+
+    const detail = await server.app.inject({
+      method: "GET",
+      url: `/admin/api/devices/${deviceId}`,
+      headers: adminHeaders(cookie),
+    });
+    assert.equal(detail.statusCode, 200);
+    assert.equal(detail.json().name, "书房 Mac mini");
+    assert.equal(detail.json().last_command, null);
+
+    const blank = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/devices/${deviceId}/rename`,
+      headers: adminHeaders(cookie),
+      payload: { name: "   " },
+    });
+    assert.equal(blank.statusCode, 400);
+
+    const missing = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/devices/${deviceId}/rename`,
+      headers: adminHeaders(cookie),
+      payload: {},
+    });
+    assert.equal(missing.statusCode, 400);
+
+    const unauthenticated = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/devices/${deviceId}/rename`,
+      headers: adminHeaders(),
+      payload: { name: "Office Mac" },
+    });
+    assert.equal(unauthenticated.statusCode, 401);
+
+    const restored = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/devices/${deviceId}/rename`,
+      headers: adminHeaders(cookie),
+      payload: { name: "MacBook Pro" },
+    });
+    assert.equal(restored.statusCode, 200);
+    assert.equal(restored.json().name, "MacBook Pro");
+  });
+
+  it("includes last_command.error_code on admin devices", async () => {
+    const list = await server.app.inject({
+      method: "GET",
+      url: "/admin/api/devices",
+      headers: adminHeaders(cookie),
+    });
+    assert.equal(list.statusCode, 200);
+    const first = list.json().devices[0];
+    if (first.last_command === null) {
+      assert.equal(first.last_command, null);
+    } else {
+      assert.ok("error_code" in first.last_command);
+    }
+  });
+
   it("exposes the last reported app_version on admin devices", async () => {
     const mac = await authenticateDeviceSocket(
       server.wsUrl,

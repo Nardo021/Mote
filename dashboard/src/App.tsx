@@ -1,16 +1,16 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { AppShell } from "./components/AppShell.js";
+import { AuthenticatedLayout } from "./components/layout/authenticated-layout.js";
 import { LoadingState } from "./components/LoadingState.js";
+import { ActivityPage } from "./features/activity/index.js";
+import { DeviceDetailPage } from "./features/devices/detail.js";
+import { DevicesPage } from "./features/devices/index.js";
+import { LoginPage } from "./features/login/index.js";
+import { OverviewPage } from "./features/overview/index.js";
+import { SettingsPage } from "./features/settings/index.js";
+import { TokensPage } from "./features/tokens/index.js";
 import { useAuth } from "./hooks/useAuth.js";
-import { ActivityPage } from "./pages/ActivityPage.js";
-import { DeviceDetailPage } from "./pages/DeviceDetailPage.js";
-import { DevicesPage } from "./pages/DevicesPage.js";
-import { LoginPage } from "./pages/LoginPage.js";
-import { OverviewPage } from "./pages/OverviewPage.js";
-import { SettingsPage } from "./pages/SettingsPage.js";
-import { TokensPage } from "./pages/TokensPage.js";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { ready, user } = useAuth();
@@ -30,7 +30,7 @@ export function App() {
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <AuthenticatedLayout />
           </RequireAuth>
         }
       >

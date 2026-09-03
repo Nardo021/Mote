@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 
 export function CopyButton({
   value,
-  label = "Copy",
+  label,
 }: {
   value: string;
   label?: string;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const idle = label ?? t("common.copy");
 
   return (
     <Button
@@ -23,7 +26,7 @@ export function CopyButton({
         })();
       }}
     >
-      {copied ? "Copied" : label}
+      {copied ? t("common.copied") : idle}
     </Button>
   );
 }

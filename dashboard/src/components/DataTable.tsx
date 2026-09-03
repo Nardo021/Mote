@@ -2,6 +2,12 @@ import type { ReactNode } from "react";
 
 import { Card } from "@/components/ui/card";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   Table,
   TableBody,
   TableCell,
@@ -9,8 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-import { EmptyState } from "./EmptyState.js";
 
 type Column<T> = {
   key: string;
@@ -34,10 +38,15 @@ export function DataTable<T>({
   getRowKey,
 }: DataTableProps<T>) {
   if (rows.length === 0) {
-    return emptyDescription === undefined ? (
-      <EmptyState title={emptyTitle} />
-    ) : (
-      <EmptyState title={emptyTitle} description={emptyDescription} />
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          {emptyDescription ? (
+            <EmptyDescription>{emptyDescription}</EmptyDescription>
+          ) : null}
+        </EmptyHeader>
+      </Empty>
     );
   }
   return (

@@ -1,11 +1,12 @@
+import { useTranslation } from "react-i18next";
+
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-import { titleCaseStatus } from "../lib/format.js";
+import { useLocaleFormat } from "../hooks/useLocaleFormat.js";
 import {
   activityTone,
   devicePresence,
-  devicePresenceLabel,
   type DevicePresence,
 } from "../lib/status.js";
 
@@ -58,16 +59,18 @@ export function DeviceStatusBadge({ device }: DeviceProps) {
 }
 
 export function PresenceBadge({ presence }: { presence: DevicePresence }) {
+  const format = useLocaleFormat();
   return (
     <ToneBadge tone={presence} showDot>
-      {devicePresenceLabel(presence)}
+      {format.presence(presence)}
     </ToneBadge>
   );
 }
 
 export function EventStatusBadge({ status }: { status: string }) {
+  const format = useLocaleFormat();
   return (
-    <ToneBadge tone={activityTone(status)}>{titleCaseStatus(status)}</ToneBadge>
+    <ToneBadge tone={activityTone(status)}>{format.status(status)}</ToneBadge>
   );
 }
 
@@ -76,10 +79,13 @@ export function RelayStatusBadge({
 }: {
   status: "operational" | "unavailable";
 }) {
+  const { t } = useTranslation();
   const online = status === "operational";
   return (
     <ToneBadge tone={online ? "online" : "error"} showDot>
-      {online ? "Operational" : "Unavailable"}
+      {online
+        ? t("relayStatus.operational")
+        : t("relayStatus.unavailable")}
     </ToneBadge>
   );
 }

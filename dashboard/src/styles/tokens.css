@@ -23,8 +23,7 @@
     color-mix(in srgb, var(--mote-accent) 28%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+.dark {
     --mote-canvas: #101114;
     --mote-surface: #17191d;
     --mote-surface-secondary: #1e2126;
@@ -39,6 +38,5 @@
     --mote-success: #49c47d;
     --mote-warning: #e7a83a;
     --mote-error: #f06a6a;
-    --mote-offline: #777e88;
-  }
+  --mote-offline: #777e88;
 }

@@ -13,6 +13,7 @@
     "exactOptionalPropertyTypes": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "useDefineForClassFields": true,
     "types": ["vite/client"],

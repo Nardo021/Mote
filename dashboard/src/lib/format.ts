@@ -39,13 +39,32 @@ export function formatDuration(durationMs: number | null | undefined): string {
   return `${durationMs} ms`;
 }
 
+export type RelativeTimeCopy = {
+  justNow: string;
+  secondsAgo: (count: number) => string;
+  minuteAgo: string;
+  minutesAgo: (count: number) => string;
+  hourAgo: string;
+  hoursAgo: (count: number) => string;
+};
+
+const DEFAULT_RELATIVE: RelativeTimeCopy = {
+  justNow: "Just now",
+  secondsAgo: (count) => `${count} sec ago`,
+  minuteAgo: "1 minute ago",
+  minutesAgo: (count) => `${count} minutes ago`,
+  hourAgo: "1 hour ago",
+  hoursAgo: (count) => `${count} hours ago`,
+};
+
 export function formatAbsoluteTime(
   timestamp: number | null | undefined,
+  locale?: string,
 ): string {
   if (timestamp === null || timestamp === undefined) {
     return "—";
   }
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -53,11 +72,14 @@ export function formatAbsoluteTime(
   }).format(new Date(timestamp));
 }
 
-export function formatDate(timestamp: number | null | undefined): string {
+export function formatDate(
+  timestamp: number | null | undefined,
+  locale?: string,
+): string {
   if (timestamp === null || timestamp === undefined) {
     return "—";
   }
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -67,26 +89,28 @@ export function formatDate(timestamp: number | null | undefined): string {
 export function formatRelativeTime(
   timestamp: number | null | undefined,
   now: number = Date.now(),
+  locale?: string,
+  copy: RelativeTimeCopy = DEFAULT_RELATIVE,
 ): string {
   if (timestamp === null || timestamp === undefined) {
     return "—";
   }
   const delta = Math.max(0, now - timestamp);
   if (delta < 2_000) {
-    return "Just now";
+    return copy.justNow;
   }
   if (delta < 60_000) {
-    return `${Math.floor(delta / 1000)} sec ago`;
+    return copy.secondsAgo(Math.floor(delta / 1000));
   }
   if (delta < 3_600_000) {
     const minutes = Math.floor(delta / 60_000);
-    return minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`;
+    return minutes === 1 ? copy.minuteAgo : copy.minutesAgo(minutes);
   }
   if (delta < 86_400_000) {
     const hours = Math.floor(delta / 3_600_000);
-    return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+    return hours === 1 ? copy.hourAgo : copy.hoursAgo(hours);
   }
-  return formatDate(timestamp);
+  return formatDate(timestamp, locale);
 }
 
 export function formatUptime(uptimeMs: number): string {

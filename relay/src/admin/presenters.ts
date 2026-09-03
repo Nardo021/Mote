@@ -9,6 +9,7 @@ export type AdminLastCommand = {
   source: string;
   created_at: number;
   duration_ms: number | null;
+  error_code: string | null;
 };
 
 export type AdminDevice = {
@@ -38,6 +39,7 @@ export function presentLastCommand(
     source: command.source,
     created_at: command.created_at,
     duration_ms: command.duration_ms,
+    error_code: command.error_code,
   };
 }
 

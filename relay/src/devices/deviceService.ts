@@ -76,6 +76,16 @@ export class DeviceService {
     return { ...device, enabled: true, updatedAt: nowMs() };
   }
 
+  renameDevice(id: string, name: string): DeviceRecord {
+    const trimmed = name.trim();
+    if (trimmed === "") {
+      throw invalidRequest("Device name is required.");
+    }
+    const device = this.requireDevice(id);
+    this.devices.updateName(id, trimmed);
+    return { ...device, name: trimmed, updatedAt: nowMs() };
+  }
+
   rotateDeviceCredential(id: string): {
     device: DeviceRecord;
     credential: string;

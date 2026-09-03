@@ -84,6 +84,7 @@ export type LastCommandSummary = {
   source: CommandSource;
   created_at: number;
   duration_ms: number | null;
+  error_code: string | null;
 };
 
 export function mapCommandEventRow(row: CommandEventRow): CommandEventRecord {

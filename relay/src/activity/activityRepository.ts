@@ -105,7 +105,7 @@ export class ActivityRepository {
   latestForDevice(deviceId: string): LastCommandSummary | undefined {
     const row = this.db
       .prepare(
-        `SELECT command_id, action, status, source, created_at, duration_ms
+        `SELECT command_id, action, status, source, created_at, duration_ms, error_code
          FROM command_events
          WHERE device_id = ?
          ORDER BY created_at DESC
@@ -119,6 +119,7 @@ export class ActivityRepository {
           source: LastCommandSummary["source"];
           created_at: number;
           duration_ms: number | null;
+          error_code: string | null;
         }
       | undefined;
     if (!row) {
@@ -131,6 +132,7 @@ export class ActivityRepository {
       source: row.source,
       created_at: row.created_at,
       duration_ms: row.duration_ms,
+      error_code: row.error_code,
     };
   }
 

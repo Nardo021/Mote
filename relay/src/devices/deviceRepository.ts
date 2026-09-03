@@ -43,6 +43,13 @@ export class DeviceRepository {
     return rows.map(mapDeviceRow);
   }
 
+  updateName(id: string, name: string): boolean {
+    const result = this.db
+      .prepare("UPDATE devices SET name = ?, updated_at = ? WHERE id = ?")
+      .run(name, nowMs(), id);
+    return result.changes > 0;
+  }
+
   setEnabled(id: string, enabled: boolean): boolean {
     const result = this.db
       .prepare("UPDATE devices SET enabled = ?, updated_at = ? WHERE id = ?")

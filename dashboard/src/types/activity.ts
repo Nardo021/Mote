@@ -39,6 +39,7 @@ export type OverviewResponse = {
     status: string;
     created_at: number;
     duration_ms: number | null;
+    error_code: string | null;
   }>;
 };
 

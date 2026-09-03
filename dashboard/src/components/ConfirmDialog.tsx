@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const confirmedRef = useRef(false);
 
   return (
@@ -48,7 +50,9 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>
+            {t("common.cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={danger ? "destructive" : "default"}
             disabled={busy}

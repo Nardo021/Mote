@@ -5,6 +5,7 @@ export type LastCommand = {
   source: string;
   created_at: number;
   duration_ms: number | null;
+  error_code: string | null;
 };
 
 export type AdminDevice = {

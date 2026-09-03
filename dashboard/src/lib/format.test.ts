@@ -3,6 +3,7 @@ import { describe, it } from "vitest";
 
 import {
   commandUrl,
+  formatDate,
   formatDuration,
   formatRelativeTime,
   lastCommandLabel,
@@ -21,6 +22,18 @@ describe("format helpers", () => {
     assert.equal(formatRelativeTime(null), "—");
     assert.equal(formatDuration(38), "38 ms");
     assert.equal(formatDuration(null), "—");
+    assert.equal(
+      formatRelativeTime(now, now, "zh-CN", {
+        justNow: "刚刚",
+        secondsAgo: (count) => `${count} 秒前`,
+        minuteAgo: "1 分钟前",
+        minutesAgo: (count) => `${count} 分钟前`,
+        hourAgo: "1 小时前",
+        hoursAgo: (count) => `${count} 小时前`,
+      }),
+      "刚刚",
+    );
+    assert.match(formatDate(now, "en"), /1970|Jan/);
   });
 
   it("shortens device ids and labels last commands", () => {

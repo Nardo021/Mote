@@ -197,6 +197,7 @@ export async function registerAdminRoutes(
             status: event.status,
             created_at: event.createdAt,
             duration_ms: event.durationMs,
+            error_code: event.errorCode,
           };
         });
         return {
@@ -279,6 +280,25 @@ export async function registerAdminRoutes(
         requireAdmin(request, ctx);
         const params = request.params as { id: string };
         const device = ctx.devices.requireDevice(params.id);
+        return presentAdminDevice(
+          device,
+          ctx.connections.get(device.id),
+          ctx.activity.latestForDevice(device.id),
+        );
+      });
+
+      admin.post("/devices/:id/rename", async (request) => {
+        const session = requireAdmin(request, ctx);
+        const params = request.params as { id: string };
+        const body = parseObjectBody(request.body);
+        const device = ctx.devices.renameDevice(
+          params.id,
+          requiredString(body, "name"),
+        );
+        request.log.info(
+          { admin_id: session.adminId, device_id: device.id },
+          "device renamed",
+        );
         return presentAdminDevice(
           device,
           ctx.connections.get(device.id),

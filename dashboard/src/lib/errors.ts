@@ -23,13 +23,47 @@ const FRIENDLY: Record<string, string> = {
   UNSUPPORTED_ACTION: "That action is not supported.",
   COMMAND_TIMEOUT: "The device did not confirm the command in time.",
   COMMAND_FAILED: "The command did not complete.",
+  INVALID_REQUEST: "That request was not valid.",
 };
+
+const ERROR_KEYS: Record<string, string> = {
+  DEVICE_OFFLINE: "errors.DEVICE_OFFLINE",
+  DEVICE_DISABLED: "errors.DEVICE_DISABLED",
+  DEVICE_NOT_FOUND: "errors.DEVICE_NOT_FOUND",
+  UNAUTHORIZED: "errors.UNAUTHORIZED",
+  ADMIN_DISABLED: "errors.ADMIN_DISABLED",
+  SESSION_EXPIRED: "errors.SESSION_EXPIRED",
+  RATE_LIMITED: "errors.RATE_LIMITED",
+  UNSUPPORTED_ACTION: "errors.UNSUPPORTED_ACTION",
+  COMMAND_TIMEOUT: "errors.COMMAND_TIMEOUT",
+  COMMAND_FAILED: "errors.COMMAND_FAILED",
+  INVALID_REQUEST: "errors.INVALID_REQUEST",
+};
+
+export function errorMessageKey(code: string): string {
+  return ERROR_KEYS[code] ?? "errors.unknown";
+}
 
 export function friendlyError(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     return FRIENDLY[error.code] ?? error.message ?? fallback;
   }
   return fallback;
+}
+
+export function translateError(
+  error: unknown,
+  translate: (key: string) => string,
+  fallbackKey: string,
+): string {
+  if (error instanceof ApiError) {
+    const key = ERROR_KEYS[error.code];
+    if (key !== undefined) {
+      return translate(key);
+    }
+    return error.message === "" ? translate(fallbackKey) : error.message;
+  }
+  return translate(fallbackKey);
 }
 
 export function parseApiError(status: number, body: unknown): ApiError {

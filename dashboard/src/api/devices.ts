@@ -9,10 +9,24 @@ export function getDevice(id: string): Promise<AdminDevice> {
   return apiRequest<AdminDevice>(`/admin/api/devices/${id}`);
 }
 
-export function lockDevice(id: string): Promise<CommandResult> {
+export function sendDeviceCommand(
+  id: string,
+  action: string,
+): Promise<CommandResult> {
   return apiRequest<CommandResult>(`/admin/api/devices/${id}/commands`, {
     method: "POST",
-    body: { action: "lock" },
+    body: { action },
+  });
+}
+
+export function lockDevice(id: string): Promise<CommandResult> {
+  return sendDeviceCommand(id, "lock");
+}
+
+export function renameDevice(id: string, name: string): Promise<AdminDevice> {
+  return apiRequest<AdminDevice>(`/admin/api/devices/${id}/rename`, {
+    method: "POST",
+    body: { name },
   });
 }
 
