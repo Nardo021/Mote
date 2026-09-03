@@ -179,7 +179,7 @@
     "enable": "Enable device",
     "lockTitle": "Lock {{name}}?",
     "lockDescription": "This will immediately lock the current macOS session.",
-    "locked": "Lock command sent.",
+    "locked": "Mac locked.",
     "retried": "Command sent again.",
     "actionFailed": "Could not complete that action.",
     "noCommand": "No command yet",
@@ -315,6 +315,7 @@
     "UNSUPPORTED_ACTION": "That action is not supported.",
     "COMMAND_TIMEOUT": "The device did not confirm the command in time.",
     "COMMAND_FAILED": "The command did not complete.",
+    "PERMISSION_REQUIRED": "This Mac still needs Accessibility permission.",
     "INVALID_REQUEST": "That request was not valid."
   }
 }

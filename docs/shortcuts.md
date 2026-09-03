@@ -182,7 +182,7 @@ https://www.icloud.com/shortcuts/<分享 ID>
 | `status`                                         | HTTP | 含义                                    |
 | ------------------------------------------------ | ---- | --------------------------------------- |
 | `completed`                                      | 200  | Mac 已锁屏                              |
-| `permission_required`                            | 200  | Mac 在线，但辅助功能未授权              |
+| `permission_required`                            | 200  | 会话锁屏不可用，且辅助功能未授权        |
 | `failed` / `expired` / `invalid` / `unsupported` | 200  | 命令未执行；看 Mac 或 Relay 活动日志    |
 | `offline`                                        | 409  | Mac 未连接；不排队                      |
 | `disabled`                                       | 409  | 设备已在 Relay 禁用                     |
@@ -202,7 +202,7 @@ https://www.icloud.com/shortcuts/<分享 ID>
 
 | 现象                       | 先查                                                                                   |
 | -------------------------- | -------------------------------------------------------------------------------------- |
-| Siri 说完成了但 Mac 没锁   | curl 是否已是 `completed`；Mac 辅助功能；是否锁的是另一台已登记设备                    |
+| Siri 说完成了但 Mac 没锁   | curl 是否已是 `completed`；是否锁的是另一台已登记设备；仅回退路径才需要辅助功能        |
 | 快捷指令报不允许访问网络   | 首次权限；聚焦模式 / 屏幕使用时间是否限制快捷指令                                      |
 | `offline`                  | 菜单栏是否 Connected；合盖睡眠后等重连                                                 |
 | `permission_required`      | Mac 设置 → 隐私与安全性 → 辅助功能 → 允许 Mote                                         |

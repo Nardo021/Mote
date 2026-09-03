@@ -143,7 +143,7 @@ mote/
 
 | 区域         | 技术                                                                                                         | 状态              |
 | ------------ | ------------------------------------------------------------------------------------------------------------ | ----------------- |
-| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.2）   |
+| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.4）   |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                              | 已实现            |
 | Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                           | 由 Relay 静态托管 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket；配对另有 `/v1/ws/pair`                                                     | 已实现            |
@@ -155,7 +155,7 @@ mote/
 
 **Phase 1 — 仓库基础** 已完成。
 
-**Phase 2 — Mote for Mac** 已完成。原生 Mac 应用、菜单栏 Agent、钥匙串凭据、命令校验、锁屏动作和出站 WebSocket 均已实现。当前版本 `1.5.2`（build `10`）。
+**Phase 2 — Mote for Mac** 已完成。原生 Mac 应用、菜单栏 Agent、钥匙串凭据、命令校验、锁屏动作和出站 WebSocket 均已实现。当前版本 `1.5.4`（build `12`）。
 
 **Phase 3 — Mote Relay** 已完成。Fastify HTTP API、设备 WebSocket、配对、SQLite、CLI、Docker 镜像、Compose 栈和 PVE 文档均已实现。同一容器提供管理员 Dashboard。
 
@@ -164,6 +164,10 @@ mote/
 **Phase 5 — Mote iOS** 尚未实现。个人用原生客户端，走现有命令 API，不上架 App Store。见 [docs/ios.md](docs/ios.md)。
 
 **之后 — 本地直连** 未实现。Bonjour / 家庭直连属于 **Future / not implemented**。
+
+## TODO
+
+- [ ] 加入手机 App（Mote iOS）：原生客户端，走现有 `send_command` HTTPS API，Xcode 直装到自己的 iPhone，不上架。见 [docs/ios.md](docs/ios.md)。
 
 ## 安全原则
 

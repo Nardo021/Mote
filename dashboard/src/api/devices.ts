@@ -1,3 +1,4 @@
+import { requireCompletedCommand } from "../lib/commandResult.js";
 import type { AdminDevice, CommandResult } from "../types/device.js";
 import { apiRequest } from "./client.js";
 
@@ -9,14 +10,18 @@ export function getDevice(id: string): Promise<AdminDevice> {
   return apiRequest<AdminDevice>(`/admin/api/devices/${id}`);
 }
 
-export function sendDeviceCommand(
+export async function sendDeviceCommand(
   id: string,
   action: string,
 ): Promise<CommandResult> {
-  return apiRequest<CommandResult>(`/admin/api/devices/${id}/commands`, {
-    method: "POST",
-    body: { action },
-  });
+  const result = await apiRequest<CommandResult>(
+    `/admin/api/devices/${id}/commands`,
+    {
+      method: "POST",
+      body: { action },
+    },
+  );
+  return requireCompletedCommand(result);
 }
 
 export function lockDevice(id: string): Promise<CommandResult> {

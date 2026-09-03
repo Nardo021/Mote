@@ -128,7 +128,7 @@ struct MainWindowView: View {
             MoteRow(label: "Lock") {
                 MoteValueText(
                     text: appState.lockAvailabilityText,
-                    color: appState.lockPermissionGranted ? MoteColors.success : MoteColors.warning
+                    color: MoteColors.success
                 )
             }
         }
@@ -145,7 +145,7 @@ struct MainWindowView: View {
 
             if !appState.lockPermissionGranted {
                 MoteGroupDivider()
-                MoteHelperBlock(text: "Mote needs Accessibility permission to lock this Mac remotely.") {
+                MoteHelperBlock(text: "Accessibility is only used if session lock is unavailable.") {
                     MoteTextAction(title: "Open System Settings", hint: "Opens System Settings") {
                         appState.openAccessibilitySettings()
                     }

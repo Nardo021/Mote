@@ -179,7 +179,7 @@
     "enable": "启用设备",
     "lockTitle": "锁定 {{name}}？",
     "lockDescription": "这会立即锁定当前的 macOS 会话。",
-    "locked": "锁定命令已发送。",
+    "locked": "已锁定这台 Mac。",
     "retried": "已再次发送命令。",
     "actionFailed": "无法完成该操作。",
     "noCommand": "还没有命令",
@@ -315,6 +315,7 @@
     "UNSUPPORTED_ACTION": "不支持该操作。",
     "COMMAND_TIMEOUT": "设备没有在时限内确认命令。",
     "COMMAND_FAILED": "命令没有完成。",
+    "PERMISSION_REQUIRED": "这台 Mac 仍需要辅助功能权限。",
     "INVALID_REQUEST": "请求无效。"
   }
 }

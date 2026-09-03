@@ -120,7 +120,7 @@ final class AppState {
     }
 
     var lockAvailabilityText: String {
-        lockPermissionGranted ? "Available" : "Unavailable"
+        "Available"
     }
 
     var connectActionTitle: String {

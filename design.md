@@ -607,10 +607,10 @@ Start Mote at Login   [ON]
 Device
 Name                  MacBook Pro
 Device ID             7B0F…
-Version               1.5.2 (10)
+Version               1.5.4 (12)
 ```
 
-`Lock` 为 `Available` 或 `Unavailable`。`Lock Permission` 为 `Granted` 或 `Required`。未配置时不显示 Connection / Remote Actions / Shortcuts，只显示 Pair 空状态。
+`Lock` 为 `Available`。`Lock Permission` 为 `Granted` 或 `Required`（仅快捷键回退需要）。未配置时不显示 Connection / Remote Actions / Shortcuts，只显示 Pair 空状态。
 
 使用分组分区，而不是仪表盘卡片。
 
@@ -736,7 +736,7 @@ Reconnect
 Start Mote at Login      [ON]
 ```
 
-Remote Actions 不是开关。当前是只读行：`Lock` → `Available` / `Unavailable`。
+Remote Actions 不是开关。当前是只读行：`Lock` → `Available`。
 
 不要做移动端那种过大的开关行。
 
@@ -1069,7 +1069,7 @@ Persistent WebSocket Transport
 │ DEVICE                                      │
 │ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
-│ Version                      1.5.2 (10)     │
+│ Version                      1.5.4 (12)     │
 └─────────────────────────────────────────────┘
 ```
 

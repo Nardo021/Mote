@@ -2,7 +2,7 @@
 
 Mote 的原生 macOS 应用和后台 Agent。
 
-当前版本 **1.5.2**（build **10**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
+当前版本 **1.5.4**（build **12**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
 
 ## 技术栈
 
@@ -11,8 +11,9 @@ Mote 的原生 macOS 应用和后台 Agent。
 - Security / 钥匙串服务
 - ServiceManagement（`SMAppService`）
 - OSLog
-- CoreGraphics 锁屏快捷键（`Control + Command + Q`）
-- ApplicationServices 辅助功能信任（`AXIsProcessTrusted`）
+- `login.framework` 会话锁屏（`SACLockScreenImmediate`）
+- CoreGraphics 锁屏快捷键回退（`Control + Command + Q`）
+- ApplicationServices 辅助功能信任（`AXIsProcessTrusted`，仅回退路径）
 
 部署目标：**macOS 14+**
 
@@ -70,7 +71,7 @@ macos/
 4. 凭据存在且已启用 Connect → 出站 `wss://relay.yanze.me/v1/ws/device`。
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
-7. **Remote Actions → Lock** 显示 `Available` 或 `Unavailable`（取决于辅助功能）。
+7. **Remote Actions → Lock** 显示 `Available`。锁屏优先走登录会话，不依赖辅助功能。
 8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**，或 Dashboard 禁用 / 轮换了凭据。
 9. Dashboard **Disable** → 状态为 **Disabled**，立即停止重连。Dashboard Enable 后按 **Reconnect**（凭据未变）。不要 Pair。
 10. Dashboard **Rotate credential** → 停止重连。Connection 区折叠 **Paste credential**，粘贴 Dashboard 显示的一次性新凭据后连接。已登记设备再 Pair 会 409。
@@ -125,15 +126,9 @@ docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --
 
 ## 锁屏动作与辅助功能
 
-远程 `lock` 映射到受信任的本地实现：合成官方 **Control + Command + Q** 锁屏快捷键。
+远程 `lock` 优先调用登录会话的 `SACLockScreenImmediate`。这条路径不需要辅助功能，也不模拟快捷键。
 
-这需要辅助功能 / 事件发送信任。应用会：
-
-- 用 `AXIsProcessTrusted` 检测信任
-- 显示 **Lock Permission — Granted / Required**
-- 按请求打开系统设置
-- 若缺少信任，以 `permission_required` 干净失败
-- 不会在每次启动时刷系统提示
+仅当会话锁屏不可用时，才回退到 **Control + Command + Q**，并检查 `AXIsProcessTrusted`。缺少信任时以 `permission_required` 干净失败，不会在每次启动时刷系统提示。
 
 认证并校验通过后，远程锁屏会立即执行。DEBUG **Test Lock** 只走 `ActionExecutor`，并标明会立即锁定这台 Mac。
 
@@ -175,7 +170,7 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 - 设备名 + 连接状态；已连接时显示 `Relay · 4 ms`
 - **Connection** — Relay 主机与延迟；未配置时不显示。断开 / 禁用 / 凭据失效后主按钮为 **Reconnect**。轮换或无效凭据时出现折叠的 **Paste credential**
-- **Remote Actions** — `Lock`：`Available` 或 `Unavailable`
+- **Remote Actions** — `Lock`：`Available`
 - **Permissions** — Lock Permission：`Granted` 或 `Required`，缺权限时可打开系统设置
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
 - **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID、Version

@@ -23,6 +23,7 @@ const FRIENDLY: Record<string, string> = {
   UNSUPPORTED_ACTION: "That action is not supported.",
   COMMAND_TIMEOUT: "The device did not confirm the command in time.",
   COMMAND_FAILED: "The command did not complete.",
+  PERMISSION_REQUIRED: "This Mac still needs Accessibility permission.",
   INVALID_REQUEST: "That request was not valid.",
 };
 
@@ -37,6 +38,7 @@ const ERROR_KEYS: Record<string, string> = {
   UNSUPPORTED_ACTION: "errors.UNSUPPORTED_ACTION",
   COMMAND_TIMEOUT: "errors.COMMAND_TIMEOUT",
   COMMAND_FAILED: "errors.COMMAND_FAILED",
+  PERMISSION_REQUIRED: "errors.PERMISSION_REQUIRED",
   INVALID_REQUEST: "errors.INVALID_REQUEST",
 };
 
