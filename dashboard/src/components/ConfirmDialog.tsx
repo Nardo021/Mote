@@ -1,4 +1,16 @@
-import { useEffect, useId, useRef } from "react";
+import { useRef } from "react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 type ConfirmDialogProps = {
   title: string;
@@ -19,75 +31,37 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
-  const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    cancelRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-      if (event.key === "Tab" && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          "button:not([disabled])",
-        );
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (first === undefined || last === undefined) {
-          return;
-        }
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      if (previouslyFocused instanceof HTMLElement) {
-        previouslyFocused.focus();
-      }
-    };
-  }, [onCancel]);
+  const confirmedRef = useRef(false);
 
   return (
-    <div className="dialog-backdrop">
-      <div
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        ref={dialogRef}
-      >
-        <h2 id={titleId}>{title}</h2>
-        <p>{description}</p>
-        <div className="dialog-actions">
-          <button
-            type="button"
-            className="btn"
-            ref={cancelRef}
-            onClick={onCancel}
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy && !confirmedRef.current) {
+          onCancel();
+        }
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant={danger ? "destructive" : "default"}
             disabled={busy}
+            onClick={() => {
+              confirmedRef.current = true;
+              onConfirm();
+            }}
           >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={`btn ${danger ? "btn-danger" : "btn-primary"}`}
-            onClick={onConfirm}
-            disabled={busy}
-          >
+            {busy ? <Spinner data-icon="inline-start" /> : null}
             {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

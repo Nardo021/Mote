@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
+
 import {
   disableDevice,
   enableDevice,
@@ -9,9 +11,15 @@ import {
   rotateDeviceCredential,
 } from "../api/devices.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { SecretDialog } from "../components/SecretDialog.js";
-import { Section } from "../components/Section.js";
+import {
+  ActionPanel,
+  PropertyList,
+  PropertyRow,
+  Section,
+} from "../components/Section.js";
 import { DeviceStatusBadge } from "../components/StatusBadge.js";
 import { TopBar } from "../components/TopBar.js";
 import { usePolling } from "../hooks/usePolling.js";
@@ -59,12 +67,10 @@ export function DeviceDetailPage() {
 
   if (device === null) {
     return (
-      <div className="error-state panel">
-        <span>{error ?? "Device not found."}</span>
-        <button type="button" className="btn" onClick={() => void refresh()}>
-          Retry
-        </button>
-      </div>
+      <ErrorBanner
+        message={error ?? "Device not found."}
+        onRetry={() => void refresh()}
+      />
     );
   }
 
@@ -84,13 +90,22 @@ export function DeviceDetailPage() {
   async function runAction(action: Exclude<Pending, null>) {
     setBusy(true);
     try {
-      if (action === "lock") {
-        await lockDevice(current.id);
-      } else if (action === "rotate") {
-        const rotated = await rotateDeviceCredential(current.id);
-        setSecret(rotated.credential);
-      } else {
-        setDevice(await disableDevice(current.id));
+      switch (action) {
+        case "lock":
+          await lockDevice(current.id);
+          break;
+        case "rotate": {
+          const rotated = await rotateDeviceCredential(current.id);
+          setSecret(rotated.credential);
+          break;
+        }
+        case "disable":
+          setDevice(await disableDevice(current.id));
+          break;
+        default: {
+          const _exhaustive: never = action;
+          return _exhaustive;
+        }
       }
       setPending(null);
       await refresh();
@@ -106,89 +121,71 @@ export function DeviceDetailPage() {
     <>
       <TopBar
         title={current.name}
-        subtitle={<Link to="/devices">Devices</Link>}
+        subtitle={
+          <Link className="hover:underline" to="/devices">
+            Devices
+          </Link>
+        }
         action={<DeviceStatusBadge device={current} />}
       />
+      {error ? <ErrorBanner message={error} /> : null}
       <Section title="Device">
-        <div className="panel">
-          <div className="row">
-            <span className="row-label">Device ID</span>
+        <PropertyList>
+          <PropertyRow label="Device ID">
             <span className="mono" title={device.id}>
               {shortenId(device.id)}
             </span>
-          </div>
-          <div className="row">
-            <span className="row-label">Status</span>
+          </PropertyRow>
+          <PropertyRow label="Status">
             <DeviceStatusBadge device={device} />
-          </div>
-          <div className="row">
-            <span className="row-label">App Version</span>
+          </PropertyRow>
+          <PropertyRow label="App Version">
             <span className="mono">{device.app_version ?? "—"}</span>
-          </div>
-          <div className="row">
-            <span className="row-label">Last Seen</span>
-            <span>{formatRelativeTime(device.last_seen_at)}</span>
-          </div>
-          <div className="row">
-            <span className="row-label">Connected Since</span>
-            <span>
-              {device.online ? formatAbsoluteTime(device.connected_at) : "—"}
-            </span>
-          </div>
-        </div>
+          </PropertyRow>
+          <PropertyRow label="Last Seen">
+            {formatRelativeTime(device.last_seen_at)}
+          </PropertyRow>
+          <PropertyRow label="Connected Since">
+            {device.online ? formatAbsoluteTime(device.connected_at) : "—"}
+          </PropertyRow>
+        </PropertyList>
       </Section>
       <Section title="Relay">
-        <div className="panel">
-          <div className="row">
-            <span className="row-label">Connection</span>
-            <span>{device.online ? "WebSocket" : "—"}</span>
-          </div>
-          <div className="row">
-            <span className="row-label">Last Heartbeat</span>
-            <span>
-              {device.online
-                ? formatRelativeTime(device.last_heartbeat_at)
-                : "—"}
-            </span>
-          </div>
-        </div>
+        <PropertyList>
+          <PropertyRow label="Connection">
+            {device.online ? "WebSocket" : "—"}
+          </PropertyRow>
+          <PropertyRow label="Last Heartbeat">
+            {device.online
+              ? formatRelativeTime(device.last_heartbeat_at)
+              : "—"}
+          </PropertyRow>
+        </PropertyList>
       </Section>
       <Section title="Last Command">
-        <div className="panel">
-          <div className="row">
-            <span className="row-label">Action</span>
-            <span>
-              {device.last_command
-                ? titleCaseAction(device.last_command.action)
-                : "—"}
-            </span>
-          </div>
-          <div className="row">
-            <span className="row-label">Status</span>
-            <span>
-              {device.last_command
-                ? titleCaseStatus(device.last_command.status)
-                : "—"}
-            </span>
-          </div>
-          <div className="row">
-            <span className="row-label">Duration</span>
-            <span>{formatDuration(device.last_command?.duration_ms)}</span>
-          </div>
-          <div className="row">
-            <span className="row-label">Time</span>
-            <span>{formatAbsoluteTime(device.last_command?.created_at)}</span>
-          </div>
-        </div>
+        <PropertyList>
+          <PropertyRow label="Action">
+            {device.last_command
+              ? titleCaseAction(device.last_command.action)
+              : "—"}
+          </PropertyRow>
+          <PropertyRow label="Status">
+            {device.last_command
+              ? titleCaseStatus(device.last_command.status)
+              : "—"}
+          </PropertyRow>
+          <PropertyRow label="Duration">
+            {formatDuration(device.last_command?.duration_ms)}
+          </PropertyRow>
+          <PropertyRow label="Time">
+            {formatAbsoluteTime(device.last_command?.created_at)}
+          </PropertyRow>
+        </PropertyList>
       </Section>
       <Section title="Actions">
-        <div
-          className="panel"
-          style={{ padding: 16, display: "flex", gap: 8, flexWrap: "wrap" }}
-        >
-          <button
+        <ActionPanel>
+          <Button
             type="button"
-            className="btn btn-primary"
             disabled={!device.enabled || !device.online}
             title={
               !device.online
@@ -198,39 +195,37 @@ export function DeviceDetailPage() {
             onClick={() => setPending("lock")}
           >
             Lock
-          </button>
-        </div>
+          </Button>
+        </ActionPanel>
       </Section>
       <Section title="Security">
-        <div
-          className="panel"
-          style={{ padding: 16, display: "flex", gap: 8, flexWrap: "wrap" }}
-        >
-          <button
+        <ActionPanel>
+          <Button
             type="button"
-            className="btn"
+            variant="outline"
             onClick={() => setPending("rotate")}
           >
             Rotate Credential
-          </button>
+          </Button>
           {device.enabled ? (
-            <button
+            <Button
               type="button"
-              className="btn btn-danger"
+              variant="destructive"
               onClick={() => setPending("disable")}
             >
               Disable Device
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
-              className="btn"
+              variant="outline"
+              disabled={busy}
               onClick={() => void runEnable()}
             >
               Enable Device
-            </button>
+            </Button>
           )}
-        </div>
+        </ActionPanel>
       </Section>
       {pending === "lock" ? (
         <ConfirmDialog

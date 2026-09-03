@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+
 import {
   createToken,
   disableToken,
@@ -9,6 +14,7 @@ import {
 } from "../api/tokens.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
 import { DataTable } from "../components/DataTable.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { SecretDialog } from "../components/SecretDialog.js";
 import { TopBar } from "../components/TopBar.js";
@@ -64,33 +70,26 @@ export function TokensPage() {
       />
       <form
         onSubmit={(event) => void onCreate(event)}
-        style={{ display: "flex", gap: 8, marginBottom: 20 }}
+        className="mb-5 flex items-end gap-2"
       >
-        <div className="field" style={{ flex: 1, maxWidth: 280 }}>
-          <label htmlFor="token-name">Name</label>
-          <input
-            id="token-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          className="btn btn-primary"
-          style={{ alignSelf: "end" }}
-          disabled={busy}
-        >
+        <FieldGroup className="max-w-[280px] flex-1">
+          <Field>
+            <FieldLabel htmlFor="token-name">Name</FieldLabel>
+            <Input
+              id="token-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </Field>
+        </FieldGroup>
+        <Button type="submit" disabled={busy}>
+          {busy ? <Spinner data-icon="inline-start" /> : null}
           Create Token
-        </button>
+        </Button>
       </form>
       {error && tokens === null ? (
-        <div className="error-state panel">
-          <span>{error}</span>
-          <button type="button" className="btn" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorBanner message={error} onRetry={() => void refresh()} />
       ) : tokens === null ? (
         <LoadingState />
       ) : (
@@ -125,32 +124,35 @@ export function TokensPage() {
               key: "actions",
               header: "Actions",
               render: (token) => (
-                <span style={{ display: "inline-flex", gap: 8 }}>
-                  <button
+                <span className="inline-flex gap-2">
+                  <Button
                     type="button"
-                    className="btn"
+                    variant="outline"
+                    size="sm"
                     onClick={() => setPending({ type: "rotate", token })}
                   >
                     Rotate
-                  </button>
+                  </Button>
                   {token.enabled ? (
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-danger"
+                      variant="destructive"
+                      size="sm"
                       onClick={() => setPending({ type: "disable", token })}
                     >
                       Disable
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="btn"
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         void enableToken(token.id).then(refresh);
                       }}
                     >
                       Enable
-                    </button>
+                    </Button>
                   )}
                 </span>
               ),

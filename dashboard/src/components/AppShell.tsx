@@ -1,21 +1,30 @@
-import { useState } from "react";
+import type { CSSProperties } from "react";
 import { Outlet } from "react-router-dom";
+
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { Sidebar } from "./Sidebar.js";
 
 export function AppShell() {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="app-shell">
+    <SidebarProvider
+      style={{ "--sidebar-width": "220px" } as CSSProperties}
+    >
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <Sidebar open={open} onToggle={() => setOpen((value) => !value)} />
-      <div className="content">
-        <div className="content-inner" id="main">
+      <Sidebar />
+      <SidebarInset>
+        <div className="flex items-center px-4 py-2 md:hidden">
+          <SidebarTrigger />
+        </div>
+        <div
+          className="mx-auto w-full max-w-[1120px] px-8 py-7"
+          id="main"
+        >
           <Outlet />
         </div>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

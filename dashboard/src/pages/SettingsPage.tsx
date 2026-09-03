@@ -1,10 +1,31 @@
 import { useEffect, useState, type FormEvent } from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+
 import { changePassword } from "../api/auth.js";
 import { getSystem } from "../api/system.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
-import { Section } from "../components/Section.js";
+import {
+  PropertyList,
+  PropertyRow,
+  Section,
+} from "../components/Section.js";
 import { TopBar } from "../components/TopBar.js";
 import { useAuth } from "../hooks/useAuth.js";
 import { friendlyError } from "../lib/errors.js";
@@ -52,71 +73,47 @@ export function SettingsPage() {
   return (
     <>
       <TopBar title="Settings" />
-      {error ? (
-        <div className="error-state panel" style={{ marginBottom: 20 }}>
-          <span>{error}</span>
-        </div>
-      ) : null}
+      {error ? <ErrorBanner message={error} /> : null}
       {system ? (
         <Section title="Relay">
-          <div className="panel">
-            <div className="row">
-              <span className="row-label">Public URL</span>
-              <span>{system.public_url}</span>
-            </div>
-            <div className="row">
-              <span className="row-label">Protocol</span>
-              <span>Mote Protocol v{system.protocol_version}</span>
-            </div>
-            <div className="row">
-              <span className="row-label">Environment</span>
-              <span style={{ textTransform: "capitalize" }}>
-                {system.environment}
-              </span>
-            </div>
-            <div className="row">
-              <span className="row-label">Database</span>
-              <span>SQLite</span>
-            </div>
-            <div className="row">
-              <span className="row-label">Command TTL</span>
-              <span>{system.command_ttl_ms / 1000} seconds</span>
-            </div>
-            <div className="row">
-              <span className="row-label">Heartbeat stale threshold</span>
-              <span>{system.heartbeat_stale_ms / 1000} seconds</span>
-            </div>
-            <div className="row">
-              <span className="row-label">Uptime</span>
-              <span>{formatUptime(system.uptime_ms)}</span>
-            </div>
-          </div>
+          <PropertyList>
+            <PropertyRow label="Public URL">{system.public_url}</PropertyRow>
+            <PropertyRow label="Protocol">
+              Mote Protocol v{system.protocol_version}
+            </PropertyRow>
+            <PropertyRow label="Environment">
+              <span className="capitalize">{system.environment}</span>
+            </PropertyRow>
+            <PropertyRow label="Database">SQLite</PropertyRow>
+            <PropertyRow label="Command TTL">
+              {system.command_ttl_ms / 1000} seconds
+            </PropertyRow>
+            <PropertyRow label="Heartbeat stale threshold">
+              {system.heartbeat_stale_ms / 1000} seconds
+            </PropertyRow>
+            <PropertyRow label="Uptime">
+              {formatUptime(system.uptime_ms)}
+            </PropertyRow>
+          </PropertyList>
         </Section>
       ) : null}
       <Section title="Administrator">
-        <div className="panel">
-          <div className="row">
-            <span className="row-label">Username</span>
-            <span>{user?.username ?? "—"}</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setChanging(true)}
-          >
+        <PropertyList>
+          <PropertyRow label="Username">{user?.username ?? "—"}</PropertyRow>
+        </PropertyList>
+        <div className="mt-3 flex gap-2">
+          <Button type="button" variant="outline" onClick={() => setChanging(true)}>
             Change Password
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn"
+            variant="outline"
             onClick={() => setConfirmSignOut(true)}
           >
             Sign Out
-          </button>
+          </Button>
         </div>
-        <p className="topbar-sub" style={{ marginTop: 16 }}>
+        <p className="mt-4 text-muted-foreground">
           Password recovery is not available in the Dashboard. Use the Relay CLI
           on the server:
           <br />
@@ -126,52 +123,66 @@ export function SettingsPage() {
           </span>
         </p>
       </Section>
-      {changing ? (
-        <div className="dialog-backdrop">
+      <Dialog
+        open={changing}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setChanging(false);
+          }
+        }}
+      >
+        <DialogContent>
           <form
-            className="dialog"
+            className="flex flex-col gap-4"
             onSubmit={(event) => void onChangePassword(event)}
           >
-            <h2>Change Password</h2>
-            <div className="field" style={{ marginTop: 16 }}>
-              <label htmlFor="current-password">Current password</label>
-              <input
-                id="current-password"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                required
-              />
-            </div>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label htmlFor="new-password">New password</label>
-              <input
-                id="new-password"
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                required
-                minLength={12}
-              />
-            </div>
-            <div className="dialog-actions">
-              <button
+            <DialogHeader>
+              <DialogTitle>Change Password</DialogTitle>
+            </DialogHeader>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="current-password">
+                  Current password
+                </FieldLabel>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="new-password">New password</FieldLabel>
+                <Input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                  minLength={12}
+                />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button
                 type="button"
-                className="btn"
+                variant="outline"
                 onClick={() => setChanging(false)}
                 disabled={busy}
               >
                 Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={busy}>
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Spinner data-icon="inline-start" /> : null}
                 Change Password
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
       {confirmSignOut ? (
         <ConfirmDialog
           title="Sign out?"

@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
+
 import { lockDevice } from "../api/devices.js";
 import { getOverview } from "../api/overview.js";
 import { ConfirmDialog } from "../components/ConfirmDialog.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
+import { LoadingState } from "../components/LoadingState.js";
+import {
+  ActionPanel,
+  PropertyList,
+  PropertyRow,
+  Section,
+} from "../components/Section.js";
 import {
   DeviceStatusBadge,
   EventStatusBadge,
   RelayStatusBadge,
 } from "../components/StatusBadge.js";
-import { LoadingState } from "../components/LoadingState.js";
-import { Section } from "../components/Section.js";
 import { TopBar } from "../components/TopBar.js";
 import { usePolling } from "../hooks/usePolling.js";
 import { friendlyError } from "../lib/errors.js";
@@ -70,51 +78,44 @@ export function OverviewPage() {
         }
       />
       {error && overview === null ? (
-        <div className="error-state panel">
-          <span>{error}</span>
-          <button type="button" className="btn" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorBanner message={error} onRetry={() => void refresh()} />
       ) : null}
       {overview ? (
         <>
           <Section title="Devices">
-            <div className="panel">
-              <div className="row">
-                <span className="row-label">Summary</span>
-                <span>
-                  {overview.devices.online} online · {overview.devices.total}{" "}
-                  total
-                </span>
-              </div>
+            <PropertyList>
+              <PropertyRow label="Summary">
+                {overview.devices.online} online · {overview.devices.total} total
+              </PropertyRow>
               {devices.map((device) => (
-                <div className="row" key={device.id}>
-                  <Link to={`/devices/${device.id}`}>{device.name}</Link>
-                  <span>
+                <PropertyRow
+                  key={device.id}
+                  label={
+                    <Link className="hover:underline" to={`/devices/${device.id}`}>
+                      {device.name}
+                    </Link>
+                  }
+                >
+                  <div className="flex flex-col gap-1">
                     <DeviceStatusBadge device={device} />
-                    <span className="topbar-sub" style={{ display: "block" }}>
+                    <span className="text-muted-foreground">
                       Last seen {formatRelativeTime(device.last_seen_at)} ·{" "}
                       {lastCommandLabel(device.last_command)}
                     </span>
-                  </span>
-                </div>
+                  </div>
+                </PropertyRow>
               ))}
-            </div>
+            </PropertyList>
           </Section>
           <Section title="Quick Action">
-            <div
-              className="panel"
-              style={{ padding: 16, display: "flex", gap: 8, flexWrap: "wrap" }}
-            >
+            <ActionPanel>
               {enabled.length === 0 ? (
-                <p className="topbar-sub">No enabled devices.</p>
+                <p className="text-muted-foreground">No enabled devices.</p>
               ) : (
                 enabled.map((device) => (
-                  <button
+                  <Button
                     key={device.id}
                     type="button"
-                    className="btn btn-primary"
                     disabled={!device.online}
                     title={
                       device.online
@@ -124,35 +125,39 @@ export function OverviewPage() {
                     onClick={() => setLockTarget(device)}
                   >
                     Lock {device.name}
-                  </button>
+                  </Button>
                 ))
               )}
               {enabled.length > 0 && lockable.length === 0 ? (
-                <p className="topbar-sub">
+                <p className="text-muted-foreground">
                   Device must be online to receive commands.
                 </p>
               ) : null}
-            </div>
+            </ActionPanel>
           </Section>
           <Section title="Recent Activity">
-            <div className="panel">
+            <PropertyList>
               {overview.recent_activity.length === 0 ? (
-                <p className="empty">No recent commands.</p>
+                <PropertyRow>
+                  <p className="text-muted-foreground">No recent commands.</p>
+                </PropertyRow>
               ) : (
                 overview.recent_activity.map((event) => (
-                  <div className="row" key={event.id}>
-                    <span className="tabular">
-                      {formatAbsoluteTime(event.created_at)}
-                    </span>
-                    <span>
-                      {titleCaseAction(event.action)} · {event.device_name} ·{" "}
-                      <EventStatusBadge status={event.status} /> ·{" "}
-                      {formatDuration(event.duration_ms)}
-                    </span>
-                  </div>
+                  <PropertyRow
+                    key={event.id}
+                    label={
+                      <span className="tabular">
+                        {formatAbsoluteTime(event.created_at)}
+                      </span>
+                    }
+                  >
+                    {titleCaseAction(event.action)} · {event.device_name} ·{" "}
+                    <EventStatusBadge status={event.status} /> ·{" "}
+                    {formatDuration(event.duration_ms)}
+                  </PropertyRow>
                 ))
               )}
-            </div>
+            </PropertyList>
           </Section>
         </>
       ) : null}

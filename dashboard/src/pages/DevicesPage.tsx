@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { listDevices } from "../api/devices.js";
 import { DataTable } from "../components/DataTable.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { DeviceStatusBadge } from "../components/StatusBadge.js";
 import { TopBar } from "../components/TopBar.js";
@@ -42,12 +43,7 @@ export function DevicesPage() {
     <>
       <TopBar title="Devices" />
       {error && devices === null ? (
-        <div className="error-state panel">
-          <span>{error}</span>
-          <button type="button" className="btn" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorBanner message={error} onRetry={() => void refresh()} />
       ) : (
         <DataTable
           rows={devices ?? []}
@@ -59,7 +55,9 @@ export function DevicesPage() {
               key: "name",
               header: "Name",
               render: (device) => (
-                <Link to={`/devices/${device.id}`}>{device.name}</Link>
+                <Link className="hover:underline" to={`/devices/${device.id}`}>
+                  {device.name}
+                </Link>
               ),
             },
             {

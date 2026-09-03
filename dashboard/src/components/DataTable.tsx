@@ -1,5 +1,15 @@
 import type { ReactNode } from "react";
 
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 import { EmptyState } from "./EmptyState.js";
 
 type Column<T> = {
@@ -31,25 +41,25 @@ export function DataTable<T>({
     );
   }
   return (
-    <div className="table-wrap panel">
-      <table className="data">
-        <thead>
-          <tr>
+    <Card className="gap-0 py-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
             {columns.map((column) => (
-              <th key={column.key}>{column.header}</th>
+              <TableHead key={column.key}>{column.header}</TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={getRowKey(row)}>
+            <TableRow key={getRowKey(row)}>
               {columns.map((column) => (
-                <td key={column.key}>{column.render(row)}</td>
+                <TableCell key={column.key}>{column.render(row)}</TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

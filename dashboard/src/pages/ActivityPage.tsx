@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { listActivity } from "../api/activity.js";
 import { DataTable } from "../components/DataTable.js";
+import { ErrorBanner } from "../components/ErrorBanner.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { EventStatusBadge } from "../components/StatusBadge.js";
 import { TopBar } from "../components/TopBar.js";
@@ -44,12 +45,7 @@ export function ActivityPage() {
         subtitle="Duration is elapsed time from command creation to the terminal result."
       />
       {error && events === null ? (
-        <div className="error-state panel">
-          <span>{error}</span>
-          <button type="button" className="btn" onClick={() => void refresh()}>
-            Retry
-          </button>
-        </div>
+        <ErrorBanner message={error} onRetry={() => void refresh()} />
       ) : (
         <DataTable
           rows={events ?? []}

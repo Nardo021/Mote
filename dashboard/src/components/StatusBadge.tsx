@@ -1,13 +1,56 @@
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+import { titleCaseStatus } from "../lib/format.js";
 import {
+  activityTone,
   devicePresence,
   devicePresenceLabel,
   type DevicePresence,
 } from "../lib/status.js";
-import { titleCaseStatus } from "../lib/format.js";
 
 type DeviceProps = {
   device: { enabled: boolean; online: boolean };
 };
+
+type Tone = "online" | "offline" | "disabled" | "error" | "neutral";
+
+const TONE_CLASS: Record<Tone, string> = {
+  online: "border-transparent bg-success/10 text-success",
+  offline: "border-transparent bg-secondary text-offline",
+  disabled: "border-transparent bg-secondary text-muted-foreground",
+  error: "border-transparent bg-destructive/10 text-destructive",
+  neutral: "border-transparent bg-secondary text-muted-foreground",
+};
+
+function StatusDot({ empty }: { empty: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "size-1.5 rounded-full",
+        empty ? "border border-current" : "bg-current",
+      )}
+    />
+  );
+}
+
+function ToneBadge({
+  tone,
+  showDot,
+  children,
+}: {
+  tone: Tone;
+  showDot?: boolean;
+  children: string;
+}) {
+  return (
+    <Badge variant="outline" className={TONE_CLASS[tone]}>
+      {showDot ? <StatusDot empty={tone !== "online"} /> : null}
+      {children}
+    </Badge>
+  );
+}
 
 export function DeviceStatusBadge({ device }: DeviceProps) {
   const presence = devicePresence(device);
@@ -15,34 +58,16 @@ export function DeviceStatusBadge({ device }: DeviceProps) {
 }
 
 export function PresenceBadge({ presence }: { presence: DevicePresence }) {
-  const label = devicePresenceLabel(presence);
-  const tone =
-    presence === "online"
-      ? "online"
-      : presence === "disabled"
-        ? "disabled"
-        : "offline";
-  const empty = presence !== "online";
   return (
-    <span className={`status status-${tone}`}>
-      <span
-        className={`status-dot${empty ? " empty" : ""}`}
-        aria-hidden="true"
-      />
-      {label}
-    </span>
+    <ToneBadge tone={presence} showDot>
+      {devicePresenceLabel(presence)}
+    </ToneBadge>
   );
 }
 
 export function EventStatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "completed"
-      ? "online"
-      : status === "failed" || status === "timeout"
-        ? "error"
-        : "neutral";
   return (
-    <span className={`status status-${tone}`}>{titleCaseStatus(status)}</span>
+    <ToneBadge tone={activityTone(status)}>{titleCaseStatus(status)}</ToneBadge>
   );
 }
 
@@ -53,12 +78,8 @@ export function RelayStatusBadge({
 }) {
   const online = status === "operational";
   return (
-    <span className={`status ${online ? "status-online" : "status-error"}`}>
-      <span
-        className={`status-dot${online ? "" : " empty"}`}
-        aria-hidden="true"
-      />
+    <ToneBadge tone={online ? "online" : "error"} showDot>
       {online ? "Operational" : "Unavailable"}
-    </span>
+    </ToneBadge>
   );
 }

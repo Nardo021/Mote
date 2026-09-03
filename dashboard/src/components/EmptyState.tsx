@@ -1,3 +1,10 @@
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+
 type EmptyStateProps = {
   title: string;
   description?: string;
@@ -5,9 +12,13 @@ type EmptyStateProps = {
 
 export function EmptyState({ title, description }: EmptyStateProps) {
   return (
-    <div className="empty">
-      <p>{title}</p>
-      {description ? <p>{description}</p> : null}
-    </div>
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyTitle>{title}</EmptyTitle>
+        {description ? (
+          <EmptyDescription>{description}</EmptyDescription>
+        ) : null}
+      </EmptyHeader>
+    </Empty>
   );
 }
