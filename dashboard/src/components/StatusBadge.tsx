@@ -24,12 +24,19 @@ const TONE_CLASS: Record<Tone, string> = {
   neutral: "border-transparent bg-secondary text-muted-foreground",
 };
 
-function StatusDot({ empty }: { empty: boolean }) {
+function StatusDot({
+  empty,
+  size = "default",
+}: {
+  empty: boolean;
+  size?: "default" | "lg";
+}) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "size-1.5 rounded-full",
+        "rounded-full",
+        size === "lg" ? "size-2" : "size-1.5",
         empty ? "border border-current" : "bg-current",
       )}
     />
@@ -39,15 +46,25 @@ function StatusDot({ empty }: { empty: boolean }) {
 function ToneBadge({
   tone,
   showDot,
+  size = "default",
   children,
 }: {
   tone: Tone;
   showDot?: boolean;
+  size?: "default" | "lg";
   children: string;
 }) {
   return (
-    <Badge variant="outline" className={TONE_CLASS[tone]}>
-      {showDot ? <StatusDot empty={tone !== "online"} /> : null}
+    <Badge
+      variant="outline"
+      className={cn(
+        TONE_CLASS[tone],
+        size === "lg" && "h-7 gap-1.5 px-3 text-sm",
+      )}
+    >
+      {showDot ? (
+        <StatusDot empty={tone !== "online"} size={size} />
+      ) : null}
       {children}
     </Badge>
   );
@@ -82,7 +99,7 @@ export function RelayStatusBadge({
   const { t } = useTranslation();
   const online = status === "operational";
   return (
-    <ToneBadge tone={online ? "online" : "error"} showDot>
+    <ToneBadge tone={online ? "online" : "error"} showDot size="lg">
       {online
         ? t("relayStatus.operational")
         : t("relayStatus.unavailable")}

@@ -177,10 +177,7 @@ export function ActivityPage() {
     <>
       <AppHeader fixed />
       <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
-        <PageHeading
-          title={t("activity.title")}
-          description={t("activity.subtitle")}
-        />
+        <PageHeading title={t("activity.title")} />
         <DataTable
           table={table}
           emptyTitle={t("activity.empty")}

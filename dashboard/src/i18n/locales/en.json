@@ -233,8 +233,6 @@
     "subtitle": "Manage your administrator account and Relay.",
     "profile": "Profile",
     "profileDescription": "Signed-in administrator.",
-    "appearance": "Appearance",
-    "appearanceDescription": "Theme follows the same preference as the header switch and Config drawer.",
     "relay": "Relay",
     "relayDescription": "Runtime status for this Relay instance.",
     "account": "Account",

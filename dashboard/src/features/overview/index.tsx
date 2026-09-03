@@ -36,8 +36,6 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { AppHeader } from "../../components/layout/app-header.js";
 import { Main } from "../../components/layout/main.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
-import { Search } from "../../components/search.js";
-import { TopNav } from "../../components/layout/top-nav.js";
 import { LoadingState } from "../../components/LoadingState.js";
 import {
   DeviceStatusBadge,
@@ -74,24 +72,7 @@ export function OverviewPage() {
   }, [refresh, t]);
   usePolling(() => refresh().catch(() => undefined), 5_000, overview !== null);
 
-  const header = (
-    <AppHeader
-      start={
-        <>
-          <TopNav
-            className="me-auto"
-            links={[
-              { title: t("nav.overview"), href: "/", isActive: true },
-              { title: t("nav.devices"), href: "/devices", isActive: false },
-              { title: t("nav.activity"), href: "/activity", isActive: false },
-              { title: t("nav.settings"), href: "/settings", isActive: false },
-            ]}
-          />
-          <Search />
-        </>
-      }
-    />
-  );
+  const header = <AppHeader />;
 
   if (overview === null) {
     return (
@@ -110,7 +91,6 @@ export function OverviewPage() {
       <Main className="flex flex-col gap-4">
         <PageHeading
           title={t("overview.title")}
-          description={t("overview.subtitle")}
           action={<RelayStatusBadge status={overview.relay.status} />}
         />
         <Tabs defaultValue="overview" className="gap-4">

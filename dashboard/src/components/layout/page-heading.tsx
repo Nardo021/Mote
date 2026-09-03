@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 export function PageHeading({
   title,
   description,
@@ -10,7 +12,12 @@ export function PageHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-2">
+    <div
+      className={cn(
+        "flex flex-wrap justify-between gap-2",
+        description ? "items-end" : "items-center",
+      )}
+    >
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         {description ? (

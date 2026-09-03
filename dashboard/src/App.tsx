@@ -9,7 +9,6 @@ import { DevicesPage } from "./features/devices/index.js";
 import { LoginPage } from "./features/login/index.js";
 import { OverviewPage } from "./features/overview/index.js";
 import { SettingsAccountPage } from "./features/settings/account.js";
-import { SettingsAppearancePage } from "./features/settings/appearance.js";
 import { SettingsLayout } from "./features/settings/index.js";
 import { SettingsProfilePage } from "./features/settings/profile.js";
 import { SettingsRelayPage } from "./features/settings/relay.js";
@@ -46,7 +45,6 @@ export function App() {
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<SettingsProfilePage />} />
           <Route path="account" element={<SettingsAccountPage />} />
-          <Route path="appearance" element={<SettingsAppearancePage />} />
           <Route path="relay" element={<SettingsRelayPage />} />
         </Route>
       </Route>

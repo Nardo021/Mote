@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -47,12 +45,11 @@ export function LoginPage() {
 
   return (
     <AuthLayout title={t("login.title")}>
-      <Card className="mx-auto w-full max-w-sm gap-4">
+      <Card className="w-full gap-4">
         <CardHeader>
           <CardTitle className="text-lg tracking-tight">
             {t("login.submit")}
           </CardTitle>
-          <CardDescription>{t("login.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={(event) => void onSubmit(event)}>
@@ -100,11 +97,6 @@ export function LoginPage() {
             </FieldGroup>
           </form>
         </CardContent>
-        <CardFooter>
-          <p className="w-full text-center text-sm text-muted-foreground">
-            relay.yanze.me
-          </p>
-        </CardFooter>
       </Card>
     </AuthLayout>
   );

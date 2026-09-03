@@ -233,8 +233,6 @@
     "subtitle": "管理管理员账户和 Relay。",
     "profile": "个人资料",
     "profileDescription": "当前登录的管理员。",
-    "appearance": "外观",
-    "appearanceDescription": "主题与顶栏开关、设置抽屉使用同一套偏好。",
     "relay": "Relay",
     "relayDescription": "这个 Relay 实例的运行状态。",
     "account": "账户",

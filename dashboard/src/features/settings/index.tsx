@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { Monitor, Palette, UserCog, Wrench } from "lucide-react";
+import { Monitor, UserCog, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Separator } from "@/components/ui/separator";
@@ -22,11 +22,6 @@ export function SettingsLayout() {
       icon: <Wrench />,
     },
     {
-      title: t("settings.appearance"),
-      href: "/settings/appearance",
-      icon: <Palette />,
-    },
-    {
       title: t("settings.relay"),
       href: "/settings/relay",
       icon: <Monitor />,
@@ -37,18 +32,15 @@ export function SettingsLayout() {
     <>
       <AppHeader />
       <Main fixed>
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-            {t("settings.title")}
-          </h1>
-          <p className="text-muted-foreground">{t("settings.subtitle")}</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          {t("settings.title")}
+        </h1>
         <Separator className="my-4 lg:my-6" />
         <div className="flex flex-1 flex-col gap-2 overflow-hidden lg:flex-row lg:gap-12">
           <aside className="top-0 lg:sticky lg:w-1/5">
             <SidebarNav items={items} />
           </aside>
-          <div className="flex w-full overflow-y-auto p-1">
+          <div className="w-full overflow-y-auto p-1">
             <Outlet />
           </div>
         </div>

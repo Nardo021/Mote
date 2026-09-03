@@ -189,7 +189,6 @@ export function TokensPage() {
       <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
         <PageHeading
           title={t("tokens.title")}
-          description={t("tokens.subtitle")}
           action={
             <Button type="button" onClick={() => setCreating(true)}>
               {t("tokens.create")}

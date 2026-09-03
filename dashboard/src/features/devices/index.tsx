@@ -264,10 +264,7 @@ export function DevicesPage() {
     <>
       <AppHeader fixed />
       <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
-        <PageHeading
-          title={t("devices.title")}
-          description={t("devices.subtitle")}
-        />
+        <PageHeading title={t("devices.title")} />
         {pairing.requests.length > 0 ? (
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">{t("devices.waiting")}</h2>
