@@ -2,11 +2,11 @@
 
 Mote 的原生 macOS 应用和后台 Agent。
 
-Phase 2 实现 **Mote for Mac** 和 **Mote Agent**。Phase 3 实现 Mote Relay。Mac 客户端可以运行、显示状态、保存凭据、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
+当前版本 **1.2.0**（build **3**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
 
 ## 技术栈
 
-- Swift 6、SwiftUI、MenuBarExtra
+- Swift 6、SwiftUI、菜单栏（`NSStatusItem`）
 - `URLSessionWebSocketTask` 以及 `NWPathMonitor`
 - Security / 钥匙串服务
 - ServiceManagement（`SMAppService`）
@@ -22,7 +22,7 @@ Bundle identifier：
 me.yanze.mote
 ```
 
-不通过 App Store 分发。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。
+不通过 App Store 分发。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。日常自己用：在本机选付费 Development Team，用 Xcode **Run** 覆盖安装即可。
 
 ## 打开与构建
 
@@ -45,33 +45,47 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -configuration Debug -dest
 macos/
 ├── Mote.xcodeproj
 ├── Mote/
-│   ├── App/           生命周期、AppState、主窗口
+│   ├── App/           生命周期、AppState、主窗口、配对空状态
 │   ├── Agent/         连接协调与心跳
 │   ├── Actions/       允许列表中的本地动作（lock）
 │   ├── Commands/      与传输无关的命令处理
 │   ├── Design/        颜色、间距、字体与状态文案 token
-│   ├── Networking/    Relay 配置、WebSocket、重连
+│   ├── Networking/    Relay 配置、WebSocket、配对、重连
 │   ├── Security/      钥匙串、校验、辅助功能
 │   ├── Storage/       非密钥偏好与设备 ID
-│   ├── MenuBar/       MenuBarExtra 界面
+│   ├── MenuBar/       状态项与自定义图标
 │   ├── Models/        协议与连接模型
-│   ├── Utilities/     日志、日期、登录项
+│   ├── Utilities/     日志、日期、登录项、版本
 │   └── Resources/     Info.plist、entitlements、资源
-└── MoteTests/         协议、校验和执行器测试
+└── MoteTests/         协议、校验、配对和执行器测试
 ```
 
-`Commands/CommandProcessor` 是 V2 接缝：之后的本地传输可以调用同一处理器。V2 传输尚未实现。
+`Commands/CommandProcessor` 是后续本地传输的接缝。Bonjour / 直连尚未实现。
 
 ## 运行时行为
 
 1. 启动时加载持久的 `device_id` 和设置。
 2. 缺少设备凭据 → 主窗口显示 **Mote is not configured** 和 **Pair**。不会假装已连接或显示虚假延迟。
-3. Pair 后 Dashboard 批准 → 凭据写入钥匙串并立刻 `startIfPossible()`，无需重启。
+3. 点 Pair 后状态为 **Waiting for Approval…**。Dashboard 批准 → 凭据写入钥匙串并立刻连接，无需重启。
 4. 凭据存在且已启用 Connect → 出站 `wss://relay.yanze.me/v1/ws/device`。
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
-6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。设置窗口里 **Remote Actions** 显示 `Enabled` 或 `Permission required`。
-7. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**。
-8. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
+6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
+7. **Remote Actions → Lock** 显示 `Available` 或 `Unavailable`（取决于辅助功能）。
+8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**。
+9. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
+
+连接状态文案：
+
+```text
+Not Configured
+Waiting for Approval…
+Connecting…
+Authenticating…
+Connected
+Reconnecting…
+Disconnected
+Connection Error
+```
 
 ## 凭据
 
@@ -79,8 +93,8 @@ macos/
 
 - 只存放在钥匙串，service 为 `me.yanze.mote`，account 为 `device_connection`
 - 永不写入 UserDefaults、日志或源码
-- 生产主路径是 **Pair**；折叠的凭据粘贴仅用于轮换或 CLI 恢复
-- 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID
+- 生产主路径是 **Pair**；折叠的 **Paste credential instead** 仅用于轮换或 CLI 恢复
+- 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID，token 输入框是助手，不持久化
 
 ### 与 Mote Relay 配对
 
@@ -134,18 +148,18 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 1. **启动 Mote** — 菜单栏图标出现；若未配置，会打开设置窗口。
 2. **检查生成的 Device ID** — 显示一个 UUID，重启后仍在。
-3. **检查钥匙串凭据行为** — DEBUG：保存/清除凭据；确认它不在 UserDefaults 或日志中。
-4. **检查辅助功能权限** — 状态为 Required 或 Granted；打开系统设置可用。
-5. **使用 DEBUG Test Lock** — 标明会立即锁定这台 Mac。
-6. **确认 Mac 锁屏** — 出现锁屏界面。
-7. **重新打开会话** — 解锁后 Mote 仍在运行。
-8. **检查 Start at Login 开关** — 反映 `SMAppService` 状态；可启用和关闭。
-9. **检查菜单栏** — 状态、设备名、Relay 主机、延迟、权限、Connect/Disconnect、Quit。
-10. **设置开发用 Relay 凭据** — DEBUG 钥匙串保存或 `MOTE_DEVICE_CREDENTIAL`。
-11. **尝试 Relay 连接** — Connect；Relay 运行且凭据匹配时，应看到 Authenticating 然后 Connected。没有 Relay 时，看到 Connecting / Authenticating / Error / Reconnecting…，绝不能是假的 Connected。
-12. **使用模拟命令** — 过期和错误设备的模拟被拒绝；有效的模拟锁屏在本地执行。
-13. **确认命令校验** — 最近结果按情况显示 `expired` / `invalid` / `unsupported`。
-14. **确认模拟命令结果** — 最近结果会更新；不需要 Relay 流量。
+3. **Pair** — Dashboard Allow 后进入 Connected，无需粘贴凭据。
+4. **检查钥匙串凭据行为** — DEBUG：保存/清除凭据；确认它不在 UserDefaults 或日志中。
+5. **检查辅助功能权限** — 状态为 Required 或 Granted；打开系统设置可用。
+6. **使用 DEBUG Test Lock** — 标明会立即锁定这台 Mac。
+7. **确认 Mac 锁屏** — 出现锁屏界面。
+8. **重新打开会话** — 解锁后 Mote 仍在运行。
+9. **检查 Start at Login 开关** — 反映 `SMAppService` 状态；可启用和关闭。
+10. **检查菜单栏** — 状态、设备名、Relay 摘要、权限、Connect/Disconnect、Quit。
+11. **设置开发用 Relay 凭据** — DEBUG 钥匙串保存或 `MOTE_DEVICE_CREDENTIAL`。
+12. **尝试 Relay 连接** — Connect；Relay 运行且凭据匹配时，应看到 Authenticating 然后 Connected。没有 Relay 时，看到 Connecting / Authenticating / Connection Error / Reconnecting…，绝不能是假的 Connected。
+13. **使用模拟命令** — 过期和错误设备的模拟被拒绝；有效的模拟锁屏在本地执行。
+14. **确认命令校验** — 最近结果按情况显示 `expired` / `invalid` / `unsupported`。
 15. **退出 Mote** — 进程退出；重连停止。
 
 ## 界面
@@ -154,21 +168,21 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 ### 主窗口
 
-默认约 `520 × 560`，最小约 `460 × 480`。内容按纵向分组：
+默认约 `520 × 560`，最小约 `460 × 480`。内容最大宽度 520 px。内容按纵向分组：
 
-- 设备名 + 连接状态（Connected / Connecting… / Authenticating… / Reconnecting… / Disconnected / Connection Error）
+- 设备名 + 连接状态；已连接时显示 `Relay · 4 ms`
 - **Connection** — Relay 主机与延迟；未配置时不显示
-- **Remote Actions** — V1 仅 `Lock`
+- **Remote Actions** — `Lock`：`Available` 或 `Unavailable`
 - **Permissions** — Lock Permission：`Granted` 或 `Required`，缺权限时可打开系统设置
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
-- **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID
-- **Shortcuts** — Device ID 已填；token 输入框为空，不持久化
+- **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID、Version
+- **Shortcuts** — Device ID 已填；token 输入框为空，不持久化；**Add to Shortcuts** 打开 `/s/:deviceId`
 
-未配置时显示 Pair 空状态，而不是 `Disconnected` / `0 ms` / Relay 主机。
+未配置时显示 Pair 空状态（可展开粘贴凭据），而不是 `Disconnected` / `0 ms` / Relay 主机。配对中标题为 **Waiting for approval**。
 
 ### 菜单栏
 
-菜单栏是日常主界面。图标为单色 SF Symbol（`dot.radiowaves.left.and.right`），遵循 template image。菜单只保留状态、设备名、Relay 摘要、权限、登录项，以及 Open Mote / Disconnect / Quit Mote。诊断信息在主窗口。
+菜单栏是日常主界面。图标是自定义中继标记，右下角用颜色圆点表示状态（不是 SF Symbol template）。菜单只保留状态、设备名、Relay 摘要、权限、登录项，以及 Open Mote / Disconnect / Quit Mote。未配置时显示 **Mote is not configured**。诊断信息在主窗口。
 
 ### Debug / Advanced
 
@@ -183,10 +197,18 @@ wss://relay.yanze.me/v1/ws/device
 CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command → command_result
 ```
 
-时间戳为 Unix 纪元毫秒。默认命令 TTL 为 10 秒。
+配对：
+
+```text
+POST /v1/pair/requests
+wss://relay.yanze.me/v1/ws/pair?request_id=…&pair_secret=…
+```
+
+时间戳为 Unix 纪元毫秒。默认命令 TTL 为 10 秒。Mac 侧认证超时约 10 秒。
 
 ## 本阶段不包含
 
 - 在 iPhone 上静默安装已填 token 的快捷指令（见 [docs/shortcuts.md](../docs/shortcuts.md)）
-- Bonjour / 本地 TCP / BLE / iOS 应用
+- 原生 iOS 应用（计划见 [docs/ios.md](../docs/ios.md)）
+- Bonjour / 本地 TCP / BLE
 - 任意 shell、AppleScript 或可执行路径执行

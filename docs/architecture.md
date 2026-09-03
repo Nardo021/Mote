@@ -1,10 +1,10 @@
 # 架构
 
-Mote 是一套轻量的 macOS 远程动作系统。
+Mote 是一套轻量的个人远程动作系统。
 
 **Relay** 只是后端组件。产品名是 **Mote**。
 
-Mote for Mac（Phase 2）和 Mote Relay（Phase 3）已经实现。Phase 4 的 Apple 快捷指令按 [shortcuts.md](shortcuts.md) 在 iPhone 上手建；没有原生 iOS 应用。
+Mote for Mac、Mote Relay、Dashboard 和配对已经实现。iPhone 当前用 [shortcuts.md](shortcuts.md) 手建快捷指令。原生 iOS 应用尚未进仓库；个人分发约定见 [ios.md](ios.md)。
 
 ## 命名
 
@@ -15,12 +15,13 @@ Mote for Mac（Phase 2）和 Mote Relay（Phase 3）已经实现。Phase 4 的 A
 | Mote Agent           | Mote for Mac 内的后台组件 |
 | Mote Relay           | 后端服务                  |
 | Mote Relay Dashboard | Relay 内的管理界面        |
+| Mote iOS             | 计划中的原生 iPhone 应用  |
 | `relay.yanze.me`     | 生产环境公网主机名        |
 | `mote`               | 仓库名                    |
 
-## V1 架构
+## 当前架构
 
-V1 没有 iOS 应用。iPhone 使用 Apple 快捷指令和 Siri。在家和外出都走同一条公网主机名与 Cloudflare Tunnel。V1 不使用 Split DNS。
+iPhone 使用 Apple 快捷指令和 Siri。Dashboard 也可以发同一条 `lock` 命令。在家和外出都走同一条公网主机名与 Cloudflare Tunnel。当前不使用 Split DNS。
 
 ```text
 Apple Shortcut
@@ -54,11 +55,11 @@ macOS Lock Screen
 ```
 
 ```text
-V1:
-Apple Shortcut → Mote Relay → Mote Agent → Lock
+当前:
+Apple Shortcut / Dashboard → Mote Relay → Mote Agent → Lock
 ```
 
-### V1 基础设施
+### 基础设施
 
 ```text
 PVE Host
@@ -78,18 +79,19 @@ PVE Host
 - **Mote LXC** 只运行 Docker 和 `mote-relay`。栈内没有 Caddy、Nginx、Traefik 或 `cloudflared` 容器。
 - Cloudflare Published Application 把 `relay.yanze.me` 指到 `http://192.168.2.44:3000`。该局域网地址只属于基础设施配置，不得写进 Relay 源码，也不得当作客户端 URL。
 
-### V1 组件
+### 组件
 
-- **Apple 快捷指令** — 向 `https://relay.yanze.me` 发送已认证的 HTTPS 请求。在家和外出使用同一主机名。
+- **Apple 快捷指令** — 向 `https://relay.yanze.me` 发送已认证的 HTTPS 请求。在家和外出使用同一主机名。这是当前的 iPhone 触发方式。
 - **Cloudflare Tunnel（PVE 宿主机）** — 现有 Tunnel 把该主机名发布到 LXC 上的 Relay。TLS 终止在 Cloudflare。
-- **Mote Relay** — 认证快捷指令、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令。同一 Fastify 进程还托管 **Mote Relay Dashboard** 和 `/admin/api/*`。Relay 对 Cloudflare 无感知：它不调用 Cloudflare API，也不保存 Tunnel token。
-- **Mote Relay Dashboard** — 浏览器管理界面。由 Relay 静态提供，不是单独的服务器或容器。
+- **Mote Relay** — 认证命令客户端、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令。同一 Fastify 进程还托管 **Mote Relay Dashboard**、`/admin/api/*` 和配对通道。Relay 对 Cloudflare 无感知：它不调用 Cloudflare API，也不保存 Tunnel token。
+- **Mote Relay Dashboard** — 浏览器管理界面。由 Relay 静态提供，不是单独的服务器或容器。页面：Overview、Devices（含配对批准）、Tokens、Activity、Settings。
 - **Mote Agent** — Mote for Mac 的持久后台组件。维护 WebSocket，并执行允许列表中的本地动作。
-- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。
+- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。当前版本 `1.2.0`。
+- **Mote iOS** — 尚未实现。计划复用同一条 `send_command` HTTPS API，见 [ios.md](ios.md)。
 
-### V1 动作
+### 动作
 
-V1 唯一动作是 `lock`。`sleep`、`mute`、`unmute` 和 `play_pause` 已预留，在实现之前一律拒绝。
+当前唯一动作是 `lock`。`sleep`、`mute`、`unmute` 和 `play_pause` 已预留，在实现之前一律拒绝。
 
 架构中永不包含任意 shell 命令执行。
 
@@ -106,6 +108,7 @@ Mote Relay
 ├── Public Dashboard
 ├── Admin API
 ├── Machine API
+├── Pairing
 ├── WebSocket
 ├── Device Registry
 ├── Command Service
@@ -130,6 +133,9 @@ Fastify / Mote Relay
       │
       ├── /v1/*
       │    Machine API
+      │
+      ├── /v1/pair/requests
+      │    Public pairing HTTP
       │
       ├── /v1/ws/device
       │    Authenticated device WebSocket
@@ -162,6 +168,16 @@ Mote Relay
 
 命令是短暂的。如果 Mac 离线，Relay 立即返回，不会把锁屏命令存起来以后再送。
 
+活动来源（`source`）已写入 SQLite，允许值：
+
+```text
+shortcut
+dashboard
+ios
+```
+
+公开 `POST /v1/devices/:deviceId/commands` 目前记为 `shortcut`。Dashboard 发令记为 `dashboard`。`ios` 已预留，等原生客户端接入后再使用。不要为 iOS 另起一套命令对象。
+
 ## 公网 URL
 
 快捷指令以及之后的命令客户端始终使用：
@@ -174,6 +190,13 @@ Mac 始终使用：
 
 ```text
 wss://relay.yanze.me/v1/ws/device
+```
+
+未配置的 Mac 配对使用：
+
+```text
+https://relay.yanze.me/v1/pair/requests
+wss://relay.yanze.me/v1/ws/pair
 ```
 
 生产源站是局域网 HTTP：
@@ -189,13 +212,37 @@ http://192.168.2.44:3000
 ```text
 http://127.0.0.1:3000
 ws://127.0.0.1:3000/v1/ws/device
+ws://127.0.0.1:3000/v1/ws/pair
 ```
 
 见 [deployment.md](deployment.md)。快捷指令 HTTP 形状见 [protocol.md](protocol.md)。iPhone 操作步骤见 [shortcuts.md](shortcuts.md)。
 
-## V2 架构兼容性
+## 下一步：Mote iOS
 
-V1 保持 HTTP API 和 Mac 命令协议可用，以便 V2 增加原生 iOS 应用和本地直连传输时不必重写 Mote Relay。
+下一阶段增加原生 iOS 应用，但仍走 Relay HTTPS，不重写 Mote Relay。
+
+```text
+Mote iOS
+   │
+   ▼
+POST /v1/devices/:deviceId/commands
+Authorization: Bearer <send_command>
+   │
+   ▼
+relay.yanze.me
+   │
+   ▼
+Mote Relay
+   │
+   ▼
+Mote Agent
+```
+
+个人分发：付费 Apple Developer + Xcode 装到自己的 iPhone，不上架 App Store。见 [ios.md](ios.md)。
+
+## 之后：本地直连
+
+命令对象保持与传输无关，以便以后增加本地直连而不改动作层。
 
 ```text
 Mote iOS
@@ -212,30 +259,24 @@ CommandRouter
           │
           ▼
      relay.yanze.me
-          │
-          ▼
-       Mote Relay
-          │
-          ▼
-       Mote Agent
 ```
 
 ```text
-V2:
+之后:
 Mote iOS → 可用时走本地直连 → Relay 回退
 ```
 
 规则：
 
-- 本阶段不要实现 V2。
+- 现在不要实现 Bonjour / 本地 TCP。
 - 保持 Mote 协议的命令和结果对象与传输无关。
 - 保持 Mote Agent 的动作执行与命令到达方式无关。
-- 把 Relay 路径当作永久回退传输，而不是 V1 临时方案。
-- 未来可能用 Bonjour 做本地直连。那是 **Future / not implemented**。当前 V1 不使用 AdGuard Split DNS 把 `relay.yanze.me` 指到 `192.168.2.44` 做直连 HTTPS。
+- 把 Relay 路径当作永久回退传输，而不是临时方案。
+- 未来可能用 Bonjour 做本地直连。那是 **Future / not implemented**。当前不使用 AdGuard Split DNS 把 `relay.yanze.me` 指到 `192.168.2.44` 做直连 HTTPS。
 
 ## 不在范围内
 
-- iOS 应用
+- App Store 上架或把 TestFlight 当作个人日常更新通道
 - Bonjour / 本地发现（Future / not implemented）
 - Split DNS / 家庭直连 HTTPS
 - Caddy 或其他 LXC 内反向代理
@@ -245,4 +286,4 @@ Mote iOS → 可用时走本地直连 → Relay 回退
 - Kubernetes 或微服务
 - 任意 shell、可执行路径或 AppleScript 执行
 - 通用远程代码执行后端
-- 原生 iOS 应用以外的额外管理服务器、反向代理或 Dashboard 容器
+- 单独的 Dashboard 服务器、反向代理或 Dashboard 容器

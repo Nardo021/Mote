@@ -111,12 +111,11 @@ curl -i https://relay.yanze.me/ready
 
 同样预期 HTTP 200。不要要求 Cloudflare Access 认证。
 
-12. 创建 Mac 设备。
-13. 配置 Mote for Mac。
-14. 创建快捷指令 token。
-15. 测试设备状态。
-16. 测试 lock 命令。
-17. 配置 Apple 快捷指令（[docs/shortcuts.md](../../docs/shortcuts.md)）。
+12. 启动 Mote for Mac，点 **Pair**，在 Dashboard 批准。
+13. 创建快捷指令 token。
+14. 测试设备状态。
+15. 测试 lock 命令。
+16. 配置 Apple 快捷指令（[docs/shortcuts.md](../../docs/shortcuts.md)）。原生 iOS 尚未进仓库，见 [docs/ios.md](../../docs/ios.md)。
 
 ## 引导 LXC
 
@@ -181,17 +180,17 @@ PVE host → 192.168.2.44:3000/TCP
 
 Compose 发布 `3000:3000`。不要使用 `network_mode: host`，不要使用特权容器，不要再发布其他端口。
 
-V1 不使用 Split DNS。在家和外出都走 Cloudflare Tunnel。未来 V2 可能用 Bonjour 做本地直连；那是 **Future / not implemented**。
+当前不使用 Split DNS。在家和外出都走 Cloudflare Tunnel。下一步是个人用 Mote iOS，仍走这条 Tunnel，见 [docs/ios.md](../../docs/ios.md)。之后可能用 Bonjour 做本地直连；那是 **Future / not implemented**。
 
 ## Cloudflare Access
 
-不要在 Mote V1 前面放交互式 Cloudflare Access 策略。认证已经由下列凭据完成：
+不要在 Mote 前面放交互式 Cloudflare Access 策略。认证已经由下列凭据完成：
 
-- 快捷指令：Bearer `send_command` token
+- 快捷指令 / 未来 iOS：Bearer `send_command` token
 - Mac：`device_connection` 凭据
 - Dashboard：Relay 内的管理员会话 cookie
 
-交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。
+交互式 Cloudflare 登录会干扰 Apple 快捷指令、未来的 iOS 客户端和 Mac 的持久 WebSocket。
 
 把 `192.168.2.44:3000` 发布到家庭 LAN 并不意味着 API 可以取消认证。健康检查可以保持未认证；其余 API 仍要求现有的 Bearer、角色分离、允许列表、速率限制、TTL、无队列和重复保护。
 
@@ -201,6 +200,7 @@ Mac 仍然连接：
 
 ```text
 wss://relay.yanze.me/v1/ws/device
+wss://relay.yanze.me/v1/ws/pair
 ```
 
 路径：

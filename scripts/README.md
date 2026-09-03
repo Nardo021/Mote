@@ -1,8 +1,8 @@
 # 脚本
 
-仓库级辅助脚本可以放在这里。
+仓库级辅助脚本可以放在这里。当前目录主要是文档占位；凭据管理使用 Relay CLI，不要在这里放密钥。
 
-Mote Relay 的凭据管理使用 Relay CLI：
+生产设备应走 Mac **Pair** + Dashboard **Allow**。CLI 用于恢复、token 和管理员：
 
 ```text
 cd relay

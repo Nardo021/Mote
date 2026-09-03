@@ -1,6 +1,6 @@
 # Mote 设计语言
 
-Phase 2 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。
+Mote for Mac 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。下一步的个人 iOS 客户端应沿用同一套 token 与语气，而不是另起一套消费级视觉。
 
 ## 1. 设计方向
 
@@ -420,65 +420,33 @@ Accent Soft
 
 使用一致的视觉处理。
 
-### Connected
+当前实现标题（与 `ConnectionState` 一致）：
 
 ```text
 ● Connected
+◌ Connecting…
+◌ Authenticating…
+◌ Reconnecting…
+○ Disconnected
+○ Not Configured
+◌ Waiting for Approval…
+● Connection Error
 ```
 
-指示：
+已连接指示：
 
 - 绿色
 - 小
 - 静态
 - 不要脉冲动画
 
-### Connecting
-
-```text
-◌ Connecting
-```
-
-当前实现标题是 `Connecting`（无省略号）。使用：
-
-- 中性色或 Mote Blue
-- 合适时用轻微的 ProgressView
-
-### Authenticating
-
-```text
-◌ Authenticating
-```
-
-### Reconnecting
-
-```text
-◌ Reconnecting…
-```
+Connecting / Authenticating / Pairing 使用中性色或 Mote Blue，合适时用轻微的 ProgressView。
 
 仅在重连持续时使用警告色。
 
-### Disconnected
+Disconnected / Not Configured 使用中性灰。不要在未配置时假装 `Disconnected`。
 
-```text
-○ Disconnected
-```
-
-使用中性灰。
-
-未配置时：
-
-```text
-○ Configuration Required
-```
-
-### Error
-
-```text
-○ Error
-```
-
-菜单栏用 `○`，标题为 `Error`。红色只用于真正需要处理的失败。
+Connection Error 用红色。红色只用于真正需要处理的失败。菜单栏图标是自定义中继标记加状态圆点，不是单独的锁形 SF Symbol。
 
 ## 10. 字体
 
@@ -608,46 +576,55 @@ Mote 不应看起来像被拉伸到 macOS 上的 iOS 应用。
 当前实现宽度：
 
 ```text
-最小 360 px
-理想 380 px
-最大 420 px
+最小 460 px
+理想 520 px
+内容最大 520 px
 ```
 
-高度由分组表单内容决定。主窗口应紧凑，并按纵向组织。
+高度约 `480–560` px，由分组表单内容决定。主窗口应紧凑，并按纵向组织。
 
 当前层级：
 
 ```text
-Mote
-Name                  MacBook Pro
-Status                ● Connected
+MacBook Pro
+● Connected
+Relay · 4 ms
+
+Connection
 Relay                 relay.yanze.me
 Latency               4 ms
-Remote Actions        Enabled
+Disconnect
+
+Remote Actions
+Lock                  Available
+
+Permissions
 Lock Permission       Granted
+
+Startup
 Start Mote at Login   [ON]
 
 Device
+Name                  MacBook Pro
 Device ID             7B0F…
-
-Connection
-Disconnect
+Version               1.2.0 (3)
 ```
 
-`Remote Actions` 为 `Enabled` 或 `Permission required`。`Lock Permission` 为 `Granted` 或 `Required`。
+`Lock` 为 `Available` 或 `Unavailable`。`Lock Permission` 为 `Granted` 或 `Required`。未配置时不显示 Connection / Remote Actions / Shortcuts，只显示 Pair 空状态。
 
 使用分组分区，而不是仪表盘卡片。
 
 ## 15. 主状态头
 
-不要做巨大的状态卡片。当前实现把身份和状态拆成表单行：
+不要做巨大的状态卡片。当前实现把头做成：
 
 ```text
-Name                    MacBook Pro
-Status                  ● Connected
+MacBook Pro
+● Connected
+Relay · 4 ms
 ```
 
-设备名仍应是最容易扫到的身份信息。连接信息（Relay、Latency）是次要的。
+未连接或出错时不显示传输行。设备名仍应是最容易扫到的身份信息。连接信息（Relay、Latency）是次要的。
 
 ## 16. 菜单栏设计
 
@@ -668,15 +645,13 @@ Mote
 ● Connected
 MacBook Pro
 Relay
-relay.yanze.me
-Latency
-4 ms
+relay.yanze.me · 4 ms
 Lock Permission
 Granted
+Start at Login
 
 ──────────────
 
-Start at Login
 Open Mote
 Disconnect
 
@@ -685,7 +660,21 @@ Disconnect
 Quit Mote
 ```
 
-菜单栏图标当前使用 SF Symbols 锁形（`lock.fill` / `lock` / `lock.circle`），而不是独立的信号标记。
+菜单栏图标是自定义中继/信号标记，右下角用状态圆点。不要改回锁形 SF Symbol，也不要把图标做成 template-only 以致状态色消失。
+
+未配置时：
+
+```text
+Mote is not configured
+MacBook Pro
+```
+
+配对中：
+
+```text
+◌ Waiting for Approval…
+MacBook Pro
+```
 
 断开时：
 
@@ -745,8 +734,9 @@ Reconnect
 
 ```text
 Start Mote at Login      [ON]
-Remote Actions           [ON]
 ```
+
+Remote Actions 不是开关。当前是只读行：`Lock` → `Available` / `Unavailable`。
 
 不要做移动端那种过大的开关行。
 
@@ -973,12 +963,22 @@ Reconnect Mote with a valid device credential.
 ```text
 Mote is not configured
 
-Connect this Mac to Mote Relay to enable remote actions.
+Click Pair so Mote Relay can approve this Mac.
 
-[Configure Mote]
+[Pair]
 ```
 
-不要显示虚假的断开指标。
+配对等待中：
+
+```text
+Waiting for approval
+
+Mote Relay can see this Device ID. Allow it in the Dashboard.
+
+[Cancel]
+```
+
+折叠的「Paste credential instead」只用于 CLI 恢复。不要显示虚假的断开指标或 `0 ms`。
 
 ## 27. 文案风格
 
@@ -1020,10 +1020,12 @@ Mote
 Mote for Mac
 Mote Agent
 Mote Relay
+Mote iOS
 Relay
 Remote Actions
 Device
 Connection
+Pair
 ```
 
 主界面避免不必要的技术术语。
@@ -1046,20 +1048,28 @@ Persistent WebSocket Transport
 
 ```text
 ┌─────────────────────────────────────────────┐
-│ Mote                                        │
-│ Name                        MacBook Pro     │
-│ Status                      ● Connected     │
+│ MacBook Pro                                 │
+│ ● Connected                                 │
+│ Relay · 4 ms                                │
+│                                             │
+│ CONNECTION                                  │
 │ Relay                       relay.yanze.me  │
 │ Latency                              4 ms   │
-│ Remote Actions                   Enabled    │
+│ Disconnect                                  │
+│                                             │
+│ REMOTE ACTIONS                              │
+│ Lock                           Available    │
+│                                             │
+│ PERMISSIONS                                 │
 │ Lock Permission                  Granted    │
+│                                             │
+│ STARTUP                                     │
 │ Start Mote at Login                [ ON ]   │
 │                                             │
 │ DEVICE                                      │
+│ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
-│                                             │
-│ CONNECTION                                  │
-│ Disconnect                                  │
+│ Version                      1.2.0 (3)      │
 └─────────────────────────────────────────────┘
 ```
 
@@ -1130,7 +1140,7 @@ Mote 是桌面工具，不是响应式网站。
 建议内容宽度（与当前窗口一致）：
 
 ```text
-360–420 px
+460–520 px
 ```
 
 避免在极宽窗口里把行拉满。
@@ -1179,35 +1189,27 @@ Mote 是桌面工具，不是响应式网站。
 
 视觉识别应更广义地代表远程动作 / 信号传递。
 
-## 35. V2 设计兼容性
+## 35. iOS 与后续传输
 
-V2 将引入原生 iPhone 应用和本地 Bonjour 传输。
+下一步是个人用原生 iPhone 应用，仍走 Relay HTTPS。再往后才可能出现本地 Bonjour 传输。
 
-设计语言必须已经能支持：
+当前 Mac 头已经按传输行预留位置：
 
 ```text
-Connection
-Direct
+MacBook Pro
+● Connected
+Relay · 4 ms
 ```
 
-以及：
+以后若有直连，只替换这一行：
 
 ```text
-Connection
-Relay
-```
-
-可能的 V2 状态：
-
-```text
-MacBook Pro                  ● Connected
 Direct · 2 ms
 ```
 
 回退：
 
 ```text
-MacBook Pro                  ● Connected
 Relay · 18 ms
 ```
 
@@ -1217,7 +1219,9 @@ Relay 是一种传输。
 
 Mote 才是产品。
 
-## 36. 建议的 V2 传输指示
+iOS 界面应同样克制：一个主动作（Lock）、清楚的 Mac 在线状态、失败时说明下一步。不要做成仪表盘。个人分发不上架，因此不要为 App Store 营销屏做视觉。
+
+## 36. 建议的传输指示
 
 使用简单标签：
 
@@ -1245,7 +1249,7 @@ WSS
 Cloudflare
 ```
 
-这些属于 Advanced。
+这些属于 Advanced。直连尚未实现；现在只显示 Relay。
 
 ## 37. 组件设计规则
 

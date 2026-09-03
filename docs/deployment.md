@@ -76,6 +76,17 @@ MOTE_AUTH_TIMEOUT_MS=5000
 MOTE_MAX_BODY_BYTES=16384
 ```
 
+配对相关（有默认值，通常不用改）：
+
+```text
+MOTE_PAIR_TTL_MS=600000
+MOTE_PAIR_RATE_LIMIT_MAX=5
+MOTE_PAIR_RATE_LIMIT_WINDOW_MS=600000
+MOTE_PAIR_IP_RATE_LIMIT_MAX=20
+MOTE_PAIR_IP_RATE_LIMIT_WINDOW_MS=600000
+MOTE_SHORTCUT_ICLOUD_URL=
+```
+
 生产 Relay 必须监听 `0.0.0.0:3000`，而不是 `127.0.0.1:3000`。不要把 `192.168.2.44` 写进应用源码。Docker 端口映射负责把容器端口发布到 LXC。
 
 `MOTE_PUBLIC_URL` 是客户端看到的公网 URL，不是源站 origin。
@@ -89,6 +100,7 @@ MOTE_MAX_BODY_BYTES=16384
 ```text
 https://relay.yanze.me
 wss://relay.yanze.me/v1/ws/device
+wss://relay.yanze.me/v1/ws/pair
 ```
 
 Cloudflare Published Application（在现有 Tunnel 上手工配置）：
@@ -128,14 +140,14 @@ Mote Relay
 
 最后一跳 `PVE host → LXC` 使用 HTTP。不要为这一跳单独做本地 TLS。
 
-V1 不使用 Split DNS（例如 AdGuard 把 `relay.yanze.me` 指到 `192.168.2.44` 做直连 HTTPS）。在家和外出都走 Cloudflare Tunnel。未来 V2 可能用 Bonjour 做本地直连；那是 **Future / not implemented**。
+当前不使用 Split DNS（例如 AdGuard 把 `relay.yanze.me` 指到 `192.168.2.44` 做直连 HTTPS）。在家和外出都走 Cloudflare Tunnel。之后可能用 Bonjour 做本地直连；那是 **Future / not implemented**。下一步是个人用 Mote iOS，仍走这条 Tunnel，见 [ios.md](ios.md)。
 
 ## 开发与生产
 
-| 环境 | 客户端基址               | 设备 WebSocket                      |
-| ---- | ------------------------ | ----------------------------------- |
-| 开发 | `http://127.0.0.1:3000`  | `ws://127.0.0.1:3000/v1/ws/device`  |
-| 生产 | `https://relay.yanze.me` | `wss://relay.yanze.me/v1/ws/device` |
+| 环境 | 客户端基址               | 设备 WebSocket                      | 配对 WebSocket                    |
+| ---- | ------------------------ | ----------------------------------- | --------------------------------- |
+| 开发 | `http://127.0.0.1:3000`  | `ws://127.0.0.1:3000/v1/ws/device`  | `ws://127.0.0.1:3000/v1/ws/pair`  |
+| 生产 | `https://relay.yanze.me` | `wss://relay.yanze.me/v1/ws/device` | `wss://relay.yanze.me/v1/ws/pair` |
 
 不要把生产客户端改成 `http://192.168.2.44:3000`。
 
@@ -186,13 +198,13 @@ Compose 使用 `ports: "3000:3000"`，不要用 `network_mode: host`，也不要
 
 ## Cloudflare Access
 
-不要在 Mote V1 前面放交互式 Cloudflare Access 策略。认证已经由下列凭据完成：
+不要在 Mote 前面放交互式 Cloudflare Access 策略。认证已经由下列凭据完成：
 
-- 快捷指令：Bearer `send_command` token
+- 快捷指令 / 未来 iOS：Bearer `send_command` token
 - Mac：`device_connection` 凭据
 - Dashboard：Relay 内的管理员会话 cookie
 
-交互式 Cloudflare 登录会干扰 Apple 快捷指令和 Mac 的持久 WebSocket。iPhone 配置见 [shortcuts.md](shortcuts.md)。
+交互式 Cloudflare 登录会干扰 Apple 快捷指令、未来的 iOS 客户端和 Mac 的持久 WebSocket。iPhone 配置见 [shortcuts.md](shortcuts.md)。
 
 ## 安全边界
 

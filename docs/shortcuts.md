@@ -1,6 +1,6 @@
 # Apple 快捷指令
 
-V1 没有 iOS 应用。iPhone（或 iPad）用系统「快捷指令」向 Mote Relay 发一次 HTTPS 请求，触发唯一允许的动作 `lock`。仓库不附带可安装的 `.shortcut` 文件；可按本文手建，或在一台 Apple 设备上分享 iCloud 链接后点开添加。
+当前 iPhone（或 iPad）用系统「快捷指令」向 Mote Relay 发一次 HTTPS 请求，触发唯一允许的动作 `lock`。原生 Mote iOS 尚未进仓库；个人分发约定见 [ios.md](ios.md)。仓库不附带可安装的 `.shortcut` 文件；可按本文手建，或在一台 Apple 设备上分享 iCloud 链接后点开添加。
 
 HTTP 形状见 [protocol.md](protocol.md)。凭据角色见 [security.md](security.md)。
 

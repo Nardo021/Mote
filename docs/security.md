@@ -18,7 +18,7 @@ Mote for Mac 把 `device_connection` 凭据存放在钥匙串。Mote Relay 只�
 send_command
 ```
 
-仅供 Apple 快捷指令或未来受信任的命令客户端使用。iPhone 配置见 [shortcuts.md](shortcuts.md)。
+仅供 Apple 快捷指令或未来的 Mote iOS 使用。iPhone 快捷指令见 [shortcuts.md](shortcuts.md)。个人 iOS 客户端见 [ios.md](ios.md)。
 
 请求头：
 
@@ -65,15 +65,15 @@ Dashboard 使用独立的 `admins` 表，而不是 Bearer token。
 - CLI 只打印一次密钥，且永不写入源文件。
 - 日志使用 `device_id`、`command_id`、`token_id` 和 `pair_request_id`。不得包含 Bearer token、设备凭据、`pair_secret` 或 Authorization 头。
 - 配对请求只保存 `pair_secret` 的 SHA-256 哈希。设备明文凭据在批准时生成，推给配对 WebSocket，不入库。
-- 公开 `POST /v1/pair/requests` 按 IP 与 `device_id` 限流。错误的 `pair_secret` 不能领取凭据。
+- 公开 `POST /v1/pair/requests` 按 IP（默认 10 分钟 20 次）与 `device_id`（默认 10 分钟 5 次）限流。错误的 `pair_secret` 不能领取凭据。
 - `GET /s/:deviceId` 是公开安装页：只带 Device ID 和命令 URL，不带 token，也不展示设备是否在线。
 
 ## 传输
 
 - 生产环境仅使用 HTTPS 和 WSS。
 - 公网主机名是 `relay.yanze.me`。
-- 客户端始终使用 `https://relay.yanze.me` 和 `wss://relay.yanze.me/v1/ws/device`。Cloudflare Tunnel 不得改变这些安全 URL。
-- 开发可以使用 `http://127.0.0.1:3000` 和 `ws://127.0.0.1:3000/v1/ws/device`。
+- 客户端始终使用 `https://relay.yanze.me`、`wss://relay.yanze.me/v1/ws/device` 和配对用的 `wss://relay.yanze.me/v1/ws/pair`。Cloudflare Tunnel 不得改变这些安全 URL。
+- 开发可以使用 `http://127.0.0.1:3000`、`ws://127.0.0.1:3000/v1/ws/device` 和 `ws://127.0.0.1:3000/v1/ws/pair`。
 - 不要把 Mac 或快捷指令改成访问 `http://192.168.2.44:3000`。该地址只是 PVE 宿主机上 `cloudflared` 的源站。
 - Mac 生产代码永不关闭 TLS 校验。
 
@@ -89,7 +89,7 @@ Dashboard 使用独立的 `admins` 表，而不是 Bearer token。
 
 ## 执行边界
 
-Mote Agent 只能运行预定义的本地动作（V1 为 `lock`）。
+Mote Agent 只能运行预定义的本地动作（当前为 `lock`）。
 
 Mote Relay 转发允许列表中的命令。它不会替客户端执行操作系统命令。
 
@@ -112,9 +112,9 @@ Mote Relay 转发允许列表中的命令。它不会替客户端执行操作系
 
 ## 部署说明
 
-- 在家和外出都走同一条 Cloudflare Tunnel，终止在同一 Mote Relay 实例。V1 不使用 Split DNS。
+- 在家和外出都走同一条 Cloudflare Tunnel，终止在同一 Mote Relay 实例。当前不使用 Split DNS。
 - `cloudflared` 运行在 PVE 宿主机上。Mote LXC / Compose 不持有 Tunnel token，也不调用 Cloudflare API。
-- 不要在 Mote V1 前面放交互式 Cloudflare Access。快捷指令的 Bearer `send_command` token、Mac 的 `device_connection` 凭据，以及 Dashboard 管理员会话已经负责认证。交互式登录会干扰快捷指令和持久 WebSocket。
+- 不要在 Mote 前面放交互式 Cloudflare Access。快捷指令 / 未来 iOS 的 Bearer `send_command` token、Mac 的 `device_connection` 凭据，以及 Dashboard 管理员会话已经负责认证。交互式登录会干扰快捷指令、未来的 iOS 客户端和持久 WebSocket。
 - 把 `192.168.2.44:3000` 发布到家庭 LAN 并不削弱 Relay 认证。Bearer、设备 WebSocket 认证、凭据角色分离、命令允许列表、速率限制、TTL、无命令队列和重复保护全部保留。健康检查可以保持当前的未认证设计。
 - Compose 文件和文档只使用环境变量占位符。不要把 Cloudflare 密钥放进 Mote 部署。
 - 管理 CLI 不得暴露到公网。

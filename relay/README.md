@@ -1,6 +1,6 @@
 # Mote Relay
 
-**Mote** 的已认证命令中继。Apple 快捷指令通过 HTTPS 发送 `lock`。Mote for Mac 保持一条持久 WebSocket，并在本地执行该允许列表动作。
+**Mote** 的已认证命令中继。Apple 快捷指令（以及之后的 Mote iOS）通过 HTTPS 发送 `lock`。Dashboard 也可以发同一条命令。Mote for Mac 保持一条持久 WebSocket，并在本地执行该允许列表动作。
 
 该进程从不运行 shell 命令、AppleScript 或 SSH。
 
@@ -26,6 +26,7 @@ npm run dev
 http://127.0.0.1:3000            Dashboard（需先构建 dashboard，或另开 Vite）
 http://127.0.0.1:3000/admin/api  Admin API
 ws://127.0.0.1:3000/v1/ws/device
+ws://127.0.0.1:3000/v1/ws/pair
 ```
 
 本地同时开发 Dashboard：
@@ -72,9 +73,13 @@ npm run cli -- device rotate <device-id>
 npm run cli -- token list
 npm run cli -- token disable <token-id>
 npm run cli -- token rotate <token-id>
+npm run cli -- admin list
+npm run cli -- admin password --username admin
+npm run cli -- admin disable --username admin
+npm run cli -- admin enable --username admin
 ```
 
-未构建时，可用 `npm run cli:dev -- ...` 通过 `tsx` 运行同一套 CLI。
+未构建时，可用 `npm run cli:dev -- ...` 通过 `tsx` 运行同一套 CLI。不要把管理员密码当作命令行 flag。
 
 ## 生产 CLI
 
@@ -86,19 +91,46 @@ docker compose exec -it relay node dist/cli.js admin create --username admin
 
 ## HTTP API
 
-快捷指令客户端使用 `Authorization: Bearer <token>`，权限为 `send_command`。
+命令客户端使用 `Authorization: Bearer <token>`，权限为 `send_command`。
 
-| 方法   | 路径                             | 认证         | 用途                                  |
-| ------ | -------------------------------- | ------------ | ------------------------------------- |
-| `POST` | `/v1/devices/:deviceId/commands` | Bearer       | 发送 `{"action":"lock"}`              |
-| `GET`  | `/v1/devices/:deviceId/status`   | Bearer       | 在线 / 最近见到                       |
-| `GET`  | `/v1/ws/device`                  | 设备 WS 认证 | Mote Agent 套接字（升级为 WebSocket） |
-| `GET`  | `/`                              | 无           | Dashboard SPA                         |
-| `*`    | `/admin/api/*`                   | 管理员会话   | Dashboard 管理 API                    |
-| `GET`  | `/health`                        | 无           | 进程存活                              |
-| `GET`  | `/ready`                         | 无           | 数据库 + 进程就绪；失败时 `503`       |
+| 方法   | 路径                             | 认证          | 用途                                  |
+| ------ | -------------------------------- | ------------- | ------------------------------------- |
+| `POST` | `/v1/devices/:deviceId/commands` | Bearer        | 发送 `{"action":"lock"}`              |
+| `GET`  | `/v1/devices/:deviceId/status`   | Bearer        | 在线 / 最近见到                       |
+| `POST` | `/v1/pair/requests`              | 无            | Mac 发起配对；返回 `pair_secret`      |
+| `POST` | `/v1/pair/requests/:id/cancel`   | `pair_secret` | Mac 取消配对                          |
+| `GET`  | `/v1/ws/device`                  | 设备 WS 认证  | Mote Agent 套接字（升级为 WebSocket） |
+| `GET`  | `/v1/ws/pair`                    | 查询串密钥    | 配对套接字                            |
+| `GET`  | `/s/:deviceId`                   | 无            | 快捷指令安装页（不含 token）          |
+| `GET`  | `/`                              | 无            | Dashboard SPA                         |
+| `*`    | `/admin/api/*`                   | 管理员会话    | Dashboard 管理 API                    |
+| `GET`  | `/health`                        | 无            | 进程存活                              |
+| `GET`  | `/ready`                         | 无            | 数据库 + 进程就绪；失败时 `503`       |
 
-健康检查不要求 Mac 在线。完整状态码见 [docs/protocol.md](../docs/protocol.md)。iPhone 快捷指令配置见 [docs/shortcuts.md](../docs/shortcuts.md)。
+健康检查不要求 Mac 在线。完整状态码见 [docs/protocol.md](../docs/protocol.md)。iPhone 快捷指令配置见 [docs/shortcuts.md](../docs/shortcuts.md)。iOS 约定见 [docs/ios.md](../docs/ios.md)。
+
+### Admin API（节选）
+
+均在 `/admin/api`，使用 `mote_admin_session` cookie。
+
+| 方法     | 路径                                | 用途                |
+| -------- | ----------------------------------- | ------------------- |
+| `GET`    | `/session`                          | 当前会话            |
+| `POST`   | `/session`                          | 登录                |
+| `DELETE` | `/session`                          | 退出                |
+| `POST`   | `/account/password`                 | 改密                |
+| `GET`    | `/overview`                         | 总览                |
+| `GET`    | `/pair-requests`                    | 待批准配对          |
+| `POST`   | `/pair-requests/:id/approve`        | 批准                |
+| `POST`   | `/pair-requests/:id/reject`         | 拒绝                |
+| `GET`    | `/devices` / `/devices/:id`         | 设备                |
+| `POST`   | `/devices/:id/commands`             | Dashboard 发 `lock` |
+| `POST`   | `/devices/:id/credential/rotate`    | 轮换设备凭据        |
+| `POST`   | `/devices/:id/disable` / `/enable`  | 启用/禁用           |
+| `GET`    | `/tokens`                           | Token 列表          |
+| `POST`   | `/tokens` / `/:id/rotate` / disable | Token 管理          |
+| `GET`    | `/activity`                         | 命令活动            |
+| `GET`    | `/system`                           | 运行参数            |
 
 ## 命令语义
 
@@ -108,8 +140,9 @@ docker compose exec -it relay node dist/cli.js admin create --username admin
 - 截止时间前没有确认则返回 `504`，带 `"status":"timeout"`（默认等待 12 秒；命令 TTL 默认 10 秒）。
 - 不支持的动作返回 `422`。
 - 命令提交默认每 token 每 10 秒最多 10 次，超出返回 `429`。
-- 命令元数据（`id`、`created_at`、`expires_at`、`nonce`）由 Relay 生成，不是快捷指令生成。
+- 命令元数据（`id`、`created_at`、`expires_at`、`nonce`）由 Relay 生成，不是客户端生成。
 - `last_seen_at` 写入 SQLite 会节流（默认约 60 秒，或断开时落盘）。心跳本身不每次写库。
+- 活动 `source`：公开命令 API 记 `shortcut`，Dashboard 记 `dashboard`，`ios` 已预留。
 
 ## 布局
 
@@ -122,6 +155,7 @@ src/
   api/               HTTP 路由与 Dashboard 静态托管
   admin/             管理员账户、会话、管理 API
   activity/          命令活动日志
+  pairing/           配对请求、套接字、安装页
   websocket/         设备套接字与注册表
   auth/              按角色分离的凭据检查
   devices/           SQLite 设备与 token 存储

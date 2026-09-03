@@ -22,13 +22,13 @@ Mote Protocol v1
 
 ## 动作
 
-V1 只实现：
+当前只实现：
 
 ```text
 lock
 ```
 
-预留的未来取值（V1 未实现；在明确实现前视为不支持）：
+预留的未来取值（尚未实现；在明确实现前视为不支持）：
 
 ```text
 sleep
@@ -106,7 +106,14 @@ POST /v1/pair/requests/:id/cancel
 { "pair_secret": "<secret>" }
 ```
 
-同一 `device_id` 同时只保留一条 pending。明文凭据不入库；批准时生成并推给配对套接字，也可在 Dashboard 显示一次。公开 `POST` 按 IP 与 device_id 限流。默认 10 分钟过期。
+同一 `device_id` 同时只保留一条 pending。新的 Pair 会取消旧的 pending，并向旧套接字发送 `pair_expired`。明文凭据不入库；批准时生成并推给配对套接字，也可在 Dashboard 显示一次。
+
+公开 `POST /v1/pair/requests` 默认限流：
+
+- 每个 `device_id`：10 分钟内 5 次（`MOTE_PAIR_RATE_LIMIT_*`）
+- 每个 IP：10 分钟内 20 次（`MOTE_PAIR_IP_RATE_LIMIT_*`）
+
+默认 10 分钟过期（`MOTE_PAIR_TTL_MS`）。错误的 `pair_secret` 不能领取凭据。配对套接字**没有**设备套接字那种 5 秒认证超时。
 
 CLI `device create` 仍可用于恢复。折叠的「Paste credential instead」是轮换或 CLI 创建后的兜底。
 
@@ -134,7 +141,7 @@ Tunnel
 Mote Relay
 ```
 
-不要另开 WebSocket 端口或单独的 WebSocket 主机名。由 HTTPS 基址 `https://relay.yanze.me` 推导。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。
+不要另开 WebSocket 端口或单独的 WebSocket 主机名。由 HTTPS 基址 `https://relay.yanze.me` 推导。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。配对套接字由同一基址推导为 `/v1/ws/pair`。
 
 Mac 始终发起**出站**连接。从不需要路由器入站端口转发。
 
@@ -280,7 +287,7 @@ Relay → Mac（WebSocket 帧）：
 - `nonce` 存在
 - 命令 ID 不在近期 ID 缓存中
 
-无效命令不会执行。Mac 在内存中保存有界的近期命令 ID 缓存（数百条，而不是无限）。V1 不要求 Mac 上有持久重放数据库。
+无效命令不会执行。Mac 在内存中保存有界的近期命令 ID 缓存（数百条，而不是无限）。当前不要求 Mac 上有持久重放数据库。
 
 ## 命令结果
 
@@ -335,14 +342,17 @@ Relay 可以发送：
 
 同一套命令和结果对象应可用于：
 
-- V1：Apple 快捷指令经 HTTPS 进入 Mote Relay，再经 WebSocket 到 Mote Agent
-- V2：Mote iOS 经本地传输到 Mote Agent，并以 Relay 作为回退
+- 当前：Apple 快捷指令或 Dashboard 经 HTTPS 进入 Mote Relay，再经 WebSocket 到 Mote Agent
+- 下一步：Mote iOS 经同一条 HTTPS 命令 API 进入 Mote Relay
+- 之后：Mote iOS 经本地传输到 Mote Agent，并以 Relay 作为回退
 
-不要为本地传输另起一套命令模式。下面的快捷指令 HTTP API 始终会在设备套接字上产出该命令对象。
+不要为 iOS 或本地传输另起一套命令模式。下面的命令 HTTP API 始终会在设备套接字上产出该命令对象。
 
-## 快捷指令 HTTP API
+活动来源 `source` 允许 `shortcut`、`dashboard`、`ios`。公开命令 API 目前记为 `shortcut`。`ios` 已预留。
 
-iPhone 上的建立步骤见 [shortcuts.md](shortcuts.md)。
+## 命令 HTTP API
+
+iPhone 上的快捷指令步骤见 [shortcuts.md](shortcuts.md)。之后的 Mote iOS 使用同一组路径和 JSON，见 [ios.md](ios.md)。
 
 生产基址：`https://relay.yanze.me`
 

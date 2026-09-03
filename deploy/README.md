@@ -82,6 +82,7 @@ printf '%s\n' "$PASSWORD" | docker compose exec -T relay \
 ```text
 https://relay.yanze.me
 wss://relay.yanze.me/v1/ws/device
+wss://relay.yanze.me/v1/ws/pair
 ```
 
 生产源站（仅供 PVE 宿主机上的现有 Tunnel 使用）是：
