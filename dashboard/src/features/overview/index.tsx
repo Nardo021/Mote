@@ -42,11 +42,15 @@ import {
   EventStatusBadge,
   RelayStatusBadge,
 } from "../../components/StatusBadge.js";
+import { useAdminEvents } from "../../events/AdminEventsProvider.js";
+import { livePollInterval } from "../../events/topics.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
 import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import type { OverviewResponse } from "../../types/activity.js";
 import type { AdminDevice } from "../../types/device.js";
+
+const OVERVIEW_EVENT_TOPICS = ["devices", "activity"] as const;
 
 export function OverviewPage() {
   const { t } = useTranslation();
@@ -70,7 +74,14 @@ export function OverviewPage() {
       toast.error(translateError(cause, t, "errors.unknown"));
     });
   }, [refresh, t]);
-  usePolling(() => refresh().catch(() => undefined), 5_000, overview !== null);
+  const { live } = useAdminEvents(OVERVIEW_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
+  usePolling(
+    () => refresh().catch(() => undefined),
+    livePollInterval(live, 5_000),
+    overview !== null,
+  );
 
   const header = <AppHeader />;
 

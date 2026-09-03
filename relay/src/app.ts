@@ -155,6 +155,7 @@ export async function buildApp(ctx: AppContext) {
         ctx.devices.markLastSeen(connection.deviceId, nowMs());
         ctx.lastSeen.clear(connection.deviceId);
         app.log.info({ device_id: connection.deviceId }, "device disconnected");
+        ctx.adminEvents.publish("devices");
       }
     },
   );

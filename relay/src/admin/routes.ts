@@ -9,6 +9,7 @@ import { isCommandSource } from "../commands/commandTypes.js";
 import { PROTOCOL_VERSION } from "../config/constants.js";
 import { AppError, ErrorCode, invalidRequest } from "../utils/errors.js";
 import { nowMs } from "../utils/time.js";
+import { writeAdminEventStream } from "./eventStream.js";
 import {
   assertAdminMutationAllowed,
   authenticateAdminRequest,
@@ -173,6 +174,11 @@ export async function registerAdminRoutes(
         return { ok: true };
       });
 
+      admin.get("/events", async (request, reply) => {
+        requireAdmin(request, ctx);
+        writeAdminEventStream(request, reply, ctx.adminEvents);
+      });
+
       admin.get("/overview", async (request) => {
         requireAdmin(request, ctx);
         const now = nowMs();
@@ -299,6 +305,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, device_id: device.id },
           "device renamed",
         );
+        ctx.adminEvents.publish("devices");
         return presentAdminDevice(
           device,
           ctx.connections.get(device.id),
@@ -331,6 +338,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, device_id: params.id },
           "device credential rotated",
         );
+        ctx.adminEvents.publish("devices");
         return { credential: rotated.credential };
       });
 
@@ -343,6 +351,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, device_id: device.id },
           "device disabled",
         );
+        ctx.adminEvents.publish("devices");
         return presentAdminDevice(
           device,
           undefined,
@@ -358,6 +367,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, device_id: device.id },
           "device enabled",
         );
+        ctx.adminEvents.publish("devices");
         return presentAdminDevice(
           device,
           ctx.connections.get(device.id),
@@ -389,6 +399,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, token_id: created.id },
           "shortcut token created",
         );
+        ctx.adminEvents.publish("tokens");
         return {
           id: created.id,
           name: created.name,
@@ -406,6 +417,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, token_id: rotated.id },
           "shortcut token rotated",
         );
+        ctx.adminEvents.publish("tokens");
         return {
           id: rotated.id,
           name: rotated.name,
@@ -423,6 +435,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, token_id: token.id },
           "shortcut token disabled",
         );
+        ctx.adminEvents.publish("tokens");
         return {
           id: token.id,
           name: token.name,
@@ -441,6 +454,7 @@ export async function registerAdminRoutes(
           { admin_id: session.adminId, token_id: token.id },
           "shortcut token enabled",
         );
+        ctx.adminEvents.publish("tokens");
         return {
           id: token.id,
           name: token.name,

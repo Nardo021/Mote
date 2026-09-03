@@ -3,6 +3,7 @@ import { after, before, describe, it } from "node:test";
 import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { TextDecoder } from "node:util";
 
 import { ErrorCode } from "../src/utils/errors.js";
 import { hashSecret } from "../src/auth/tokenHash.js";
@@ -477,4 +478,82 @@ describe("admin API", () => {
     mac.close();
     await waitForClose(mac);
   });
+
+  it("rejects unauthenticated SSE and streams topics after login", async () => {
+    const unauthenticated = await server.app.inject({
+      method: "GET",
+      url: "/admin/api/events",
+    });
+    assert.equal(unauthenticated.statusCode, 401);
+
+    const response = await fetch(`${server.baseUrl}/admin/api/events`, {
+      headers: { cookie },
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("x-accel-buffering"), "no");
+    assert.equal(server.ctx.adminEvents.subscriberCount, 1);
+
+    const reader = response.body?.getReader();
+    assert.ok(reader);
+    const decoder = new TextDecoder();
+    const buffer = { text: "" };
+    const hello = await readNextSseData(reader, decoder, buffer);
+    assert.deepEqual(hello, {
+      topics: ["devices", "pairing", "activity", "tokens"],
+    });
+
+    const mac = await authenticateDeviceSocket(
+      server.wsUrl,
+      deviceId,
+      credential,
+    );
+    const next = await readNextSseData(reader, decoder, buffer);
+    assert.ok(
+      Array.isArray(next.topics) && next.topics.includes("devices"),
+      `expected devices topic, got ${JSON.stringify(next)}`,
+    );
+
+    await reader.cancel();
+    mac.close();
+    await waitForClose(mac);
+  });
 });
+
+async function readNextSseData(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
+  buffer: { text: string },
+  timeoutMs = 2_000,
+): Promise<{ topics?: string[] }> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const separator = buffer.text.indexOf("\n\n");
+    if (separator !== -1) {
+      const raw = buffer.text.slice(0, separator);
+      buffer.text = buffer.text.slice(separator + 2);
+      const dataLine = raw.split("\n").find((line) => line.startsWith("data:"));
+      if (dataLine === undefined) {
+        continue;
+      }
+      return JSON.parse(dataLine.slice("data:".length).trim()) as {
+        topics?: string[];
+      };
+    }
+    const remaining = deadline - Date.now();
+    const chunk = await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Timed out waiting for SSE data"));
+        }, remaining);
+      }),
+    ]);
+    if (chunk.done) {
+      throw new Error("SSE stream ended before the next event");
+    }
+    buffer.text += decoder.decode(chunk.value, { stream: true });
+  }
+  throw new Error("Timed out waiting for SSE data");
+}

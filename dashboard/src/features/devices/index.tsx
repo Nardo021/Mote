@@ -41,6 +41,8 @@ import { Main } from "../../components/layout/main.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
 import { LoadingState } from "../../components/LoadingState.js";
 import { DeviceStatusBadge, EventStatusBadge } from "../../components/StatusBadge.js";
+import { useAdminEvents } from "../../events/AdminEventsProvider.js";
+import { livePollInterval } from "../../events/topics.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
 import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
@@ -49,6 +51,8 @@ import { isRetryableStatus } from "../../lib/retry.js";
 import { usePairing } from "../../pairing/PairingProvider.js";
 import type { AdminDevice } from "../../types/device.js";
 import type { PairRequest } from "../../types/pair.js";
+
+const DEVICE_EVENT_TOPICS = ["devices"] as const;
 
 function devicePresence(device: AdminDevice): "online" | "offline" | "disabled" {
   if (!device.enabled) {
@@ -76,7 +80,14 @@ export function DevicesPage() {
       toast.error(translateError(cause, t, "devices.loadFailed"));
     });
   }, [refresh, t]);
-  usePolling(() => refresh().catch(() => undefined), 5_000, devices !== null);
+  const { live } = useAdminEvents(DEVICE_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
+  usePolling(
+    () => refresh().catch(() => undefined),
+    livePollInterval(live, 5_000),
+    devices !== null,
+  );
 
   const onRetry = useCallback(async (device: AdminDevice) => {
     const action = device.last_command?.action;

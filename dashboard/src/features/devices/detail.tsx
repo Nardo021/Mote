@@ -39,6 +39,8 @@ import { AppHeader } from "../../components/layout/app-header.js";
 import { Main } from "../../components/layout/main.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
 import { DeviceStatusBadge, EventStatusBadge } from "../../components/StatusBadge.js";
+import { useAdminEvents } from "../../events/AdminEventsProvider.js";
+import { livePollInterval } from "../../events/topics.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
 import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
@@ -52,6 +54,8 @@ import { isRetryableStatus } from "../../lib/retry.js";
 import type { AdminDevice } from "../../types/device.js";
 
 type Pending = "lock" | "rotate" | "disable" | null;
+
+const DEVICE_DETAIL_EVENT_TOPICS = ["devices", "activity"] as const;
 
 export function DeviceDetailPage() {
   const { id } = useParams();
@@ -78,7 +82,14 @@ export function DeviceDetailPage() {
       toast.error(translateError(cause, t, "detail.loadFailed"));
     });
   }, [refresh, t]);
-  usePolling(() => refresh().catch(() => undefined), 5_000, device !== null);
+  const { live } = useAdminEvents(DEVICE_DETAIL_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
+  usePolling(
+    () => refresh().catch(() => undefined),
+    livePollInterval(live, 5_000),
+    device !== null,
+  );
 
   if (device === null) {
     return (

@@ -34,9 +34,14 @@ import { Main } from "../../components/layout/main.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
 import { LoadingState } from "../../components/LoadingState.js";
 import { SecretDialog } from "../../components/SecretDialog.js";
+import { useAdminEvents } from "../../events/AdminEventsProvider.js";
+import { livePollInterval } from "../../events/topics.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
+import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import type { AdminToken } from "../../types/token.js";
+
+const TOKEN_EVENT_TOPICS = ["tokens"] as const;
 
 type Pending = { type: "rotate" | "disable"; token: AdminToken } | null;
 
@@ -61,6 +66,14 @@ export function TokensPage() {
       toast.error(translateError(cause, t, "tokens.loadFailed"));
     });
   }, [refresh, t]);
+  const { live } = useAdminEvents(TOKEN_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
+  usePolling(
+    () => refresh().catch(() => undefined),
+    livePollInterval(live, 5_000),
+    tokens !== null,
+  );
 
   const columns = useMemo<ColumnDef<AdminToken>[]>(
     () => [

@@ -1,5 +1,6 @@
 import { ActivityRepository } from "./activity/activityRepository.js";
 import { ActivityService } from "./activity/activityService.js";
+import { AdminEventBus } from "./admin/eventBus.js";
 import { AdminRepository } from "./admin/adminRepository.js";
 import { AdminService } from "./admin/adminService.js";
 import { SessionRepository } from "./admin/sessionRepository.js";
@@ -46,6 +47,7 @@ export type AppContext = {
   pairSockets: PairSocketRegistry;
   pairDeviceRateLimiter: SlidingWindowRateLimiter;
   pairIpRateLimiter: SlidingWindowRateLimiter;
+  adminEvents: AdminEventBus;
 };
 
 export function createAppContext(
@@ -72,6 +74,7 @@ export function createAppContext(
     ADMIN_LOGIN_RATE_LIMIT_MAX,
     ADMIN_LOGIN_RATE_LIMIT_WINDOW_MS,
   );
+  const adminEvents = new AdminEventBus();
   const commands = new CommandService(
     config,
     devices,
@@ -83,6 +86,7 @@ export function createAppContext(
       info: () => undefined,
       warn: () => undefined,
     },
+    adminEvents,
   );
   sessions.purgeExpired();
   const pairSockets = new PairSocketRegistry();
@@ -101,6 +105,7 @@ export function createAppContext(
     config.pairTtlMs,
     pairDeviceRateLimiter,
     pairIpRateLimiter,
+    adminEvents,
   );
 
   return {
@@ -125,6 +130,7 @@ export function createAppContext(
     pairSockets,
     pairDeviceRateLimiter,
     pairIpRateLimiter,
+    adminEvents,
   };
 }
 
@@ -143,5 +149,6 @@ export function bindCommandLogger(
     (deviceId) => ctx.connections.isOnline(deviceId),
     ctx.activity,
     log,
+    ctx.adminEvents,
   );
 }

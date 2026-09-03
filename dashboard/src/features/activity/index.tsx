@@ -18,6 +18,8 @@ import { Main } from "../../components/layout/main.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
 import { LoadingState } from "../../components/LoadingState.js";
 import { EventStatusBadge } from "../../components/StatusBadge.js";
+import { useAdminEvents } from "../../events/AdminEventsProvider.js";
+import { livePollInterval } from "../../events/topics.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
 import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
@@ -25,6 +27,8 @@ import { formatDuration } from "../../lib/format.js";
 import { isRetryableStatus } from "../../lib/retry.js";
 import type { ActivityEvent } from "../../types/activity.js";
 import type { AdminDevice } from "../../types/device.js";
+
+const ACTIVITY_EVENT_TOPICS = ["activity"] as const;
 
 function statusGroup(status: string): string {
   if (status === "failed" || status === "timeout" || status === "expired") {
@@ -53,7 +57,14 @@ export function ActivityPage() {
       toast.error(translateError(cause, t, "activity.loadFailed"));
     });
   }, [refresh, t]);
-  usePolling(() => refresh().catch(() => undefined), 8_000, events !== null);
+  const { live } = useAdminEvents(ACTIVITY_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
+  usePolling(
+    () => refresh().catch(() => undefined),
+    livePollInterval(live, 8_000),
+    events !== null,
+  );
 
   const onlineIds = useMemo(
     () =>

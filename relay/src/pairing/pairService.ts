@@ -1,3 +1,4 @@
+import type { AdminEventBus } from "../admin/eventBus.js";
 import { hashSecret, verifySecret } from "../auth/tokenHash.js";
 import type { DeviceService } from "../devices/deviceService.js";
 import type { CreatedDevice } from "../devices/deviceTypes.js";
@@ -29,6 +30,7 @@ export class PairService {
     private readonly pairTtlMs: number,
     private readonly deviceLimiter: SlidingWindowRateLimiter,
     private readonly ipLimiter: SlidingWindowRateLimiter,
+    private readonly events: AdminEventBus,
   ) {}
 
   createRequest(
@@ -80,6 +82,7 @@ export class PairService {
       expiresAt: createdAt + this.pairTtlMs,
       createdAt,
     });
+    this.events.publish("pairing");
     return { id, pairSecret, expiresAt: createdAt + this.pairTtlMs };
   }
 
@@ -103,6 +106,8 @@ export class PairService {
       credential: created.credential,
       name: created.name,
     });
+    this.events.publish("pairing");
+    this.events.publish("devices");
     return { device: created, credential: created.credential };
   }
 
@@ -114,6 +119,7 @@ export class PairService {
       version: 1,
       error: "rejected",
     });
+    this.events.publish("pairing");
   }
 
   cancel(requestId: string, pairSecret: string): void {
@@ -127,6 +133,7 @@ export class PairService {
       version: 1,
       error: "cancelled",
     });
+    this.events.publish("pairing");
   }
 
   authenticateSocket(requestId: string, pairSecret: string): PairRequestRecord {
@@ -147,6 +154,9 @@ export class PairService {
     for (const request of expired) {
       this.sockets.send(request.id, { type: "pair_expired", version: 1 });
       this.sockets.close(request.id, 1000, "expired");
+    }
+    if (expired.length > 0) {
+      this.events.publish("pairing");
     }
     return expired;
   }

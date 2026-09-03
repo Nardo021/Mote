@@ -106,6 +106,7 @@ export function handleDeviceSocket(socket: WebSocket, request: DeviceSocketReque
       socket.send(encodeOutgoing(authResultOk()));
       request.log.info({ device_id: result.device.id, connection_id: connectionId }, "device authenticated");
       request.log.info({ device_id: result.device.id, connection_id: connectionId }, "device connected");
+      ctx.adminEvents.publish("devices");
       return;
     }
 
@@ -166,6 +167,7 @@ export function handleDeviceSocket(socket: WebSocket, request: DeviceSocketReque
       { device_id: authenticated.deviceId, connection_id: authenticated.connectionId },
       "device disconnected",
     );
+    ctx.adminEvents.publish("devices");
   };
 
   socket.on("close", cleanup);

@@ -1,5 +1,6 @@
 import type { ActivityService } from "../activity/activityService.js";
 import { CommandEventStatus } from "../activity/activityTypes.js";
+import type { AdminEventBus } from "../admin/eventBus.js";
 import type { EnvConfig } from "../config/env.js";
 import type { DeviceService } from "../devices/deviceService.js";
 import type { CommandMessage } from "../protocol/messages.js";
@@ -72,6 +73,7 @@ export class CommandService {
     private readonly isOnline: (deviceId: string) => boolean,
     private readonly activity: ActivityService,
     private readonly log: CommandLogger,
+    private readonly events: AdminEventBus,
   ) {}
 
   async submit(
@@ -152,6 +154,7 @@ export class CommandService {
       source,
       createdAt,
     });
+    this.events.publish("activity");
 
     const waiter = this.pending.wait(
       command.id,
@@ -176,6 +179,7 @@ export class CommandService {
         nowMs(),
         "device_disconnected",
       );
+      this.events.publish("activity");
       throw new AppError(
         ErrorCode.DEVICE_OFFLINE,
         "Device is currently offline.",
@@ -190,6 +194,7 @@ export class CommandService {
     }
 
     this.activity.recordSent(command.id);
+    this.events.publish("activity");
     this.log.info(
       { device_id: device.id, command_id: command.id },
       "command routed",
@@ -204,6 +209,7 @@ export class CommandService {
       completedAt,
       outcome.error,
     );
+    this.events.publish("activity");
     const totalMs = nowMs() - receivedAt;
     const relayProcessingMs = outcome.sentToDeviceAt - outcome.receivedAt;
     const deviceRoundTripMs =

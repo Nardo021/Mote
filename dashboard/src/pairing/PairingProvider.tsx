@@ -13,9 +13,13 @@ import {
   listPairRequests,
   rejectPairRequest,
 } from "../api/pair.js";
+import { useAdminEvents } from "../events/AdminEventsProvider.js";
+import { livePollInterval } from "../events/topics.js";
 import { useAuth } from "../hooks/useAuth.js";
 import { usePolling } from "../hooks/usePolling.js";
 import type { PairRequest } from "../types/pair.js";
+
+const PAIRING_EVENT_TOPICS = ["pairing"] as const;
 
 type PairingContextValue = {
   requests: PairRequest[];
@@ -49,9 +53,12 @@ export function PairingProvider({ children }: { children: ReactNode }) {
     });
   }, [refresh]);
 
+  const { live } = useAdminEvents(PAIRING_EVENT_TOPICS, () => {
+    void refresh().catch(() => undefined);
+  });
   usePolling(
     () => refresh().catch(() => undefined),
-    requests.length > 0 ? 2_000 : 5_000,
+    livePollInterval(live, requests.length > 0 ? 2_000 : 5_000),
     user !== null,
   );
 

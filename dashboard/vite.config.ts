@@ -18,6 +18,8 @@ export default defineConfig({
       "/admin/api": {
         target: "http://127.0.0.1:3000",
         changeOrigin: false,
+        timeout: 0,
+        proxyTimeout: 0,
       },
       "/v1": {
         target: "http://127.0.0.1:3000",
