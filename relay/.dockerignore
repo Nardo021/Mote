@@ -1,0 +1,15 @@
+node_modules
+dist
+data
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+!.env.example
+**/*.test.ts
+test
+coverage
+.git
+*.md
+.DS_Store

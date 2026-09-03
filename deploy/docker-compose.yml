@@ -1,0 +1,62 @@
+services:
+  relay:
+    container_name: mote-relay
+    build:
+      context: ../relay
+      dockerfile: Dockerfile
+    image: mote-relay:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MOTE_ENV: ${MOTE_ENV:-production}
+      MOTE_HOST: ${MOTE_HOST:-0.0.0.0}
+      MOTE_PORT: ${MOTE_PORT:-3000}
+      MOTE_DATABASE_PATH: ${MOTE_DATABASE_PATH:-/data/mote.sqlite}
+      MOTE_PUBLIC_URL: ${MOTE_PUBLIC_URL:-https://relay.yanze.me}
+      MOTE_LOG_LEVEL: ${MOTE_LOG_LEVEL:-info}
+      MOTE_COMMAND_TTL_MS: ${MOTE_COMMAND_TTL_MS:-10000}
+      MOTE_COMMAND_TIMEOUT_MS: ${MOTE_COMMAND_TIMEOUT_MS:-12000}
+      MOTE_HEARTBEAT_STALE_MS: ${MOTE_HEARTBEAT_STALE_MS:-90000}
+      MOTE_AUTH_TIMEOUT_MS: ${MOTE_AUTH_TIMEOUT_MS:-5000}
+      MOTE_MAX_BODY_BYTES: ${MOTE_MAX_BODY_BYTES:-16384}
+    volumes:
+      - mote_data:/data
+    expose:
+      - "3000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    container_name: mote-caddy
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./certs:/certs:ro
+    depends_on:
+      relay:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mote_data:
+  caddy_data:
+  caddy_config:

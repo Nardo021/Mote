@@ -1,0 +1,19 @@
+export const PROTOCOL_VERSION = 1 as const;
+
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+export const DEFAULT_COMMAND_TTL_MS = 10_000;
+export const DEFAULT_COMMAND_TIMEOUT_MS = 12_000;
+export const DEFAULT_HEARTBEAT_STALE_MS = 90_000;
+export const DEFAULT_AUTH_TIMEOUT_MS = 5_000;
+export const DEFAULT_MAX_BODY_BYTES = 16_384;
+export const DEFAULT_LAST_SEEN_PERSIST_MS = 60_000;
+export const DEFAULT_RATE_LIMIT_MAX = 10;
+export const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
+export const DEFAULT_MAX_PENDING_COMMANDS = 32;
+export const DEFAULT_STALE_SWEEP_INTERVAL_MS = 15_000;
+export const DEFAULT_PORT = 3000;
+export const PRODUCTION_PUBLIC_URL = "https://relay.yanze.me";
+export const PRODUCTION_HOST = "relay.yanze.me";
+export const DEVICE_WEBSOCKET_PATH = "/v1/ws/device";
+export const SECRET_BYTES = 32;
+export const NONCE_BYTES = 16;

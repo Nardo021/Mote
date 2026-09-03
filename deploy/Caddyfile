@@ -1,0 +1,19 @@
+{
+	email {$CADDY_ACME_EMAIL}
+}
+
+relay.yanze.me {
+	encode zstd gzip
+	reverse_proxy relay:3000 {
+		flush_interval -1
+		transport http {
+			read_timeout 0
+			write_timeout 0
+			dial_timeout 10s
+		}
+	}
+}
+
+:80 {
+	reverse_proxy relay:3000
+}

@@ -1,0 +1,35 @@
+{
+  "name": "mote-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mote Relay — authenticated command relay for Mote for Mac.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "tsx --test test/*.test.ts",
+    "cli": "node dist/cli.js",
+    "cli:dev": "tsx src/cli.ts",
+    "mote:create-device": "node dist/cli.js device create",
+    "mote:create-shortcut-token": "node dist/cli.js token create",
+    "mote:list-devices": "node dist/cli.js device list"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "better-sqlite3": "^12.4.1",
+    "fastify": "^5.6.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.3.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "ws": "^8.18.3"
+  }
+}
