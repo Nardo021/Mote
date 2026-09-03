@@ -59,8 +59,8 @@ enum MenuBarIconImage {
         drawLogo(in: rect, context: context, stroke: logoStroke)
 
         let unit = rect.width / 18
-        let diameter = 4.5 * unit
-        let inset = 0.5 * unit
+        let diameter = 6.5 * unit
+        let inset = 0.35 * unit
         let badgeRect = CGRect(
             x: rect.maxX - diameter - inset,
             y: rect.minY + inset,
@@ -73,7 +73,7 @@ enum MenuBarIconImage {
             ? NSColor.white.withAlphaComponent(0.9)
             : NSColor.white
         context.setStrokeColor(ring.cgColor)
-        context.setLineWidth(1.1 * unit)
+        context.setLineWidth(0.9 * unit)
         context.strokeEllipse(in: badgeRect.insetBy(dx: 0.15 * unit, dy: 0.15 * unit))
     }
 
