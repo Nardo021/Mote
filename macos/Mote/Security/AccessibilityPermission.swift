@@ -4,7 +4,7 @@ import Foundation
 
 enum AccessibilityPermission {
     static var isTrusted: Bool {
-        AXIsProcessTrusted()
+        check(prompt: false)
     }
 
     @discardableResult

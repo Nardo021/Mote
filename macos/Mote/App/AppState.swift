@@ -29,17 +29,20 @@ final class AppState {
     let credentials: CredentialManager
     let agent: AgentCoordinator
     let pairing: any PairingServicing
+    private let isAccessibilityTrusted: () -> Bool
 
     init(
         settings: SettingsStore = SettingsStore(),
         credentials: CredentialManager = CredentialManager(),
         executor: any MoteActionExecuting = ActionExecutor(),
-        pairing: any PairingServicing = RelayPairingClient()
+        pairing: any PairingServicing = RelayPairingClient(),
+        isAccessibilityTrusted: @escaping () -> Bool = { AccessibilityPermission.isTrusted }
     ) {
         self.settings = settings
         self.credentials = credentials
         self.agent = AgentCoordinator(settings: settings, credentials: credentials, executor: executor)
         self.pairing = pairing
+        self.isAccessibilityTrusted = isAccessibilityTrusted
         bindAgent()
     }
 
@@ -191,7 +194,7 @@ final class AppState {
     }
 
     func refreshPermissionsAndLoginItem() {
-        lockPermissionGranted = AccessibilityPermission.isTrusted
+        lockPermissionGranted = isAccessibilityTrusted()
         startAtLogin = LoginItemService.isEnabled
     }
 

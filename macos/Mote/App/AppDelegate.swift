@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     private var statusItemController: MenuBarStatusItemController?
     private var hostedMainWindow: NSWindow?
+    private var accessibilityTrustMonitor: AccessibilityTrustMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -17,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         statusItemController = MenuBarStatusItemController(appState: appState)
         observeWindowRequests()
+        accessibilityTrustMonitor = AccessibilityTrustMonitor { [appState] in
+            appState.refreshPermissionsAndLoginItem()
+        }
+        accessibilityTrustMonitor?.start()
         appState.start()
     }
 
@@ -34,10 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        accessibilityTrustMonitor?.stop()
         MoteLog.app.info("Mote terminating")
     }
 
     func showMainWindow() {
+        appState.refreshPermissionsAndLoginItem()
         appState.prepareToShowWindow()
         if let window = existingMainWindow() {
             window.makeKeyAndOrderFront(nil)
