@@ -14,8 +14,9 @@ struct MoteInlineErrorView: View {
         .font(MoteTypography.secondary)
         .foregroundStyle(MoteColors.error)
         .lineSpacing(MoteTypography.wrappingLineSpacing)
+        .multilineTextAlignment(.leading)
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.vertical, MoteSpacing.micro)
+        .padding(.vertical, MoteSpacing.tight)
         .textSelection(.enabled)
         .accessibilityElement(children: .combine)
     }

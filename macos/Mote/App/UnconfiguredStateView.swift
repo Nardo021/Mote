@@ -11,14 +11,10 @@ struct UnconfiguredStateView: View {
                     Text(title)
                         .font(MoteTypography.primaryMedium)
                         .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(subtitle)
-                        .font(MoteTypography.secondary)
-                        .foregroundStyle(.secondary)
                         .lineSpacing(MoteTypography.wrappingLineSpacing)
                         .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+
+                    MoteWrappingText(text: subtitle)
                 }
                 .id(subtitle)
 
@@ -37,11 +33,9 @@ struct UnconfiguredStateView: View {
     @ViewBuilder
     private var actionButton: some View {
         if appState.isPairing {
-            Button("Cancel") {
+            MoteTextAction(title: "Cancel", usesCancelShortcut: true) {
                 appState.cancelPairing()
             }
-            .moteButtonStyle()
-            .keyboardShortcut(.cancelAction)
         } else {
             Button("Pair") {
                 appState.beginPairing()

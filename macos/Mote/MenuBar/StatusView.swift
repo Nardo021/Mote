@@ -13,6 +13,7 @@ struct StatusView: View {
             Text(state.title)
                 .font(MoteTypography.primary)
                 .foregroundStyle(labelColor)
+                .lineLimit(1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(state.title)

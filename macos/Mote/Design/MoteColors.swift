@@ -20,6 +20,12 @@ enum MoteColors {
             : Color(red: 79 / 255, green: 124 / 255, blue: 255 / 255)
     }
 
+    static func accentHover(for scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 127 / 255, green: 160 / 255, blue: 255 / 255)
+            : Color(red: 65 / 255, green: 109 / 255, blue: 235 / 255)
+    }
+
     static let success = Color(moteToken: "mote.success", light: "2F9E63", dark: "49C47D")
     static let warning = Color(moteToken: "mote.warning", light: "C88719", dark: "E7A83A")
     static let error = Color(moteToken: "mote.error", light: "D54848", dark: "F06A6A")

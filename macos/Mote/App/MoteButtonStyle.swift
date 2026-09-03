@@ -6,15 +6,20 @@ struct MoteButtonChrome: ViewModifier {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.isEnabled) private var isEnabled
     @GestureState private var pressed = false
+    @State private var hovering = false
 
     func body(content: Content) -> some View {
         chrome(content)
+            .opacity(isEnabled ? 1 : 0.4)
             .scaleEffect(scale)
             .animation(
                 reduceMotion || isStatic ? nil : .easeOut(duration: 0.15),
                 value: pressed
             )
+            .onHover { hovering = $0 }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: hovering)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .updating($pressed) { _, state, _ in
@@ -33,7 +38,7 @@ struct MoteButtonChrome: ViewModifier {
                 .padding(.vertical, 5)
                 .foregroundStyle(.white)
                 .background(
-                    MoteColors.accentFill(for: colorScheme),
+                    fillColor,
                     in: RoundedRectangle(cornerRadius: MoteSpacing.radiusSmall, style: .continuous)
                 )
         } else {
@@ -42,8 +47,15 @@ struct MoteButtonChrome: ViewModifier {
         }
     }
 
+    private var fillColor: Color {
+        if hovering && isEnabled {
+            return MoteColors.accentHover(for: colorScheme)
+        }
+        return MoteColors.accentFill(for: colorScheme)
+    }
+
     private var scale: CGFloat {
-        if isStatic || reduceMotion || !pressed {
+        if isStatic || reduceMotion || !pressed || !isEnabled {
             return 1
         }
         return 0.96
@@ -53,6 +65,63 @@ struct MoteButtonChrome: ViewModifier {
 extension View {
     func moteButtonStyle(prominent: Bool = false, isStatic: Bool = false) -> some View {
         modifier(MoteButtonChrome(prominent: prominent, isStatic: isStatic))
+    }
+}
+
+struct MoteTextAction: View {
+    let title: String
+    var hint: String? = nil
+    var usesCancelShortcut: Bool = false
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(MoteTypography.primary)
+                .foregroundStyle(labelColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modifier(OptionalCancelShortcut(enabled: usesCancelShortcut))
+        .padding(.vertical, MoteSpacing.tight)
+        .onHover { hovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: hovering)
+        .modifier(OptionalAccessibilityHint(hint: hint))
+    }
+
+    private var labelColor: Color {
+        hovering
+            ? MoteColors.accentHover(for: colorScheme)
+            : MoteColors.accentFill(for: colorScheme)
+    }
+}
+
+private struct OptionalCancelShortcut: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.keyboardShortcut(.cancelAction)
+        } else {
+            content
+        }
+    }
+}
+
+private struct OptionalAccessibilityHint: ViewModifier {
+    let hint: String?
+
+    func body(content: Content) -> some View {
+        if let hint, !hint.isEmpty {
+            content.accessibilityHint(hint)
+        } else {
+            content
+        }
     }
 }
 
@@ -69,7 +138,7 @@ struct CopyDeviceIDButton: View {
                 icon("checkmark.fill", visible: copied)
                 icon("doc.on.doc", visible: !copied)
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(MoteTypography.primaryMedium)
             .foregroundStyle(iconColor)
             .frame(width: 24, height: 24)
             .contentShape(Rectangle())

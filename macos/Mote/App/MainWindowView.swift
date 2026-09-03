@@ -7,7 +7,7 @@ struct MainWindowView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: MoteSpacing.section) {
+                VStack(alignment: .leading, spacing: MoteSpacing.major) {
                     header
                         .id("mote-top")
                         .accessibilityFocused($headerIsFocused)
@@ -20,8 +20,13 @@ struct MainWindowView: View {
                         shortcutsSection
                     } else {
                         connectionSection
-                        remoteActionsSection
-                        permissionsSection
+                        if appState.lockPermissionGranted {
+                            remoteActionsSection
+                            permissionsSection
+                        } else {
+                            permissionsSection
+                            remoteActionsSection
+                        }
                         startupSection
                         deviceSection
                         shortcutsSection
@@ -31,9 +36,11 @@ struct MainWindowView: View {
                     DeveloperSettingsView()
                     #endif
                 }
-                .padding(MoteSpacing.section)
+                .padding(.horizontal, MoteSpacing.section)
+                .padding(.top, MoteSpacing.section)
+                .padding(.bottom, MoteSpacing.major)
                 .frame(maxWidth: MoteSpacing.windowMaxContentWidth, alignment: .leading)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .onAppear {
                 proxy.scrollTo("mote-top", anchor: .top)
@@ -95,24 +102,24 @@ struct MainWindowView: View {
                 MoteGroupDivider()
                 CredentialRecoveryView(appState: appState)
             }
+            MoteGroupDivider()
             connectionAction
-                .padding(.vertical, MoteSpacing.tight)
         }
     }
 
     @ViewBuilder
     private var connectionAction: some View {
         if appState.showsDisconnectAction {
-            Button("Disconnect") {
+            MoteTextAction(title: "Disconnect") {
                 appState.disconnect()
             }
-            .moteButtonStyle()
         } else {
             Button(appState.connectActionTitle) {
                 appState.connect()
             }
             .moteButtonStyle(prominent: true)
             .keyboardShortcut(.defaultAction)
+            .padding(.vertical, MoteSpacing.tight)
         }
     }
 
@@ -138,27 +145,18 @@ struct MainWindowView: View {
 
             if !appState.lockPermissionGranted {
                 MoteGroupDivider()
-                VStack(alignment: .leading, spacing: MoteSpacing.tight) {
-                    Text("Mote needs Accessibility permission to lock this Mac remotely.")
-                        .font(MoteTypography.secondary)
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(MoteTypography.wrappingLineSpacing)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Open System Settings") {
+                MoteHelperBlock(text: "Mote needs Accessibility permission to lock this Mac remotely.") {
+                    MoteTextAction(title: "Open System Settings", hint: "Opens System Settings") {
                         appState.openAccessibilitySettings()
                     }
-                    .moteButtonStyle()
-                    .accessibilityHint("Opens System Settings")
                 }
-                .padding(.vertical, MoteSpacing.tight)
-                .accessibilityElement(children: .contain)
             }
         }
     }
 
     private var startupSection: some View {
         MoteSection(title: "Startup") {
-            MoteRow(label: "Start Mote at Login", interactive: true, hidesLabel: true) {
+            MoteRow(label: "Start Mote at Login", alignment: .center, interactive: true, hidesLabel: true) {
                 Toggle("Start Mote at Login", isOn: startAtLoginBinding)
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -166,6 +164,7 @@ struct MainWindowView: View {
             }
 
             if let startupErrorText = appState.startupErrorText {
+                MoteGroupDivider()
                 MoteInlineErrorView(title: startupErrorText)
             }
         }
@@ -174,19 +173,15 @@ struct MainWindowView: View {
     private var deviceSection: some View {
         MoteSection(title: "Device") {
             MoteRow(label: "Name", interactive: true, hidesLabel: true) {
-                TextField("MacBook Pro", text: deviceNameBinding)
-                    .textFieldStyle(.plain)
-                    .font(MoteTypography.primary)
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .accessibilityLabel("Name")
+                DeviceNameField(text: deviceNameBinding)
             }
             MoteGroupDivider()
-            MoteRow(label: "Device ID") {
-                HStack(spacing: MoteSpacing.micro) {
+            MoteRow(label: "Device ID", alignment: .center) {
+                HStack(spacing: MoteSpacing.related) {
                     Text(appState.abbreviatedDeviceID)
                         .font(MoteTypography.technical)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                         .textSelection(.enabled)
                         .help(appState.deviceID)
                     CopyDeviceIDButton {
@@ -203,19 +198,14 @@ struct MainWindowView: View {
 
     private var shortcutsSection: some View {
         MoteSection(title: "Shortcuts") {
-            VStack(alignment: .leading, spacing: MoteSpacing.tight) {
-                Text("Opens the setup page with this Device ID.")
-                    .font(MoteTypography.secondary)
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(MoteTypography.wrappingLineSpacing)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Open Shortcut Setup") {
+            MoteHelperBlock(text: "Opens the setup page with this Device ID.") {
+                MoteTextAction(
+                    title: "Open Shortcut Setup",
+                    hint: "Copies the Device ID and opens the shortcut setup page."
+                ) {
                     appState.openShortcutSetup()
                 }
-                .moteButtonStyle()
-                .accessibilityHint("Copies the Device ID and opens the shortcut setup page.")
             }
-            .padding(.vertical, MoteSpacing.tight)
         }
     }
 

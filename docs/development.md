@@ -21,7 +21,7 @@
 
 ## Phase 2 — Mote for Mac
 
-已完成。原生 macOS 应用和 Mote Agent 位于 `macos/`。当前版本 `1.5.0`（build `8`）。
+已完成。原生 macOS 应用和 Mote Agent 位于 `macos/`。当前版本 `1.5.1`（build `9`）。
 
 ```text
 open macos/Mote.xcodeproj
