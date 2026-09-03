@@ -3,14 +3,23 @@ import type { HTMLAttributes, Ref } from "react";
 import { cn } from "@/lib/utils";
 
 type MainProps = HTMLAttributes<HTMLElement> & {
+  fixed?: boolean;
+  fluid?: boolean;
   ref?: Ref<HTMLElement>;
 };
 
-export function Main({ className, ...props }: MainProps) {
+export function Main({ fixed, fluid, className, ...props }: MainProps) {
   return (
     <main
       id="main"
-      className={cn("flex flex-1 flex-col gap-6 px-4 py-6 md:px-6", className)}
+      data-layout={fixed ? "fixed" : "auto"}
+      className={cn(
+        "px-4 py-6",
+        fixed && "flex grow flex-col overflow-hidden",
+        !fluid &&
+          "@7xl/content:mx-auto @7xl/content:w-full @7xl/content:max-w-7xl",
+        className,
+      )}
       {...props}
     />
   );

@@ -1,24 +1,44 @@
-import type { HTMLAttributes, Ref } from "react";
+import { useEffect, useState, type HTMLAttributes, type Ref } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 type HeaderProps = HTMLAttributes<HTMLElement> & {
+  fixed?: boolean;
   ref?: Ref<HTMLElement>;
 };
 
-export function Header({ className, children, ...props }: HeaderProps) {
+export function Header({ className, fixed, children, ...props }: HeaderProps) {
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setOffset(document.body.scrollTop || document.documentElement.scrollTop);
+    };
+    document.addEventListener("scroll", onScroll, { passive: true });
+    return () => document.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 h-16 shrink-0 bg-background/80 backdrop-blur-lg",
+        "z-50 h-16",
+        fixed && "header-fixed peer/header sticky top-0 w-[inherit]",
+        offset > 10 && fixed ? "shadow" : "shadow-none",
         className,
       )}
       {...props}
     >
-      <div className="relative flex h-full items-center gap-3 p-4 sm:gap-4">
-        <SidebarTrigger variant="outline" />
+      <div
+        className={cn(
+          "relative flex h-full items-center gap-3 p-4 sm:gap-4",
+          offset > 10 &&
+            fixed &&
+            "after:absolute after:inset-0 after:-z-10 after:bg-background/20 after:backdrop-blur-lg",
+        )}
+      >
+        <SidebarTrigger variant="outline" className="max-md:scale-125" />
         <Separator orientation="vertical" className="h-6" />
         {children}
       </div>

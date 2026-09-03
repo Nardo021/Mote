@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Monitor, CheckCircle2, CircleAlert, Wifi } from "lucide-react";
+import { CheckCircle2, CircleAlert, Monitor, Wifi } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,13 +27,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { listDevices, lockDevice } from "../../api/devices.js";
 import { getOverview } from "../../api/overview.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
+import { AppHeader } from "../../components/layout/app-header.js";
+import { Main } from "../../components/layout/main.js";
+import { PageHeading } from "../../components/layout/page-heading.js";
+import { Search } from "../../components/search.js";
+import { TopNav } from "../../components/layout/top-nav.js";
 import { LoadingState } from "../../components/LoadingState.js";
-import { PageHeading, PageShell } from "../../components/page-shell.js";
 import {
   DeviceStatusBadge,
   EventStatusBadge,
@@ -67,140 +72,177 @@ export function OverviewPage() {
       toast.error(translateError(cause, t, "errors.unknown"));
     });
   }, [refresh, t]);
-  usePolling(
-    () => refresh().catch(() => undefined),
-    5_000,
-    overview !== null,
+  usePolling(() => refresh().catch(() => undefined), 5_000, overview !== null);
+
+  const header = (
+    <AppHeader
+      start={
+        <>
+          <TopNav
+            className="me-auto"
+            links={[
+              { title: t("nav.overview"), href: "/", isActive: true },
+              { title: t("nav.devices"), href: "/devices", isActive: false },
+              { title: t("nav.activity"), href: "/activity", isActive: false },
+              { title: t("nav.settings"), href: "/settings", isActive: false },
+            ]}
+          />
+          <Search />
+        </>
+      }
+    />
   );
 
   if (overview === null) {
     return (
-      <PageShell>
-        <LoadingState label={t("common.loading")} />
-      </PageShell>
+      <>
+        {header}
+        <Main>
+          <LoadingState label={t("common.loading")} />
+        </Main>
+      </>
     );
   }
 
   return (
-    <PageShell>
-      <PageHeading
-        title={t("overview.title")}
-        description={t("overview.subtitle")}
-        action={<RelayStatusBadge status={overview.relay.status} />}
-      />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title={t("overview.onlineDevices")}
-          value={String(overview.devices.online)}
-          icon={Wifi}
+    <>
+      {header}
+      <Main className="flex flex-col gap-4">
+        <PageHeading
+          title={t("overview.title")}
+          description={t("overview.subtitle")}
+          action={<RelayStatusBadge status={overview.relay.status} />}
         />
-        <StatCard
-          title={t("overview.totalDevices")}
-          value={String(overview.devices.total)}
-          icon={Monitor}
-        />
-        <StatCard
-          title={t("overview.completed24h")}
-          value={String(overview.commands.completed_24h)}
-          icon={CheckCircle2}
-        />
-        <StatCard
-          title={t("overview.failed24h")}
-          value={String(overview.commands.failed_24h)}
-          icon={CircleAlert}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>{t("overview.devices")}</CardTitle>
-            <CardDescription>{t("overview.devicesDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {devices.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>{t("overview.emptyDevices")}</EmptyTitle>
-                  <EmptyDescription>
-                    {t("overview.emptyDevicesHint")}
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("devices.name")}</TableHead>
-                    <TableHead>{t("devices.status")}</TableHead>
-                    <TableHead>{t("devices.lastCommand")}</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {devices.map((device) => (
-                    <TableRow key={device.id}>
-                      <TableCell>
-                        <Link className="hover:underline" to={`/devices/${device.id}`}>
-                          {device.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <DeviceStatusBadge device={device} />
-                      </TableCell>
-                      <TableCell>
-                        {device.last_command
-                          ? `${format.action(device.last_command.action)} · ${format.status(device.last_command.status)}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <LockButton
-                          device={device}
-                          onLock={() => setLockTarget(device)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>{t("overview.recent")}</CardTitle>
-            <CardDescription>{t("overview.recentDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {overview.recent_activity.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>{t("overview.emptyActivity")}</EmptyTitle>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <div className="flex flex-col divide-y">
-                {overview.recent_activity.map((event) => (
-                  <div key={event.id} className="flex flex-col gap-1 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">{event.device_name}</span>
-                      <EventStatusBadge status={event.status} />
-                    </div>
-                    <div className="text-muted-foreground">
-                      {format.action(event.action)}
-                      {event.error_code
-                        ? ` · ${format.errorCode(event.error_code)}`
-                        : null}
-                    </div>
-                    <div className="tabular text-muted-foreground">
-                      {format.formatAbsoluteTime(event.created_at)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <Tabs defaultValue="overview" className="gap-4">
+          <div className="w-full overflow-x-auto pb-2">
+            <TabsList>
+              <TabsTrigger value="overview">{t("overview.tabOverview")}</TabsTrigger>
+              <TabsTrigger value="analytics">
+                {t("overview.tabAnalytics")}
+              </TabsTrigger>
+              <TabsTrigger value="reports" disabled>
+                {t("overview.tabReports")}
+              </TabsTrigger>
+              <TabsTrigger value="notifications" disabled>
+                {t("overview.tabNotifications")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="overview" className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title={t("overview.onlineDevices")}
+                value={String(overview.devices.online)}
+                hint={t("overview.ofTotal", { count: overview.devices.total })}
+                icon={Wifi}
+              />
+              <StatCard
+                title={t("overview.totalDevices")}
+                value={String(overview.devices.total)}
+                hint={t("overview.onlineHint")}
+                icon={Monitor}
+              />
+              <StatCard
+                title={t("overview.completed24h")}
+                value={String(overview.commands.completed_24h)}
+                hint={t("overview.completedHint")}
+                icon={CheckCircle2}
+              />
+              <StatCard
+                title={t("overview.failed24h")}
+                value={String(overview.commands.failed_24h)}
+                hint={t("overview.failedHint")}
+                icon={CircleAlert}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
+              <Card className="lg:col-span-4">
+                <CardHeader>
+                  <CardTitle>{t("overview.devices")}</CardTitle>
+                  <CardDescription>
+                    {t("overview.devicesDescription")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {devices.length === 0 ? (
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyTitle>{t("overview.emptyDevices")}</EmptyTitle>
+                        <EmptyDescription>
+                          {t("overview.emptyDevicesHint")}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("devices.name")}</TableHead>
+                          <TableHead>{t("devices.status")}</TableHead>
+                          <TableHead>{t("devices.lastCommand")}</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {devices.map((device) => (
+                          <TableRow key={device.id}>
+                            <TableCell>
+                              <Link
+                                className="hover:underline"
+                                to={`/devices/${device.id}`}
+                              >
+                                {device.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              <DeviceStatusBadge device={device} />
+                            </TableCell>
+                            <TableCell>
+                              {device.last_command
+                                ? `${format.action(device.last_command.action)} · ${format.status(device.last_command.status)}`
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <LockButton
+                                device={device}
+                                onLock={() => setLockTarget(device)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>{t("overview.recent")}</CardTitle>
+                  <CardDescription>
+                    {t("overview.recentDescription")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ActivityList overview={overview} />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          <TabsContent value="analytics">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("overview.recent")}</CardTitle>
+                <CardDescription>
+                  {t("overview.recentDescription")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ActivityList overview={overview} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </Main>
       {lockTarget ? (
         <ConfirmDialog
           title={t("detail.lockTitle", { name: lockTarget.name })}
@@ -226,22 +268,57 @@ export function OverviewPage() {
           }}
         />
       ) : null}
-    </PageShell>
+    </>
+  );
+}
+
+function ActivityList({ overview }: { overview: OverviewResponse }) {
+  const { t } = useTranslation();
+  const format = useLocaleFormat();
+  if (overview.recent_activity.length === 0) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>{t("overview.emptyActivity")}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+  return (
+    <div className="flex flex-col divide-y">
+      {overview.recent_activity.map((event) => (
+        <div key={event.id} className="flex flex-col gap-1 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium">{event.device_name}</span>
+            <EventStatusBadge status={event.status} />
+          </div>
+          <div className="text-muted-foreground">
+            {format.action(event.action)}
+            {event.error_code ? ` · ${format.errorCode(event.error_code)}` : null}
+          </div>
+          <div className="tabular text-muted-foreground">
+            {format.formatAbsoluteTime(event.created_at)}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 function StatCard({
   title,
   value,
+  hint,
   icon: Icon,
 }: {
   title: string;
   value: string;
+  hint: string;
   icon: typeof Wifi;
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <CardAction>
           <Icon className="text-muted-foreground" />
@@ -249,6 +326,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       </CardContent>
     </Card>
   );
@@ -264,12 +342,7 @@ function LockButton({
   const { t } = useTranslation();
   const disabled = !device.enabled || !device.online;
   const button = (
-    <Button
-      type="button"
-      size="sm"
-      disabled={disabled}
-      onClick={onLock}
-    >
+    <Button type="button" size="sm" disabled={disabled} onClick={onLock}>
       {t("overview.lock", { name: device.name })}
     </Button>
   );

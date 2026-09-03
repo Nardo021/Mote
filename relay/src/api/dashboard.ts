@@ -20,6 +20,10 @@ export function isDashboardNavigation(url: string): boolean {
   if (DASHBOARD_PATHS.has(path)) {
     return true;
   }
+  if (path.startsWith("/settings/")) {
+    const rest = path.slice("/settings/".length);
+    return rest.length > 0 && !rest.includes("/");
+  }
   if (!path.startsWith("/devices/")) {
     return false;
   }
@@ -77,5 +81,6 @@ export async function registerDashboardStatic(
     app.get(path, serveIndex);
   }
   app.get("/devices/:id", serveIndex);
+  app.get("/settings/:section", serveIndex);
   return true;
 }

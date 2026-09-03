@@ -1,4 +1,3 @@
-import { Activity, KeyRound, LayoutDashboard, Monitor, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -9,55 +8,38 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
+import { useLayout } from "../../context/layout-provider.js";
 import { usePairing } from "../../pairing/PairingProvider.js";
 import { AppTitle } from "./app-title.js";
+import { createSidebarData } from "./data/sidebar-data.js";
 import { NavGroup } from "./nav-group.js";
 import { NavUser } from "./nav-user.js";
 
 export function AppSidebar() {
   const { t } = useTranslation();
   const { requests } = usePairing();
+  const { collapsible, variant } = useLayout();
+  const data = createSidebarData(t, requests.length);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
         <AppTitle />
       </SidebarHeader>
       <SidebarContent>
-        <NavGroup
-          title={t("nav.general")}
-          items={[
-            {
-              to: "/",
-              label: t("nav.overview"),
-              icon: LayoutDashboard,
-              end: true,
-            },
-            {
-              to: "/devices",
-              label: t("nav.devices"),
-              icon: Monitor,
-              badge: requests.length,
-            },
-            {
-              to: "/activity",
-              label: t("nav.activity"),
-              icon: Activity,
-            },
-          ]}
-        />
-        <NavGroup
-          title={t("nav.access")}
-          items={[
-            { to: "/tokens", label: t("nav.tokens"), icon: KeyRound },
-          ]}
-        />
-        <NavGroup
-          title={t("nav.other")}
-          items={[
-            { to: "/settings", label: t("nav.settings"), icon: Settings },
-          ]}
-        />
+        {data.navGroups.map((group) => (
+          <NavGroup
+            key={group.title}
+            title={group.title}
+            items={group.items.map((item) => ({
+              to: item.url,
+              label: item.title,
+              icon: item.icon,
+              ...(item.end !== undefined ? { end: item.end } : {}),
+              ...(item.badge !== undefined ? { badge: item.badge } : {}),
+            }))}
+          />
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

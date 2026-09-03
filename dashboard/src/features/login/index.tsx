@@ -16,11 +16,9 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
-import { MoteMark } from "../../components/Icons.js";
-import { LanguageSwitch } from "../../components/language-switch.js";
-import { ThemeSwitch } from "../../components/theme-switch.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { translateError } from "../../lib/errors.js";
+import { AuthLayout } from "../auth/auth-layout.js";
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -48,16 +46,11 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background p-6">
-      <div className="absolute top-4 right-4 flex gap-1">
-        <LanguageSwitch />
-        <ThemeSwitch />
-      </div>
-      <Card className="w-full max-w-sm">
+    <AuthLayout title={t("login.title")}>
+      <Card className="mx-auto w-full max-w-sm gap-4">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2.5">
-            <MoteMark />
-            {t("login.title")}
+          <CardTitle className="text-lg tracking-tight">
+            {t("login.submit")}
           </CardTitle>
           <CardDescription>{t("login.description")}</CardDescription>
         </CardHeader>
@@ -70,9 +63,7 @@ export function LoginPage() {
                   <AlertDescription>
                     {t("login.unconfigured")}
                     <br />
-                    <span className="mono">
-                      npm run cli -- admin create
-                    </span>
+                    <span className="mono">npm run cli -- admin create</span>
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -109,10 +100,12 @@ export function LoginPage() {
             </FieldGroup>
           </form>
         </CardContent>
-        <CardFooter className="justify-center text-xs text-muted-foreground">
-          relay.yanze.me
+        <CardFooter>
+          <p className="w-full text-center text-sm text-muted-foreground">
+            relay.yanze.me
+          </p>
         </CardFooter>
       </Card>
-    </main>
+    </AuthLayout>
   );
 }

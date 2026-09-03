@@ -15,7 +15,7 @@ export function Search({ className }: { className?: string }) {
       type="button"
       variant="outline"
       className={cn(
-        "relative h-8 w-full justify-start font-normal text-muted-foreground sm:w-40 lg:w-52",
+        "group relative h-8 w-full flex-1 justify-start bg-muted/25 font-normal text-muted-foreground shadow-none sm:w-40 sm:pe-12 md:flex-none lg:w-52 xl:w-64",
         className,
       )}
       aria-keyshortcuts="Meta+K Control+K"
@@ -23,7 +23,7 @@ export function Search({ className }: { className?: string }) {
     >
       <SearchIcon data-icon="inline-start" />
       <span>{t("common.search")}</span>
-      <kbd className="pointer-events-none ms-auto hidden h-5 items-center rounded border bg-muted px-1.5 font-mono text-[10px] sm:flex">
+      <kbd className="pointer-events-none absolute inset-e-[0.3rem] top-[0.3rem] hidden h-5 items-center rounded border bg-muted px-1.5 font-mono text-[10px] sm:flex">
         ⌘K
       </kbd>
     </Button>

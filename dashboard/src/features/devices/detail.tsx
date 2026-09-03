@@ -35,7 +35,9 @@ import { getSystem } from "../../api/system.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { CopyButton } from "../../components/CopyButton.js";
 import { LoadingState } from "../../components/LoadingState.js";
-import { PageHeading, PageShell } from "../../components/page-shell.js";
+import { AppHeader } from "../../components/layout/app-header.js";
+import { Main } from "../../components/layout/main.js";
+import { PageHeading } from "../../components/layout/page-heading.js";
 import { DeviceStatusBadge, EventStatusBadge } from "../../components/StatusBadge.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
 import { usePolling } from "../../hooks/usePolling.js";
@@ -80,9 +82,12 @@ export function DeviceDetailPage() {
 
   if (device === null) {
     return (
-      <PageShell>
-        <LoadingState label={t("common.loading")} />
-      </PageShell>
+      <>
+        <AppHeader fixed />
+        <Main>
+          <LoadingState label={t("common.loading")} />
+        </Main>
+      </>
     );
   }
 
@@ -124,7 +129,9 @@ export function DeviceDetailPage() {
   }
 
   return (
-    <PageShell>
+    <>
+      <AppHeader fixed />
+      <Main className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Button
           type="button"
@@ -417,7 +424,8 @@ export function DeviceDetailPage() {
           onConfirm={() => void runPending("disable")}
         />
       ) : null}
-    </PageShell>
+      </Main>
+    </>
   );
 }
 

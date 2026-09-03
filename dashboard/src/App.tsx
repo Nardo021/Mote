@@ -8,7 +8,11 @@ import { DeviceDetailPage } from "./features/devices/detail.js";
 import { DevicesPage } from "./features/devices/index.js";
 import { LoginPage } from "./features/login/index.js";
 import { OverviewPage } from "./features/overview/index.js";
-import { SettingsPage } from "./features/settings/index.js";
+import { SettingsAccountPage } from "./features/settings/account.js";
+import { SettingsAppearancePage } from "./features/settings/appearance.js";
+import { SettingsLayout } from "./features/settings/index.js";
+import { SettingsProfilePage } from "./features/settings/profile.js";
+import { SettingsRelayPage } from "./features/settings/relay.js";
 import { TokensPage } from "./features/tokens/index.js";
 import { useAuth } from "./hooks/useAuth.js";
 
@@ -39,7 +43,12 @@ export function App() {
         <Route path="/devices/:id" element={<DeviceDetailPage />} />
         <Route path="/tokens" element={<TokensPage />} />
         <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<SettingsProfilePage />} />
+          <Route path="account" element={<SettingsAccountPage />} />
+          <Route path="appearance" element={<SettingsAppearancePage />} />
+          <Route path="relay" element={<SettingsRelayPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -7,7 +7,6 @@ import { Toaster } from "@/components/ui/sonner";
 
 import { App } from "./App.js";
 import { AuthProvider } from "./auth/AuthProvider.js";
-import { SearchProvider } from "./context/search-provider.js";
 import { ThemeProvider } from "./context/theme-provider.js";
 import { I18nProvider } from "./i18n/I18nProvider.js";
 import "./styles/global.css";
@@ -24,10 +23,8 @@ createRoot(root).render(
         <BrowserRouter>
           <TooltipProvider>
             <AuthProvider>
-              <SearchProvider>
-                <App />
-                <Toaster />
-              </SearchProvider>
+              <App />
+              <Toaster />
             </AuthProvider>
           </TooltipProvider>
         </BrowserRouter>

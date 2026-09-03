@@ -21,11 +21,11 @@ import {
 
 import { useAuth } from "../../hooks/useAuth.js";
 import { changeAppLocale, type AppLocale } from "../../i18n/index.js";
-import { ConfirmDialog } from "../ConfirmDialog.js";
+import { SignOutDialog } from "../sign-out-dialog.js";
 
 export function NavUser() {
   const { t, i18n } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { isMobile } = useSidebar();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const username = user?.username ?? "—";
@@ -94,17 +94,7 @@ export function NavUser() {
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      {confirmSignOut ? (
-        <ConfirmDialog
-          title={t("settings.signOutTitle")}
-          description={t("settings.signOutDescription")}
-          confirmLabel={t("common.signOut")}
-          onCancel={() => setConfirmSignOut(false)}
-          onConfirm={() => {
-            void signOut();
-          }}
-        />
-      ) : null}
+      <SignOutDialog open={confirmSignOut} onOpenChange={setConfirmSignOut} />
     </>
   );
 }
