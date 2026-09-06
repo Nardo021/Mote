@@ -55,7 +55,7 @@ Usage:
   node dist/cli.js device list
   node dist/cli.js device disable <device-id>
   node dist/cli.js device rotate <device-id>
-  node dist/cli.js token create --name "Leo iPhone"
+  node dist/cli.js token create --name "iPhone"
   node dist/cli.js token list
   node dist/cli.js token disable <token-id>
   node dist/cli.js token rotate <token-id>

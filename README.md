@@ -4,7 +4,7 @@
 
 Mote 是一套轻量的个人远程动作系统：用 iPhone 锁定自己的 Mac。
 
-当前 iPhone 侧走 **Apple 快捷指令 + Siri**。快捷指令向 `relay.yanze.me` 发送经过认证的 HTTPS 请求。**Mote Relay** 再通过持久、已认证的 WebSocket 把命令转发给 **Mote Agent**（运行在 **Mote for Mac** 中）。同一进程在 `https://relay.yanze.me/` 提供 **Mote Relay Dashboard**。原生 **Mote iOS** 尚未进仓库；后端已预留活动来源 `ios`，见 [docs/ios.md](docs/ios.md)。
+当前 iPhone 侧走 **Apple 快捷指令 + Siri**。快捷指令向 `relay.example.com` 发送经过认证的 HTTPS 请求。**Mote Relay** 再通过持久、已认证的 WebSocket 把命令转发给 **Mote Agent**（运行在 **Mote for Mac** 中）。同一进程在 `https://relay.example.com/` 提供 **Mote Relay Dashboard**。原生 **Mote iOS** 尚未进仓库；后端已预留活动来源 `ios`，见 [docs/ios.md](docs/ios.md)。
 
 ```text
 当前:
@@ -19,12 +19,14 @@ Mote iOS → 可用时走本地直连 → Relay 回退
 
 本仓库名为 `mote`。**Relay** 只是后端组件，不是产品名。
 
+文档和默认常量里的 `relay.example.com`、`192.0.2.10`、`com.example.mote` 是示例，请换成自己的公网主机名、源站地址和 Bundle ID。生产 Relay 用 `MOTE_PUBLIC_URL`；Mac 用设置或 `MOTE_RELAY_URL`。
+
 ## 当前范围
 
 - 一台 Mac、一台 iPhone、自己用。
 - iPhone 用 Apple 快捷指令 + Siri；Dashboard 也可以发 `lock`。
-- 快捷指令与之后的 iOS 客户端始终访问 `https://relay.yanze.me`（在家和外出同一主机名）。
-- Mote for Mac 始终连接 `wss://relay.yanze.me/v1/ws/device`。未配置时走 `wss://relay.yanze.me/v1/ws/pair`。
+- 快捷指令与之后的 iOS 客户端始终访问公网 HTTPS 基址（文档示例 `https://relay.example.com`；在家和外出同一主机名）。
+- Mote for Mac 始终连接该基址上的 `wss://…/v1/ws/device`。未配置时走 `wss://…/v1/ws/pair`。
 - 在家和外出都走同一条 Cloudflare Tunnel。当前不使用 Split DNS。
 - 生产配对：Mac 点 **Pair**，Dashboard **Allow**，凭据写入钥匙串后立刻连接。
 - 唯一动作为 `lock`。
@@ -46,8 +48,8 @@ Mote LXC:
 - SQLite
 
 Cloudflare route:
-relay.yanze.me
-→ http://192.168.2.44:3000
+relay.example.com
+→ http://192.0.2.10:3000
 ```
 
 ```text
@@ -56,7 +58,7 @@ PVE Host
 ├── existing cloudflared
 │
 └── CT: mote-relay
-     IP: 192.168.2.44
+     IP: 192.0.2.10
      │
      └── Docker
           └── Relay :3000
@@ -65,10 +67,11 @@ PVE Host
 ## 架构摘要
 
 ```text
-relay.yanze.me
+relay.example.com
 │
 ├── /                    Dashboard
 ├── /admin/api/*         Admin API
+├── /admin/api/events    Dashboard SSE（只推 topic）
 ├── /v1/*                Machine API
 ├── /v1/ws/device        Mac WebSocket
 ├── /v1/ws/pair          Pairing WebSocket
@@ -84,17 +87,17 @@ Apple Shortcut
       │
       │ HTTPS
       ▼
-relay.yanze.me
+relay.example.com
 Browser / Dashboard
       │
       │ HTTPS
       ▼
-relay.yanze.me
+relay.example.com
 Mote for Mac
       │
       │ WSS
       ▼
-relay.yanze.me
+relay.example.com
       │
       ▼
 Cloudflare
@@ -106,12 +109,12 @@ Existing Tunnel
 cloudflared on PVE host
       │
       ▼
-192.168.2.44:3000
+192.0.2.10:3000
       │
       ▼
 Mote Relay
       │
-      ├── Dashboard + Admin API
+      ├── Dashboard + Admin API + SSE
       └── 持久、已认证的 WebSocket
             ▼
          Mote Agent
@@ -119,7 +122,7 @@ Mote Relay
          macOS 锁屏
 ```
 
-快捷指令和 Mac 都不要使用 `http://192.168.2.44:3000`。该地址只是 Cloudflare 源站配置，不是客户端 URL。
+快捷指令和 Mac 都不要使用 `http://192.0.2.10:3000`。该地址只是 Cloudflare 源站配置，不是客户端 URL。
 
 命令协议与 Relay HTTP API 保持传输无关，以便以后增加原生 iOS 和本地直连时不必重写后端。见 [docs/architecture.md](docs/architecture.md)。
 
@@ -145,9 +148,9 @@ mote/
 | ------------ | ------------------------------------------------------------------------------------------------------------ | ----------------- |
 | Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.4）   |
 | Mote Relay   | Node.js、TypeScript、Fastify、WebSocket、SQLite                                                              | 已实现            |
-| Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                           | 由 Relay 静态托管 |
+| Dashboard    | React、TypeScript、Vite、shadcn/ui；管理员 SSE 通知后再拉 REST                                                 | 由 Relay 静态托管 |
 | 传输         | HTTPS + 持久、已认证的 WebSocket；配对另有 `/v1/ws/pair`                                                     | 已实现            |
-| 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.168.2.44:3000`                                | 已文档化          |
+| 家庭与远程   | 现有 Cloudflare Tunnel（PVE 宿主机上的 cloudflared）→ LXC `192.0.2.10:3000`                                | 已文档化          |
 | 触发         | Apple 快捷指令 + Siri；Dashboard 也可发 `lock`                                                               | 配置步骤已文档化  |
 | Mote iOS     | 计划：SwiftUI、同一条 `send_command` HTTPS API、付费开发者账号 + Xcode 直装                                  | 尚未实现          |
 
@@ -195,7 +198,7 @@ mote/
 | 文件                             | 范围                                        |
 | -------------------------------- | ------------------------------------------- |
 | [架构](docs/architecture.md)     | 产品组件、当前形状、下一步 iOS              |
-| [协议](docs/protocol.md)         | WebSocket 线上格式、配对、快捷指令 HTTP API |
+| [协议](docs/protocol.md)         | WebSocket 线上格式、配对、快捷指令 HTTP、管理员 SSE |
 | [快捷指令](docs/shortcuts.md)    | 当前 iPhone 配置、Siri、curl 验证           |
 | [iOS](docs/ios.md)               | 个人分发、Xcode 直装、与现有 API 的衔接     |
 | [安全](docs/security.md)         | 凭据角色、哈希、执行边界                    |

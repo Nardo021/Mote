@@ -1,6 +1,6 @@
 # PVE / LXC
 
-Mote Relay 运行在专用的 Proxmox VE LXC 中。当前生产地址是 `192.168.2.44`。Cloudflare Tunnel 已经运行在 PVE 宿主机上；不要在 Mote LXC 或 Compose 栈里再装一份 `cloudflared`。
+Mote Relay 运行在专用的 Proxmox VE LXC 中。文档示例源站地址是 `192.0.2.10`，请换成自己的 LXC IP。Cloudflare Tunnel 已经运行在 PVE 宿主机上；不要在 Mote LXC 或 Compose 栈里再装一份 `cloudflared`。
 
 ```text
 PVE Host
@@ -9,7 +9,7 @@ PVE Host
 │    └── existing Cloudflare Tunnel
 │
 └── Mote LXC
-     IP: 192.168.2.44
+     IP: 192.0.2.10
      │
      └── Docker
           └── mote-relay
@@ -30,7 +30,7 @@ Debian（若模板支持 Docker，非特权 LXC 即可）
 ## 部署流程
 
 1. 创建 Debian LXC。
-2. 配置稳定 IP：`192.168.2.44`。
+2. 配置稳定 IP：`192.0.2.10`。
 3. 安装 Docker Engine 和 Docker Compose 插件。
 4. 克隆 Mote 仓库（建议放到 `/opt/mote`）。
 5. 配置 `/opt/mote/deploy/.env`（从 `deploy/.env.example` 复制）。
@@ -73,26 +73,26 @@ curl http://127.0.0.1:3000/health
 9. 在 PVE 宿主机上验证源站：
 
 ```bash
-curl -i http://192.168.2.44:3000/health
+curl -i http://192.0.2.10:3000/health
 ```
 
 可选：
 
 ```bash
-curl -i http://192.168.2.44:3000/ready
+curl -i http://192.0.2.10:3000/ready
 ```
 
 这一步失败时，先不要排查 Cloudflare。Tunnel 只有在宿主机能到达 origin 之后才会工作。
 
-10. 在**现有** Cloudflare Tunnel 中创建 Published Application：
+10. 在**现有** Cloudflare Tunnel 中创建 Published Application（主机名换成自己的）：
 
 ```text
 Hostname:
-relay.yanze.me
+relay.example.com
 Service type:
 HTTP
 Service URL:
-http://192.168.2.44:3000
+http://192.0.2.10:3000
 ```
 
 不要安装另一份 `cloudflared`。不要调用 Cloudflare API。不要把 Tunnel token 放进 Mote `.env`。
@@ -100,13 +100,13 @@ http://192.168.2.44:3000
 11. 公网验证：
 
 ```bash
-curl -i https://relay.yanze.me/health
+curl -i https://relay.example.com/health
 ```
 
 预期 HTTP 200，然后：
 
 ```bash
-curl -i https://relay.yanze.me/ready
+curl -i https://relay.example.com/ready
 ```
 
 同样预期 HTTP 200。不要要求 Cloudflare Access 认证。
@@ -138,13 +138,13 @@ docker compose version
 MOTE_ENV=production
 MOTE_HOST=0.0.0.0
 MOTE_PORT=3000
-MOTE_PUBLIC_URL=https://relay.yanze.me
+MOTE_PUBLIC_URL=https://relay.example.com
 MOTE_DATABASE_PATH=/data/mote.sqlite
 ```
 
 不要加入 `CLOUDFLARE_TUNNEL_TOKEN`、`TUNNEL_TOKEN`、`CF_API_TOKEN` 或任何 `CADDY_*` 变量。Relay 不需要这些值。
 
-## 为什么 origin 是 `192.168.2.44:3000`
+## 为什么 origin 是 `192.0.2.10:3000`
 
 ```text
 Cloudflare Edge
@@ -155,16 +155,16 @@ cloudflared on PVE host
     ↓
 home LAN / PVE bridge
     ↓
-192.168.2.44:3000
+192.0.2.10:3000
     ↓
 Mote Relay
 ```
 
-`cloudflared` 运行在 PVE 宿主机上，因此它必须用 LXC 的局域网地址。Docker 服务名 `relay`、`localhost` 和 `https://192.168.2.44:3000` 都不是正确的 origin。
+`cloudflared` 运行在 PVE 宿主机上，因此它必须用 LXC 的局域网地址。Docker 服务名 `relay`、`localhost` 和 `https://192.0.2.10:3000` 都不是正确的 origin。
 
 最后一跳 `PVE host → LXC` 使用 HTTP。不要为这一跳单独做本地 TLS。
 
-`192.168.2.44` 只写在基础设施文档里。不要把它硬编码进 Relay 源码。
+`192.0.2.10` 只写在基础设施文档里。不要把它硬编码进 Relay 源码。
 
 ## 网络与防火墙
 
@@ -173,7 +173,7 @@ LXC 不需要公网入站。不要做路由器端口转发、UPnP 或 DMZ。不�
 需要的连通性：
 
 ```text
-PVE host → 192.168.2.44:3000/TCP
+PVE host → 192.0.2.10:3000/TCP
 ```
 
 若启用了 Proxmox 防火墙，允许 PVE 宿主机或 `cloudflared` 所在的受信 LAN 源访问 TCP 3000。不要把 3000 对 WAN 开放。
@@ -192,15 +192,15 @@ Compose 发布 `3000:3000`。不要使用 `network_mode: host`，不要使用特
 
 交互式 Cloudflare 登录会干扰 Apple 快捷指令、未来的 iOS 客户端和 Mac 的持久 WebSocket。
 
-把 `192.168.2.44:3000` 发布到家庭 LAN 并不意味着 API 可以取消认证。健康检查可以保持未认证；其余 API 仍要求现有的 Bearer、角色分离、允许列表、速率限制、TTL、无队列和重复保护。
+把 `192.0.2.10:3000` 发布到家庭 LAN 并不意味着 API 可以取消认证。健康检查可以保持未认证；其余 API 仍要求现有的 Bearer、角色分离、允许列表、速率限制、TTL、无队列和重复保护。
 
 ## WebSocket
 
 Mac 仍然连接：
 
 ```text
-wss://relay.yanze.me/v1/ws/device
-wss://relay.yanze.me/v1/ws/pair
+wss://relay.example.com/v1/ws/device
+wss://relay.example.com/v1/ws/pair
 ```
 
 路径：
@@ -208,13 +208,13 @@ wss://relay.yanze.me/v1/ws/pair
 ```text
 Mac
   ↓
-wss://relay.yanze.me/v1/ws/device
+wss://relay.example.com/v1/ws/device
   ↓
 Cloudflare
   ↓
 Tunnel
   ↓
-192.168.2.44:3000
+192.0.2.10:3000
   ↓
 Mote Relay
 ```
@@ -225,23 +225,23 @@ Mote Relay
 
 1. 启动 Mote Relay（`docker compose up -d`）。
 2. 启动 Mote for Mac，点 **Pair**。
-3. 打开 `https://relay.yanze.me/`，在 Devices 批准该请求。Mac 应立刻 Connected，无需粘贴凭据或重启。
-4. 生产 Relay URL 保持 `https://relay.yanze.me`，不要改成 `http://192.168.2.44:3000`。
-5. 确认 Mac 到达 `wss://relay.yanze.me/v1/ws/device` 并保持 Connected。
+3. 打开 `https://relay.example.com/`，在 Devices 批准该请求。Mac 应立刻 Connected，无需粘贴凭据或重启。
+4. 生产 Relay URL 保持你的 HTTPS 公网基址，不要改成源站 `http://192.0.2.10:3000`。
+5. 确认 Mac 到达 `wss://relay.example.com/v1/ws/device` 并保持 Connected。
 6. 用快捷指令 token（下一步创建）或下面的 `curl` 检查状态。
 7. 创建快捷指令 token：
 
 ```text
-docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
+docker compose exec relay node dist/cli.js token create --name "iPhone"
 ```
 
-8. 打开设备详情的 Shortcut Link（`https://relay.yanze.me/s/<DEVICE_ID>`）或 Mac 的 Shortcuts 区。Device ID 已填；token 从 Tokens 页自己粘贴。步骤见 [docs/shortcuts.md](../../docs/shortcuts.md)。
+8. 打开设备详情的 Shortcut Link（`https://relay.example.com/s/<DEVICE_ID>`）或 Mac 的 Shortcuts 区。Device ID 已填；token 从 Tokens 页自己粘贴。步骤见 [docs/shortcuts.md](../../docs/shortcuts.md)。
 9. 接通 Siri 前先用 curl 测试：
 
 ```text
 curl \
   -X POST \
-  "https://relay.yanze.me/v1/devices/<DEVICE_ID>/commands" \
+  "https://relay.example.com/v1/devices/<DEVICE_ID>/commands" \
   -H "Authorization: Bearer <SHORTCUT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"action":"lock"}'

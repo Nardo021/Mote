@@ -51,17 +51,17 @@ describe("format helpers", () => {
   it("builds public shortcut and command URLs without a token", () => {
     assert.equal(
       shortcutSetupUrl(
-        "https://relay.yanze.me/",
+        "https://relay.example.com/",
         "7b0f1234-aaaa-4111-8111-0000000091ac",
       ),
-      "https://relay.yanze.me/s/7b0f1234-aaaa-4111-8111-0000000091ac",
+      "https://relay.example.com/s/7b0f1234-aaaa-4111-8111-0000000091ac",
     );
     assert.equal(
       commandUrl(
-        "https://relay.yanze.me",
+        "https://relay.example.com",
         "7b0f1234-aaaa-4111-8111-0000000091ac",
       ),
-      "https://relay.yanze.me/v1/devices/7b0f1234-aaaa-4111-8111-0000000091ac/commands",
+      "https://relay.example.com/v1/devices/7b0f1234-aaaa-4111-8111-0000000091ac/commands",
     );
   });
 });

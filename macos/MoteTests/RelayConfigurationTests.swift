@@ -4,21 +4,21 @@ import XCTest
 final class RelayConfigurationTests: XCTestCase {
     func testProductionWebSocketURL() {
         let configuration = RelayConfiguration.production
-        XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.yanze.me")
-        XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://relay.yanze.me/v1/ws/device")
-        XCTAssertEqual(configuration.hostDisplayName, "relay.yanze.me")
+        XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.example.com")
+        XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://relay.example.com/v1/ws/device")
+        XCTAssertEqual(configuration.hostDisplayName, "relay.example.com")
         XCTAssertEqual(
             configuration.pairRequestsURL.absoluteString,
-            "https://relay.yanze.me/v1/pair/requests"
+            "https://relay.example.com/v1/pair/requests"
         )
         XCTAssertEqual(
             configuration.shortcutSetupURL(deviceID: "7B0F0000-0000-0000-0000-0000000091AC").absoluteString,
-            "https://relay.yanze.me/s/7B0F0000-0000-0000-0000-0000000091AC"
+            "https://relay.example.com/s/7B0F0000-0000-0000-0000-0000000091AC"
         )
         XCTAssertTrue(
             configuration.pairWebSocketURL(requestID: "req", pairSecret: "sec")
                 .absoluteString
-                .hasPrefix("wss://relay.yanze.me/v1/ws/pair?")
+                .hasPrefix("wss://relay.example.com/v1/ws/pair?")
         )
     }
 

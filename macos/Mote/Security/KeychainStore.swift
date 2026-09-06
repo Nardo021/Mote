@@ -9,7 +9,7 @@ protocol KeychainStoring: Sendable {
 }
 
 struct KeychainStore: KeychainStoring, Sendable {
-    var service: String = "me.yanze.mote"
+    var service: String = "com.example.mote"
 
     enum StoreError: Error, Equatable {
         case unexpectedStatus(OSStatus)

@@ -1,13 +1,13 @@
 # 部署
 
-专用 Proxmox VE LXC 上的 **Mote Relay** 生产布局。`cloudflared` 不在本目录管理。
+专用 Proxmox VE LXC 上的 **Mote Relay** 生产布局。`cloudflared` 不在本目录管理。`relay.example.com` 与 `192.0.2.10` 是示例，换成自己的主机名和源站 IP。
 
 ```text
 PVE Host
 │
 ├── existing cloudflared
 │
-└── LXC 192.168.2.44
+└── LXC 192.0.2.10
      │
      └── Docker
           └── mote-relay
@@ -15,13 +15,13 @@ PVE Host
 ```
 
 ```text
-relay.yanze.me
+relay.example.com
   ↓
 existing Cloudflare Tunnel
   ↓
 cloudflared on PVE host
   ↓
-http://192.168.2.44:3000
+http://192.0.2.10:3000
   ↓
 Mote Relay
 ```
@@ -80,15 +80,15 @@ printf '%s\n' "$PASSWORD" | docker compose exec -T relay \
 客户端始终使用：
 
 ```text
-https://relay.yanze.me
-wss://relay.yanze.me/v1/ws/device
-wss://relay.yanze.me/v1/ws/pair
+https://relay.example.com
+wss://relay.example.com/v1/ws/device
+wss://relay.example.com/v1/ws/pair
 ```
 
 生产源站（仅供 PVE 宿主机上的现有 Tunnel 使用）是：
 
 ```text
-http://192.168.2.44:3000
+http://192.0.2.10:3000
 ```
 
 客户端都不要使用原始局域网 IP URL。细节见 [pve/README.md](pve/README.md) 和 [docs/deployment.md](../docs/deployment.md)。

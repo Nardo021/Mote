@@ -5,12 +5,14 @@ Relay 的管理员界面。生产环境由 Mote Relay 静态托管，不是单�
 页面：
 
 ```text
-/            Overview
-/devices     Devices（含待批准配对）
-/devices/:id Device detail
-/tokens      Tokens
-/activity    Activity
-/settings    Settings
+/                    Overview
+/devices             Devices（含待批准配对）
+/devices/:id         Device detail
+/tokens              Tokens
+/activity            Activity
+/settings            Settings · Profile
+/settings/account    Settings · Account
+/settings/relay      Settings · Relay
 ```
 
 未登录时显示 Login。没有注册、邮件找回或 OAuth。第一个管理员用 Relay CLI 创建。
@@ -37,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Vite 在 `http://127.0.0.1:5173`，并把 `/admin/api`、`/v1`、`/health`、`/ready` 代理到 `http://127.0.0.1:3000`。管理员 cookie 走同一浏览器源。
+Vite 在 `http://127.0.0.1:5173`，并把 `/admin/api`、`/v1`、`/health`、`/ready` 代理到 `http://127.0.0.1:3000`。`/admin/api` 的代理超时已关闭，以便 `GET /admin/api/events`（SSE）保持长连接。管理员 cookie 走同一浏览器源。
 
 ```text
 npm run typecheck
@@ -46,6 +48,10 @@ npm run build
 ```
 
 `npm run build` 写出 `dashboard/dist`。Docker 镜像把它拷进 Relay 容器。不要在生产环境跑 Vite。
+
+## 实时刷新
+
+登录后 `AuthenticatedLayout` 用 `EventSource("/admin/api/events", { withCredentials: true })` 订阅 topic。Relay 只通知「哪类数据变了」，页面再拉现有 REST。SSE 正常时兜底轮询 30 秒；断线回到原来的 5–8 秒（有待批准配对时 2 秒）。设置页的系统信息不订阅。
 
 ## 配对
 

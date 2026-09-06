@@ -23,7 +23,7 @@ actor RelayClient {
     private var authTimeoutTask: Task<Void, Never>?
     private var stableResetTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
-    private var pathQueue = DispatchQueue(label: "me.yanze.mote.path")
+    private var pathQueue = DispatchQueue(label: "com.example.mote.path")
 
     private var intentionalDisconnect = false
     private var isAuthenticated = false

@@ -209,10 +209,10 @@ describe("admin API", () => {
       method: "POST",
       url: `/admin/api/devices/${deviceId}/rename`,
       headers: adminHeaders(cookie),
-      payload: { name: "书房 Mac mini" },
+      payload: { name: "Office Mac mini" },
     });
     assert.equal(renamed.statusCode, 200);
-    assert.equal(renamed.json().name, "书房 Mac mini");
+    assert.equal(renamed.json().name, "Office Mac mini");
 
     const detail = await server.app.inject({
       method: "GET",
@@ -220,7 +220,7 @@ describe("admin API", () => {
       headers: adminHeaders(cookie),
     });
     assert.equal(detail.statusCode, 200);
-    assert.equal(detail.json().name, "书房 Mac mini");
+    assert.equal(detail.json().name, "Office Mac mini");
     assert.equal(detail.json().last_command, null);
 
     const blank = await server.app.inject({

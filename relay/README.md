@@ -85,7 +85,7 @@ npm run cli -- admin enable --username admin
 
 ```text
 docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
-docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
+docker compose exec relay node dist/cli.js token create --name "iPhone"
 docker compose exec -it relay node dist/cli.js admin create --username admin
 ```
 
@@ -103,6 +103,7 @@ docker compose exec -it relay node dist/cli.js admin create --username admin
 | `GET`  | `/v1/ws/pair`                    | 查询串密钥    | 配对套接字                            |
 | `GET`  | `/s/:deviceId`                   | 无            | 快捷指令安装页（不含 token）          |
 | `GET`  | `/`                              | 无            | Dashboard SPA                         |
+| `GET`  | `/admin/api/events`              | 管理员会话    | Dashboard SSE（只推 topic）           |
 | `*`    | `/admin/api/*`                   | 管理员会话    | Dashboard 管理 API                    |
 | `GET`  | `/health`                        | 无            | 进程存活                              |
 | `GET`  | `/ready`                         | 无            | 数据库 + 进程就绪；失败时 `503`       |
@@ -115,6 +116,7 @@ docker compose exec -it relay node dist/cli.js admin create --username admin
 
 | 方法     | 路径                                | 用途                |
 | -------- | ----------------------------------- | ------------------- |
+| `GET`    | `/events`                           | SSE topic 通知      |
 | `GET`    | `/session`                          | 当前会话            |
 | `POST`   | `/session`                          | 登录                |
 | `DELETE` | `/session`                          | 退出                |
@@ -153,7 +155,7 @@ src/
   app.ts             Fastify 应用
   config/            环境与常量
   api/               HTTP 路由与 Dashboard 静态托管
-  admin/             管理员账户、会话、管理 API
+  admin/             管理员账户、会话、管理 API、SSE 事件总线
   activity/          命令活动日志
   pairing/           配对请求、套接字、安装页
   websocket/         设备套接字与注册表

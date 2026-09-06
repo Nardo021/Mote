@@ -55,12 +55,12 @@ ws://127.0.0.1:3000/v1/ws/device
 ws://127.0.0.1:3000/v1/ws/pair
 ```
 
-生产：
+生产（示例主机名；部署时换成自己的）：
 
 ```text
-https://relay.yanze.me
-wss://relay.yanze.me/v1/ws/device
-wss://relay.yanze.me/v1/ws/pair
+https://relay.example.com
+wss://relay.example.com/v1/ws/device
+wss://relay.example.com/v1/ws/pair
 ```
 
 针对本地 Relay 的开发配对：
@@ -94,7 +94,7 @@ npm install
 npm run dev
 ```
 
-Vite 开发服务器（`http://127.0.0.1:5173`）把 `/admin/api`、`/v1`、`/health` 和 `/ready` 代理到 `http://127.0.0.1:3000`。Cookie 仍然走同一浏览器源。
+Vite 开发服务器（`http://127.0.0.1:5173`）把 `/admin/api`、`/v1`、`/health` 和 `/ready` 代理到 `http://127.0.0.1:3000`。`/admin/api` 代理的 `timeout` / `proxyTimeout` 为 0，以免掐断 Dashboard SSE。Cookie 仍然走同一浏览器源。
 
 生产构建：
 
@@ -151,7 +151,7 @@ printf '%s\n' "$PASSWORD" | npm run cli -- admin create --username admin --passw
 
 ## macOS 工程
 
-Xcode 工程是 `macos/Mote.xcodeproj`。应用显示名 **Mote**，bundle identifier `me.yanze.mote`，macOS 14+，Swift 6。Team ID 未设置，不要提交。见 [macos/README.md](../macos/README.md)。
+Xcode 工程是 `macos/Mote.xcodeproj`。应用显示名 **Mote**，文档与工程默认 bundle identifier 为 `com.example.mote`（发布时换成自己的），macOS 14+，Swift 6。Team ID 未设置，不要提交。见 [macos/README.md](../macos/README.md)。
 
 ## 不要添加的内容
 

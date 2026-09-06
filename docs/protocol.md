@@ -62,7 +62,7 @@ Mote Agent 为每个允许列表中的动作执行固定的本地实现。客户
 未配置的 Mac 先走配对通道，再使用设备 WebSocket。配对套接字**没有** 5 秒认证超时。
 
 ```text
-POST https://relay.yanze.me/v1/pair/requests
+POST https://relay.example.com/v1/pair/requests
 { "device_id": "<uuid>", "device_name": "MacBook Pro" }
 ```
 
@@ -79,7 +79,7 @@ POST https://relay.yanze.me/v1/pair/requests
 然后 Mac 连接：
 
 ```text
-wss://relay.yanze.me/v1/ws/pair?request_id=<id>&pair_secret=<secret>
+wss://relay.example.com/v1/ws/pair?request_id=<id>&pair_secret=<secret>
 ```
 
 Relay 下行：
@@ -97,6 +97,7 @@ Relay 下行：
 GET  /admin/api/pair-requests
 POST /admin/api/pair-requests/:id/approve   { "name": "optional" }
 POST /admin/api/pair-requests/:id/reject
+GET  /admin/api/events
 ```
 
 Mac 取消：
@@ -122,7 +123,7 @@ CLI `device create` 仍可用于恢复。折叠的「Paste credential instead」
 生产 URL：
 
 ```text
-wss://relay.yanze.me/v1/ws/device
+wss://relay.example.com/v1/ws/device
 ```
 
 生产路径：
@@ -130,18 +131,18 @@ wss://relay.yanze.me/v1/ws/device
 ```text
 Mac
   ↓
-wss://relay.yanze.me/v1/ws/device
+wss://relay.example.com/v1/ws/device
   ↓
 Cloudflare
   ↓
 Tunnel
   ↓
-192.168.2.44:3000
+192.0.2.10:3000
   ↓
 Mote Relay
 ```
 
-不要另开 WebSocket 端口或单独的 WebSocket 主机名。由 HTTPS 基址 `https://relay.yanze.me` 推导。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。配对套接字由同一基址推导为 `/v1/ws/pair`。
+不要另开 WebSocket 端口或单独的 WebSocket 主机名。由 HTTPS 基址推导（文档示例为 `https://relay.example.com`，生产用 `MOTE_PUBLIC_URL` / Mac 的 Relay URL）。开发可用 `MOTE_RELAY_URL`（以及 DEBUG 设置字段）覆盖基址。`http://` 覆盖使用 `ws://`；`https://` 覆盖使用 `wss://`。配对套接字由同一基址推导为 `/v1/ws/pair`。
 
 Mac 始终发起**出站**连接。从不需要路由器入站端口转发。
 
@@ -354,7 +355,7 @@ Relay 可以发送：
 
 iPhone 上的快捷指令步骤见 [shortcuts.md](shortcuts.md)。之后的 Mote iOS 使用同一组路径和 JSON，见 [ios.md](ios.md)。
 
-生产基址：`https://relay.yanze.me`
+生产基址示例：`https://relay.example.com`（部署时换成自己的 `MOTE_PUBLIC_URL`）
 
 快捷指令只需要 URL、`Authorization: Bearer`、JSON 正文，以及扁平的 `status` 字段。`id`、`created_at`、`expires_at` 和 `nonce` 由 Relay 生成。快捷指令不得发送这些字段。
 
@@ -472,6 +473,42 @@ GET /ready    → { "status": "ok" } 或 503 { "status": "not_ready" }
 `GET /` 返回 Dashboard HTML，不是 JSON。`/v1/*` 与 `/admin/api/*` 的未知路径仍返回 JSON 404。
 
 `/ready` 检查进程已初始化且 SQLite 可查询。Mac 离线不影响 Relay 健康。
+
+## 管理员事件流
+
+Dashboard 用管理员 cookie 开一条 SSE：**只推 topic**，不推设备或活动实体。页面再请求现有 `/admin/api/*` 拉快照。设备 WebSocket 协议不变。
+
+```text
+GET /admin/api/events
+```
+
+认证：`mote_admin_session`。GET 不做 CSRF Origin 检查。无会话返回 401。
+
+响应头：
+
+```text
+Content-Type: text/event-stream
+Cache-Control: no-store
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+连上先发 hello（四个 topic），方便新标签页对齐：
+
+```text
+data: {"topics":["devices","pairing","activity","tokens"]}
+```
+
+之后同一 topic 约 75ms 内合并成一条。心跳 `touch` **不推**。每 15 秒写一行 SSE comment 保活。断开即取消订阅。
+
+| topic      | 何时推送                                           |
+| ---------- | -------------------------------------------------- |
+| `devices`  | 上线、掉线、心跳过期踢线、改名、启停、轮换凭据     |
+| `pairing`  | 创建、批准、拒绝、取消、过期或被新 Pair 顶替       |
+| `activity` | 命令已接受、已发送、终态（成功 / 失败 / 超时等）   |
+| `tokens`   | 创建、轮换、启停                                   |
+
+Dashboard 在 SSE 正常时把兜底轮询收到 30 秒；断线回到原来的 5–8 秒（有待批准配对时 2 秒）。
 
 ## 重连（Mac）
 

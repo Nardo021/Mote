@@ -29,7 +29,7 @@ final class KeychainStoreTests: XCTestCase {
     }
 
     func testSaveUsesSharedAccessSoLaterLaunchesDoNotNeedAPrompt() throws {
-        let service = "me.yanze.mote.test.\(UUID().uuidString)"
+        let service = "com.example.mote.test.\(UUID().uuidString)"
         let account = "device_connection"
         let store = KeychainStore(service: service)
         try store.save(Data("secret".utf8), account: account)
@@ -43,7 +43,7 @@ final class KeychainStoreTests: XCTestCase {
     }
 
     func testReadRewritesLegacyACLToSharedAccess() throws {
-        let service = "me.yanze.mote.test.\(UUID().uuidString)"
+        let service = "com.example.mote.test.\(UUID().uuidString)"
         let account = "device_connection"
         let add: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

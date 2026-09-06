@@ -24,7 +24,7 @@ function setup() {
 describe("credential authentication", () => {
   it("accepts a valid Shortcut send_command token", () => {
     const { db, tokenRepository, devices } = setup();
-    const created = devices.createShortcutToken("Leo iPhone");
+    const created = devices.createShortcutToken("iPhone");
     const client = authenticateShortcutToken(`Bearer ${created.token}`, tokenRepository);
     assert.equal(client.permission, Permission.send_command);
     assert.equal(client.tokenId, created.id);

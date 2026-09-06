@@ -17,11 +17,13 @@ Mote 的原生 macOS 应用和后台 Agent。
 
 部署目标：**macOS 14+**
 
-Bundle identifier：
+Bundle identifier（文档与工程默认值；发布时换成自己的）：
 
 ```text
-me.yanze.mote
+com.example.mote
 ```
+
+默认生产 Relay 主机名为 `relay.example.com`。本机请用设置或 `MOTE_RELAY_URL` 指向真实 Relay。
 
 不通过 App Store 分发。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。日常自己用：在本机选付费 Development Team，用 Xcode **Run** 覆盖安装即可。
 
@@ -68,7 +70,7 @@ macos/
 1. 启动时加载持久的 `device_id` 和设置。
 2. 缺少设备凭据 → 主窗口显示 **Mote is not configured** 和 **Pair**。不会假装已连接或显示虚假延迟。
 3. 点 Pair 后状态为 **Waiting for Approval…**。Dashboard 批准 → 凭据写入钥匙串并立刻连接，无需重启。
-4. 凭据存在且已启用 Connect → 出站 `wss://relay.yanze.me/v1/ws/device`。
+4. 凭据存在且已启用 Connect → 出站 `wss://relay.example.com/v1/ws/device`。
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
 7. **Remote Actions → Lock** 显示 `Available`。锁屏优先走登录会话，不依赖辅助功能。
@@ -95,7 +97,7 @@ Connection Error
 
 角色：`device_connection`（不是快捷指令的 `send_command` token）。
 
-- 只存放在钥匙串，service 为 `me.yanze.mote`，account 为 `device_connection`
+- 只存放在钥匙串，service 为 `com.example.mote`，account 为 `device_connection`
 - 永不写入 UserDefaults、日志或源码
 - 生产主路径是 **Pair**；已登记后凭据被轮换时，在 Connection 区折叠的 **Paste credential** 粘贴 Dashboard 给出的新值
 - 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID，token 输入框是助手，不持久化
@@ -191,7 +193,7 @@ DEBUG 构建设置底部有折叠的 **Advanced**：Relay Endpoint、协议版�
 见 [docs/protocol.md](../docs/protocol.md)。
 
 ```text
-wss://relay.yanze.me/v1/ws/device
+wss://<relay-host>/v1/ws/device
 CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command → command_result
 ```
 
@@ -199,7 +201,7 @@ CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command →
 
 ```text
 POST /v1/pair/requests
-wss://relay.yanze.me/v1/ws/pair?request_id=…&pair_secret=…
+wss://<relay-host>/v1/ws/pair?request_id=…&pair_secret=…
 ```
 
 时间戳为 Unix 纪元毫秒。默认命令 TTL 为 10 秒。Mac 侧认证超时约 10 秒。

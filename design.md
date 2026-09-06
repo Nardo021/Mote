@@ -1,6 +1,6 @@
 # Mote 设计语言
 
-Mote for Mac 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。下一步的个人 iOS 客户端应沿用同一套 token 与语气，而不是另起一套消费级视觉。
+Mote for Mac 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。下一步的个人 iOS 客户端应沿用同一套 token 与语气，而不是另起一套消费级视觉。文案示例里的 `relay.example.com` 是占位主机名。
 
 ## 1. 设计方向
 
@@ -591,7 +591,7 @@ MacBook Pro
 Relay · 4 ms
 
 Connection
-Relay                 relay.yanze.me
+Relay                 relay.example.com
 Latency               4 ms
 Disconnect
 
@@ -645,7 +645,7 @@ Mote
 ● Connected
 MacBook Pro
 Relay
-relay.yanze.me · 4 ms
+relay.example.com · 4 ms
 Lock Permission
 Granted
 Start at Login
@@ -778,7 +778,7 @@ Permission error
 
 ```text
 Relay
-relay.yanze.me
+relay.example.com
 ```
 
 可选的次级元数据：
@@ -804,7 +804,7 @@ Debug 构建可以暴露：
 Advanced
 
 Relay Endpoint
-wss://relay.yanze.me/v1/ws/device
+wss://relay.example.com/v1/ws/device
 
 Device ID
 7B0F...
@@ -1053,7 +1053,7 @@ Persistent WebSocket Transport
 │ Relay · 4 ms                                │
 │                                             │
 │ CONNECTION                                  │
-│ Relay                       relay.yanze.me  │
+│ Relay                       relay.example.com  │
 │ Latency                              4 ms   │
 │ Disconnect                                  │
 │                                             │
@@ -1257,7 +1257,7 @@ Cloudflare
 
 ```text
 Label                      Value
-Relay             relay.yanze.me
+Relay             relay.example.com
 Latency                     4 ms
 ```
 

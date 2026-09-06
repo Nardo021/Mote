@@ -7,7 +7,7 @@ HTTP 形状见 [protocol.md](protocol.md)。凭据角色见 [security.md](securi
 ```text
 Siri / 快捷指令
       │
-      │ POST https://relay.yanze.me/v1/devices/:deviceId/commands
+      │ POST https://relay.example.com/v1/devices/:deviceId/commands
       │ Authorization: Bearer <send_command token>
       │ {"action":"lock"}
       ▼
@@ -20,12 +20,12 @@ Mote Agent → macOS 锁屏
 
 ## 前置条件
 
-1. Mote Relay 已在生产环境运行，公网为 `https://relay.yanze.me`。
+1. Mote Relay 已在生产环境运行，公网为你的 HTTPS 基址（文档示例 `https://relay.example.com`）。
 2. Mote for Mac 已配对、菜单栏为 **Connected**，且 **Lock Permission** 为 **Granted**。
-3. 你有这台 Mac 的 Device ID。Dashboard 设备详情可以 **Copy Shortcut Link**，打开 `https://relay.yanze.me/s/<DEVICE_ID>`；Mac 的 **Shortcuts** 区也会预填 Device ID 并打开同一页。页面**不会**带上 shortcut token。
-4. `relay.yanze.me` 前面没有交互式 Cloudflare Access。快捷指令无法完成浏览器登录。
+3. 你有这台 Mac 的 Device ID。Dashboard 设备详情可以 **Copy Shortcut Link**，打开 `https://<relay-host>/s/<DEVICE_ID>`；Mac 的 **Shortcuts** 区也会预填 Device ID 并打开同一页。页面**不会**带上 shortcut token。
+4. 公网主机名前面没有交互式 Cloudflare Access。快捷指令无法完成浏览器登录。
 
-不要在快捷指令里使用 `http://192.168.2.44:3000`、`http://127.0.0.1:3000` 或任何局域网地址。客户端始终走 `https://relay.yanze.me`。
+不要在快捷指令里使用源站局域网地址、`http://127.0.0.1:3000` 或任何局域网 URL。客户端始终走 HTTPS 公网基址。
 
 本地 Relay 用本机 `curl` 验证，不要用手机打开发机回环地址。
 
@@ -34,7 +34,7 @@ Mote Agent → macOS 锁屏
 每个设备都有公开安装页：
 
 ```text
-https://relay.yanze.me/s/<DEVICE_ID>
+https://relay.example.com/s/<DEVICE_ID>
 ```
 
 页上已填 Device ID 和 `POST /v1/devices/<DEVICE_ID>/commands`。Token 必须在 Dashboard **Tokens** 自己创建后粘贴进快捷指令。可选环境变量 `MOTE_SHORTCUT_ICLOUD_URL` 会在页上增加一条你事先分享的 iCloud 快捷指令链接；Apple 无法通过 URL 预填导入问题。
@@ -45,21 +45,21 @@ https://relay.yanze.me/s/<DEVICE_ID>
 
 Dashboard（推荐）：
 
-1. 打开 `https://relay.yanze.me/` 并登录管理员。
-2. **Tokens** → 名称例如 `Leo iPhone` → **Create Token**。
+1. 打开 `https://relay.example.com/` 并登录管理员。
+2. **Tokens** → 名称例如 `iPhone` → **Create Token**。
 3. 对话框里的明文只出现这一次。立刻复制，不要截图进相册或聊天。
 
 CLI（生产）：
 
 ```text
-docker compose exec relay node dist/cli.js token create --name "Leo iPhone"
+docker compose exec relay node dist/cli.js token create --name "iPhone"
 ```
 
 CLI（本地已构建）：
 
 ```text
 cd relay
-npm run cli -- token create --name "Leo iPhone"
+npm run cli -- token create --name "iPhone"
 ```
 
 密钥只打印一次。Relay 只保存 SHA-256 哈希。
@@ -71,7 +71,7 @@ npm run cli -- token create --name "Leo iPhone"
 ```text
 curl ^
   -X POST ^
-  "https://relay.yanze.me/v1/devices/<DEVICE_ID>/commands" ^
+  "https://relay.example.com/v1/devices/<DEVICE_ID>/commands" ^
   -H "Authorization: Bearer <SHORTCUT_TOKEN>" ^
   -H "Content-Type: application/json" ^
   -d "{\"action\":\"lock\"}"
@@ -94,7 +94,7 @@ Mac 在线且已授予辅助功能时，预期 HTTP 200：
 
 ```text
 curl ^
-  "https://relay.yanze.me/v1/devices/<DEVICE_ID>/status" ^
+  "https://relay.example.com/v1/devices/<DEVICE_ID>/status" ^
   -H "Authorization: Bearer <SHORTCUT_TOKEN>"
 ```
 
@@ -109,7 +109,7 @@ curl ^
 4. URL：
 
    ```text
-   https://relay.yanze.me/v1/devices/<DEVICE_ID>/commands
+   https://relay.example.com/v1/devices/<DEVICE_ID>/commands
    ```
 
    把 `<DEVICE_ID>` 换成完整 UUID，不要用设置里的缩写。
@@ -125,7 +125,7 @@ curl ^
 7. 不要把 token 放进 URL 查询串、路径或快捷指令名称。
 8. 可选：在「获取 URL 内容」之后添加 **获取词典的值**（Get Dictionary Value），键为 `status`，再 **显示通知**（Show Notification）或 **显示结果**（Show Result）。Siri 触发时通知比整页结果更干净。
 9. 右上角 **信息**（ⓘ）→ **添加到 Siri**。短语例如「锁定电脑」或「锁屏」。避免过于短、容易误触的单字。
-10. 首次运行时，iOS 会询问是否允许访问 `relay.yanze.me`。允许。之后可在快捷指令隐私设置里改成始终允许。
+10. 首次运行时，iOS 会询问是否允许访问 `relay.example.com`。允许。之后可在快捷指令隐私设置里改成始终允许。
 
 运行后这台已连接的 Mac 应立即进入锁屏。Relay 默认最多等约 12 秒；Siri 会一直等到响应返回。
 
@@ -133,7 +133,7 @@ curl ^
 
 再建一条快捷指令，动作为同一个 **获取 URL 内容**：
 
-- URL：`https://relay.yanze.me/v1/devices/<DEVICE_ID>/status`
+- URL：`https://relay.example.com/v1/devices/<DEVICE_ID>/status`
 - 方法：`GET`
 - 标头：只要 `Authorization: Bearer <SHORTCUT_TOKEN>`
 - 无请求体

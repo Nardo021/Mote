@@ -12,8 +12,8 @@ enum ProtocolConstants {
 }
 
 enum RelayDefaults {
-    static let productionHost = "relay.yanze.me"
-    static let productionBaseURLString = "https://relay.yanze.me"
+    static let productionHost = "relay.example.com"
+    static let productionBaseURLString = "https://relay.example.com"
     static let environmentURLKey = "MOTE_RELAY_URL"
     static let environmentCredentialKey = "MOTE_DEVICE_CREDENTIAL"
 }

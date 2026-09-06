@@ -22,7 +22,7 @@ describe("device WebSocket", () => {
     server = await startTestServer({ authTimeoutMs: 120, commandTimeoutMs: 150 });
     const device = server.ctx.devices.createDevice("MacBook Pro", TEST_DEVICE_ID);
     credential = device.credential;
-    shortcutToken = server.ctx.devices.createShortcutToken("Leo iPhone").token;
+    shortcutToken = server.ctx.devices.createShortcutToken("iPhone").token;
   });
 
   after(async () => {

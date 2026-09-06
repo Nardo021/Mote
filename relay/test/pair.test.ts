@@ -50,7 +50,7 @@ async function login(server: TestServer): Promise<string> {
 async function createPairRequest(
   server: TestServer,
   deviceId = PAIR_DEVICE_ID,
-  name = "Leo’s MacBook",
+  name = "MacBook",
 ) {
   return server.app.inject({
     method: "POST",
@@ -104,7 +104,7 @@ describe("device pairing", () => {
     assert.equal(pending.length, 1);
     assert.equal(pending[0]?.id, body.request_id);
     assert.equal(pending[0]?.device_id, PAIR_DEVICE_ID);
-    assert.equal(pending[0]?.device_name, "Leo’s MacBook");
+    assert.equal(pending[0]?.device_name, "MacBook");
     assert.equal(
       (pending[0] as { pair_secret?: string }).pair_secret,
       undefined,

@@ -16,7 +16,7 @@ describe("HTTP API", () => {
     server = await startTestServer({ rateLimitMax: 3, rateLimitWindowMs: 10_000 });
     const device = server.ctx.devices.createDevice("MacBook Pro", TEST_DEVICE_ID);
     deviceId = device.id;
-    token = server.ctx.devices.createShortcutToken("Leo iPhone").token;
+    token = server.ctx.devices.createShortcutToken("iPhone").token;
   });
 
   after(async () => {

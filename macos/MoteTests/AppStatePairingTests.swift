@@ -8,12 +8,12 @@ final class AppStatePairingTests: XCTestCase {
         pairing.decision = .approved(
             deviceID: "device-1",
             credential: "paired-credential",
-            name: "Leo’s MacBook"
+            name: "MacBook"
         )
         let store = InMemoryKeychainStore()
         let state = AppState(credentials: CredentialManager(store: store), pairing: pairing)
         state.deviceID = "device-1"
-        state.deviceName = "Leo’s MacBook"
+        state.deviceName = "MacBook"
 
         state.beginPairing()
         await state.waitForPairingToFinish()

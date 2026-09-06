@@ -1,6 +1,6 @@
 # Mote iOS
 
-原生 iPhone 应用**尚未进仓库**。本文记录个人使用约定，以及它如何接到已经落地的 Relay。
+原生 iPhone 应用**尚未进仓库**。本文记录个人使用约定，以及它如何接到已经落地的 Relay。文档中的 `relay.example.com` 和 `com.example.mote.ios` 是示例。
 
 当前 iPhone 触发方式仍是 Apple 快捷指令，见 [shortcuts.md](shortcuts.md)。
 
@@ -13,7 +13,7 @@
 - 证书大约一年有效。日常打开不用重装。
 - 更新版本：改完代码，把 Version / Build 加一，再点一次 **Run**。同一个 Bundle ID 会覆盖旧版本。
 - 走现有 `send_command` HTTPS API，不另起命令协议。
-- 不要为了「方便」去打 `192.168.2.44` 或开发机回环地址。
+- 不要为了「方便」去打 `192.0.2.10` 或开发机回环地址。
 
 ## 为什么不是 7 天重装
 
@@ -30,7 +30,7 @@ Xcode **Settings → Accounts** 里的 Team 必须是付费 Apple Developer Prog
 ```text
 Mote iOS
       │
-      │ POST https://relay.yanze.me/v1/devices/:deviceId/commands
+      │ POST https://relay.example.com/v1/devices/:deviceId/commands
       │ Authorization: Bearer <send_command token>
       │ {"action":"lock"}
       ▼
@@ -66,7 +66,7 @@ ios/
 └── MoteTests/
 ```
 
-建议 Bundle ID：`me.yanze.mote.ios`（实现时再定）。Mac 已占用 `me.yanze.mote`。
+建议 Bundle ID：`com.example.mote.ios`（实现时换成自己的）。Mac 文档默认占用 `com.example.mote`。
 
 最低系统版本与具体屏幕以实现为准。视觉语言仍遵守仓库根目录 [design.md](../design.md)：克制、原生、状态清楚。
 

@@ -6,7 +6,7 @@ final class ConnectionStatusCopyTests: XCTestCase {
         XCTAssertFalse(ConnectionStatusCopy.showsConfiguredDetails(.notConfigured))
         XCTAssertFalse(ConnectionStatusCopy.showsConfiguredDetails(.pairing))
         XCTAssertNil(ConnectionStatusCopy.headerTransportLine(state: .notConfigured, latencyText: "4 ms"))
-        XCTAssertNil(ConnectionStatusCopy.menuRelayLine(host: "relay.yanze.me", latencyText: "4 ms", state: .notConfigured))
+        XCTAssertNil(ConnectionStatusCopy.menuRelayLine(host: "relay.example.com", latencyText: "4 ms", state: .notConfigured))
     }
 
     func testConnectedTransportLines() {
@@ -15,14 +15,14 @@ final class ConnectionStatusCopyTests: XCTestCase {
             "Relay · 4 ms"
         )
         XCTAssertEqual(
-            ConnectionStatusCopy.menuRelayLine(host: "relay.yanze.me", latencyText: "4 ms", state: .connected),
-            "relay.yanze.me · 4 ms"
+            ConnectionStatusCopy.menuRelayLine(host: "relay.example.com", latencyText: "4 ms", state: .connected),
+            "relay.example.com · 4 ms"
         )
     }
 
     func testDisconnectedDoesNotInventLatency() {
         XCTAssertNil(ConnectionStatusCopy.headerTransportLine(state: .disconnected, latencyText: "0 ms"))
-        XCTAssertNil(ConnectionStatusCopy.menuRelayLine(host: "relay.yanze.me", latencyText: "0 ms", state: .disconnected))
+        XCTAssertNil(ConnectionStatusCopy.menuRelayLine(host: "relay.example.com", latencyText: "0 ms", state: .disconnected))
     }
 
     func testInlineErrors() {

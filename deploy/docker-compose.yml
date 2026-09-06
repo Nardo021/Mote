@@ -13,7 +13,7 @@ services:
       MOTE_HOST: ${MOTE_HOST:-0.0.0.0}
       MOTE_PORT: ${MOTE_PORT:-3000}
       MOTE_DATABASE_PATH: ${MOTE_DATABASE_PATH:-/data/mote.sqlite}
-      MOTE_PUBLIC_URL: ${MOTE_PUBLIC_URL:-https://relay.yanze.me}
+      MOTE_PUBLIC_URL: ${MOTE_PUBLIC_URL:-https://relay.example.com}
       MOTE_LOG_LEVEL: ${MOTE_LOG_LEVEL:-info}
       MOTE_COMMAND_TTL_MS: ${MOTE_COMMAND_TTL_MS:-10000}
       MOTE_COMMAND_TIMEOUT_MS: ${MOTE_COMMAND_TIMEOUT_MS:-12000}
