@@ -34,11 +34,7 @@ final class MenuBarStatusItemController: NSObject {
             _ = appState.connectionState
             _ = appState.persistReconnectingWarning
             _ = appState.deviceName
-            _ = appState.menuRelayText
-            _ = appState.lockPermissionText
-            _ = appState.startAtLogin
             _ = appState.isUnconfigured
-            _ = appState.wantsConnection
             refresh()
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -66,55 +62,43 @@ final class MenuBarStatusItemController: NSObject {
 
     private func rebuildMenu() {
         menu.removeAllItems()
-        menu.addItem(disabledItem("Mote"))
-
-        if appState.isUnconfigured {
-            if appState.isPairing {
-                menu.addItem(disabledItem(appState.connectionState.menuTitle))
-            } else {
-                menu.addItem(disabledItem("Mote is not configured"))
-            }
-            menu.addItem(disabledItem(appState.deviceName))
-        } else {
-            menu.addItem(disabledItem(appState.connectionState.menuTitle))
-            menu.addItem(disabledItem(appState.deviceName))
-            if let relayLine = appState.menuRelayText {
-                menu.addItem(disabledItem("Relay"))
-                menu.addItem(disabledItem(relayLine))
+        for item in MenuBarContent.items(for: MenuBarSnapshot(state: appState)) {
+            switch item {
+            case .status(let title, let tone, let filledDot):
+                menu.addItem(statusItem(title: title, tone: tone, filledDot: filledDot))
+            case .disabled(let title):
+                menu.addItem(disabledItem(title))
+            case .separator:
+                menu.addItem(.separator())
+            case .action(let action):
+                addItem(action.title, action: selector(for: action))
             }
         }
-
-        menu.addItem(disabledItem("Lock Permission: \(appState.lockPermissionText)"))
-
-        let loginItem = NSMenuItem(
-            title: "Start at Login",
-            action: #selector(toggleStartAtLogin(_:)),
-            keyEquivalent: ""
-        )
-        loginItem.target = self
-        loginItem.state = appState.startAtLogin ? .on : .off
-        menu.addItem(loginItem)
-
-        menu.addItem(.separator())
-        addItem("Open Mote", action: #selector(openMote))
-        if !appState.isUnconfigured {
-            if appState.showsDisconnectAction {
-                addItem("Disconnect", action: #selector(disconnect))
-            } else {
-                addItem(reconnectTitle, action: #selector(connect))
-            }
-        }
-
-        menu.addItem(.separator())
-        addItem("Quit Mote", action: #selector(quit))
     }
 
-    private var reconnectTitle: String {
-        switch appState.connectionState {
-        case .disconnected, .error, .reconnecting, .disabled:
-            return "Reconnect"
-        case .notConfigured, .pairing, .connecting, .authenticating, .connected:
-            return "Connect"
+    private func statusItem(title: String, tone: MoteStatusTone, filledDot: Bool) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let color = MenuBarIconImage.nsColor(tone.color)
+        item.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .foregroundColor: color,
+                .font: NSFont.menuFont(ofSize: 0),
+            ]
+        )
+        item.image = MenuBarStatusDot.make(tone: tone, filled: filledDot)
+        item.image?.isTemplate = false
+        return item
+    }
+
+    private func selector(for action: MenuBarAction) -> Selector {
+        switch action {
+        case .openMote:
+            return #selector(openMote)
+        case .connect, .reconnect:
+            return #selector(connect)
+        case .quit:
+            return #selector(quit)
         }
     }
 
@@ -131,11 +115,6 @@ final class MenuBarStatusItemController: NSObject {
     }
 
     @objc
-    private func toggleStartAtLogin(_ sender: NSMenuItem) {
-        appState.setStartAtLogin(!appState.startAtLogin)
-    }
-
-    @objc
     private func openMote() {
         appState.presentMainWindow()
     }
@@ -143,11 +122,6 @@ final class MenuBarStatusItemController: NSObject {
     @objc
     private func connect() {
         appState.connect()
-    }
-
-    @objc
-    private func disconnect() {
-        appState.disconnect()
     }
 
     @objc

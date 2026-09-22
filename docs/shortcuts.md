@@ -21,7 +21,7 @@ Mote Agent → macOS 锁屏
 ## 前置条件
 
 1. Mote Relay 已在生产环境运行，公网为你的 HTTPS 基址（文档示例 `https://relay.example.com`）。
-2. Mote for Mac 已配对、菜单栏为 **Connected**，且 **Lock Permission** 为 **Granted**。
+2. Mote for Mac 已配对，菜单栏为 **Connected**。锁屏走登录会话，不需要先授予辅助功能。
 3. 你有这台 Mac 的 Device ID。Dashboard 设备详情可以 **Copy Shortcut Link**，打开 `https://<relay-host>/s/<DEVICE_ID>`；Mac 的 **Shortcuts** 区也会预填 Device ID 并打开同一页。页面**不会**带上 shortcut token。
 4. 公网主机名前面没有交互式 Cloudflare Access。快捷指令无法完成浏览器登录。
 
@@ -77,7 +77,7 @@ curl ^
   -d "{\"action\":\"lock\"}"
 ```
 
-Mac 在线且已授予辅助功能时，预期 HTTP 200：
+Mac 在线时，预期 HTTP 200：
 
 ```json
 {

@@ -4,11 +4,9 @@ import Foundation
 @MainActor
 final class AccessibilityTrustMonitor {
     static let apiChangeDelay: TimeInterval = 0.25
-    static let pollInterval: TimeInterval = 1
 
     private let refresh: () -> Void
     private let schedule: (TimeInterval, @escaping () -> Void) -> Void
-    private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
 
     init(
@@ -61,20 +59,9 @@ final class AccessibilityTrustMonitor {
                 }
             }
         )
-
-        let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.poll()
-            }
-        }
-        timer.tolerance = 0.25
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
         let center = DistributedNotificationCenter.default()
         for observer in observers {
             center.removeObserver(observer)

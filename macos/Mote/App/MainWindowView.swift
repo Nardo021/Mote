@@ -15,18 +15,10 @@ struct MainWindowView: View {
                     if appState.isUnconfigured {
                         UnconfiguredStateView()
                         deviceSection
-                        permissionsSection
                         startupSection
                         shortcutsSection
                     } else {
                         connectionSection
-                        if appState.lockPermissionGranted {
-                            remoteActionsSection
-                            permissionsSection
-                        } else {
-                            permissionsSection
-                            remoteActionsSection
-                        }
                         startupSection
                         deviceSection
                         shortcutsSection
@@ -120,37 +112,6 @@ struct MainWindowView: View {
             .moteButtonStyle(prominent: true)
             .keyboardShortcut(.defaultAction)
             .padding(.vertical, MoteSpacing.tight)
-        }
-    }
-
-    private var remoteActionsSection: some View {
-        MoteSection(title: "Remote Actions") {
-            MoteRow(label: "Lock") {
-                MoteValueText(
-                    text: appState.lockAvailabilityText,
-                    color: MoteColors.success
-                )
-            }
-        }
-    }
-
-    private var permissionsSection: some View {
-        MoteSection(title: "Permissions") {
-            MoteRow(label: "Lock Permission") {
-                MoteValueText(
-                    text: appState.lockPermissionText,
-                    color: appState.lockPermissionGranted ? MoteColors.success : MoteColors.warning
-                )
-            }
-
-            if !appState.lockPermissionGranted {
-                MoteGroupDivider()
-                MoteHelperBlock(text: "Accessibility is only used if session lock is unavailable.") {
-                    MoteTextAction(title: "Open System Settings", hint: "Opens System Settings") {
-                        appState.openAccessibilitySettings()
-                    }
-                }
-            }
         }
     }
 
@@ -253,11 +214,6 @@ struct MainWindowView: View {
 #Preview("Pairing") {
     MainWindowView()
         .environment(previewAppState(.pairing, permission: false))
-}
-
-#Preview("Permission Required") {
-    MainWindowView()
-        .environment(previewAppState(.connected, permission: false, latency: 0.018))
 }
 
 #Preview("Disabled") {

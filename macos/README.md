@@ -2,7 +2,7 @@
 
 Mote 的原生 macOS 应用和后台 Agent。
 
-当前版本 **1.5.4**（build **12**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
+当前版本 **1.5.6**（build **14**）。Mac 客户端可以运行、显示状态、通过 **Pair** 写入钥匙串、锁定本机会话，并通过真实的出站 WebSocket 使用 Mote Protocol v1。
 
 ## 技术栈
 
@@ -73,7 +73,7 @@ macos/
 4. 凭据存在且已启用 Connect → 出站 `wss://relay.example.com/v1/ws/device`。
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
-7. **Remote Actions → Lock** 显示 `Available`。锁屏优先走登录会话，不依赖辅助功能。
+7. 锁屏优先走登录会话，不依赖辅助功能。设置窗不再展示 Lock Permission。
 8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**，或 Dashboard 禁用 / 轮换了凭据。
 9. Dashboard **Disable** → 状态为 **Disabled**，立即停止重连。Dashboard Enable 后按 **Reconnect**（凭据未变）。不要 Pair。
 10. Dashboard **Rotate credential** → 停止重连。Connection 区折叠 **Paste credential**，粘贴 Dashboard 显示的一次性新凭据后连接。已登记设备再 Pair 会 409。
@@ -150,17 +150,16 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 2. **检查生成的 Device ID** — 显示一个 UUID，重启后仍在。
 3. **Pair** — Dashboard Allow 后进入 Connected，无需粘贴凭据。
 4. **检查钥匙串凭据行为** — DEBUG：保存/清除凭据；确认它不在 UserDefaults 或日志中。
-5. **检查辅助功能权限** — 状态为 Required 或 Granted；打开系统设置可用。
-6. **使用 DEBUG Test Lock** — 标明会立即锁定这台 Mac。
-7. **确认 Mac 锁屏** — 出现锁屏界面。
-8. **重新打开会话** — 解锁后 Mote 仍在运行。
-9. **检查 Start at Login 开关** — 反映 `SMAppService` 状态；可启用和关闭。
-10. **检查菜单栏** — 状态、设备名、Relay 摘要、权限、Connect/Disconnect、Quit。
-11. **设置开发用 Relay 凭据** — DEBUG 钥匙串保存或 `MOTE_DEVICE_CREDENTIAL`。
-12. **尝试 Relay 连接** — Connect；Relay 运行且凭据匹配时，应看到 Authenticating 然后 Connected。没有 Relay 时，看到 Connecting / Authenticating / Connection Error / Reconnecting…，绝不能是假的 Connected。
-13. **使用模拟命令** — 过期和错误设备的模拟被拒绝；有效的模拟锁屏在本地执行。
-14. **确认命令校验** — 最近结果按情况显示 `expired` / `invalid` / `unsupported`。
-15. **退出 Mote** — 进程退出；重连停止。
+5. **使用 DEBUG Test Lock** — 标明会立即锁定这台 Mac。
+6. **确认 Mac 锁屏** — 出现锁屏界面。
+7. **重新打开会话** — 解锁后 Mote 仍在运行。
+8. **检查 Start at Login 开关** — 反映 `SMAppService` 状态；可启用和关闭。
+9. **检查菜单栏** — 彩色状态、设备名、Open Mote / 需要时 Reconnect / Quit。已连接时没有 Disconnect。
+10. **设置开发用 Relay 凭据** — DEBUG 钥匙串保存或 `MOTE_DEVICE_CREDENTIAL`。
+11. **尝试 Relay 连接** — Connect；Relay 运行且凭据匹配时，应看到 Authenticating 然后 Connected。没有 Relay 时，看到 Connecting / Authenticating / Connection Error / Reconnecting…，绝不能是假的 Connected。
+12. **使用模拟命令** — 过期和错误设备的模拟被拒绝；有效的模拟锁屏在本地执行。
+13. **确认命令校验** — 最近结果按情况显示 `expired` / `invalid` / `unsupported`。
+14. **退出 Mote** — 进程退出；重连停止。
 
 ## 界面
 
@@ -172,17 +171,15 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 - 设备名 + 连接状态；已连接时显示 `Relay · 4 ms`
 - **Connection** — Relay 主机与延迟；未配置时不显示。断开 / 禁用 / 凭据失效后主按钮为 **Reconnect**。轮换或无效凭据时出现折叠的 **Paste credential**
-- **Remote Actions** — `Lock`：`Available`
-- **Permissions** — Lock Permission：`Granted` 或 `Required`，缺权限时可打开系统设置
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
 - **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID、Version
 - **Shortcuts** — 说明 + **Open Shortcut Setup**（复制 Device ID 并打开 `/s/:deviceId`）
 
-未配置顺序：状态头 → Pair 说明 → Device → Permissions → Startup → Shortcuts。不要显示 Connection / Remote Actions，也不要第二遍状态标题。配对中头为 **Waiting for Approval…**。
+未配置顺序：状态头 → Pair 说明 → Device → Startup → Shortcuts。不要显示 Connection，也不要第二遍状态标题。配对中头为 **Waiting for Approval…**。
 
 ### 菜单栏
 
-菜单栏是日常主界面。图标是自定义中继标记，右下角用颜色圆点表示状态（不是 SF Symbol template）。菜单只保留状态、设备名、Relay 摘要、权限、登录项，以及 Open Mote / Disconnect / Quit Mote。未配置时显示 **Mote is not configured**。诊断信息在主窗口。
+菜单栏是日常主界面。图标是自定义中继标记，右下角用颜色圆点表示状态（不是 SF Symbol template）。菜单只保留彩色状态、设备名，以及 Open Mote / 需要时 Reconnect / Quit Mote。已连接时不放 Disconnect。未配置时显示 **Mote is not configured**。Relay、权限和登录项在主窗口。
 
 ### Debug / Advanced
 

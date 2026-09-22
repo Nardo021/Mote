@@ -4,6 +4,25 @@ import XCTest
 @testable import Mote
 
 final class MenuBarStatusIconTests: XCTestCase {
+    func testStatusDotKeepsToneColor() throws {
+        let success = MenuBarStatusDot.make(tone: .success, filled: true)
+        let failed = MenuBarStatusDot.make(tone: .error, filled: true)
+        let successBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(success.tiffRepresentation)))
+        let failedBitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(failed.tiffRepresentation)))
+        let mid = try XCTUnwrap(successBitmap.colorAt(x: successBitmap.pixelsWide / 2, y: successBitmap.pixelsHigh / 2))
+        let failedMid = try XCTUnwrap(failedBitmap.colorAt(x: failedBitmap.pixelsWide / 2, y: failedBitmap.pixelsHigh / 2))
+
+        XCTAssertGreaterThan(mid.greenComponent, mid.redComponent)
+        XCTAssertGreaterThan(failedMid.redComponent, failedMid.greenComponent)
+    }
+
+    func testSameToneAndAppearanceReusesCachedImage() {
+        let appearance = NSAppearance(named: .aqua)!
+        let first = MenuBarIconImage.make(tone: .success, appearance: appearance)
+        let second = MenuBarIconImage.make(tone: .success, appearance: appearance)
+        XCTAssertTrue(first === second)
+    }
+
     func testIconIsSizedForMenuBarAndKeepsColor() {
         let appearance = NSAppearance(named: .aqua)!
         let image = MenuBarIconImage.make(tone: .success, appearance: appearance)

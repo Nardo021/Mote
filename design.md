@@ -595,22 +595,16 @@ Relay                 relay.example.com
 Latency               4 ms
 Disconnect
 
-Remote Actions
-Lock                  Available
-
-Permissions
-Lock Permission       Granted
-
 Startup
 Start Mote at Login   [ON]
 
 Device
 Name                  MacBook Pro
 Device ID             7B0F…
-Version               1.5.4 (12)
+Version               1.5.6 (14)
 ```
 
-`Lock` 为 `Available`。`Lock Permission` 为 `Granted` 或 `Required`（仅快捷键回退需要）。未配置时不显示 Connection / Remote Actions / Shortcuts，只显示 Pair 空状态。
+默认窗口不显示 Remote Actions 或 Lock Permission。锁屏走登录会话，不需要辅助功能。未配置时不显示 Connection，顺序为 Pair → Device → Startup → Shortcuts。
 
 使用分组分区，而不是仪表盘卡片。
 
@@ -640,25 +634,19 @@ Relay · 4 ms
 当前菜单布局：
 
 ```text
-Mote
-
 ● Connected
 MacBook Pro
-Relay
-relay.example.com · 4 ms
-Lock Permission
-Granted
-Start at Login
 
 ──────────────
 
 Open Mote
-Disconnect
 
 ──────────────
 
 Quit Mote
 ```
+
+状态圆点和 “Connected” 用连接色，不要做成灰色禁用项。已连接时不要放 Disconnect。
 
 菜单栏图标是自定义中继/信号标记，右下角用状态圆点。不要改回锁形 SF Symbol，也不要把图标做成 template-only 以致状态色消失。
 
@@ -667,6 +655,14 @@ Quit Mote
 ```text
 Mote is not configured
 MacBook Pro
+
+──────────────
+
+Open Mote
+
+──────────────
+
+Quit Mote
 ```
 
 配对中：
@@ -674,6 +670,14 @@ MacBook Pro
 ```text
 ◌ Waiting for Approval…
 MacBook Pro
+
+──────────────
+
+Open Mote
+
+──────────────
+
+Quit Mote
 ```
 
 断开时：
@@ -682,7 +686,14 @@ MacBook Pro
 ○ Disconnected
 MacBook Pro
 
+──────────────
+
+Open Mote
 Reconnect
+
+──────────────
+
+Quit Mote
 ```
 
 不要把诊断信息堆进菜单。
@@ -698,7 +709,6 @@ Reconnect
 例如：
 
 - Connect
-- Grant Permission
 - Save
 
 样式：
@@ -736,41 +746,15 @@ Reconnect
 Start Mote at Login      [ON]
 ```
 
-Remote Actions 不是开关。当前是只读行：`Lock` → `Available`。
-
 不要做移动端那种过大的开关行。
 
 标签应能说明设置做什么，而不需要 tooltip。
 
 ## 19. 权限状态
 
-权限必须明确。
+默认窗口不展示 Lock Permission。远程锁屏优先走登录会话，不依赖辅助功能。
 
-好的写法：
-
-```text
-Lock Permission
-Granted
-```
-
-或：
-
-```text
-Lock Permission
-Required
-
-Mote needs Accessibility permission to lock this Mac remotely.
-
-[Open System Settings]
-```
-
-避免笼统的：
-
-```text
-Permission error
-```
-
-要准确告诉用户缺了什么。
+缺少信任只影响快捷键回退，并以 `permission_required` 返回给 Relay。不要把可选回退画成用户必须先处理的设置项。
 
 ## 20. Relay 信息
 
@@ -1057,19 +1041,13 @@ Persistent WebSocket Transport
 │ Latency                              4 ms   │
 │ Disconnect                                  │
 │                                             │
-│ REMOTE ACTIONS                              │
-│ Lock                           Available    │
-│                                             │
-│ PERMISSIONS                                 │
-│ Lock Permission                  Granted    │
-│                                             │
 │ STARTUP                                     │
 │ Start Mote at Login                [ ON ]   │
 │                                             │
 │ DEVICE                                      │
 │ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
-│ Version                      1.5.4 (12)     │
+│ Version                      1.5.6 (14)     │
 └─────────────────────────────────────────────┘
 ```
 
@@ -1267,20 +1245,14 @@ Latency                     4 ms
 Start Mote at Login        [ON]
 ```
 
-### 权限行
-
-```text
-Lock Permission          Granted
-```
-
 ### 错误行
 
 ```text
-Lock Permission         Required
-                     [Open Settings]
+Could not connect to relay.
+Retrying automatically…
 ```
 
-各分区保持一致对齐。
+各分区保持一致对齐。默认窗口没有权限行。
 
 ## 38. 颜色使用比例
 

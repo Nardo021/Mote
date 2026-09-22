@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum MoteStatusTone: Equatable, Sendable {
+enum MoteStatusTone: Equatable, Hashable, Sendable {
     case success
     case warning
     case error

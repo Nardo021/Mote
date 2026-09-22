@@ -1,9 +1,18 @@
 import AppKit
+import os
 import SwiftUI
 
 enum MenuBarIconImage {
     static let pointSize = NSSize(width: 18, height: 18)
     private static let backingScale: CGFloat = 2
+    private static let cache = OSAllocatedUnfairLock(initialState: [CacheKey: NSImage]())
+
+    private struct CacheKey: Hashable, Sendable {
+        let tone: MoteStatusTone
+        let appearanceName: String
+        let width: Int
+        let height: Int
+    }
 
     static func make(tone: MoteStatusTone, colorScheme: ColorScheme) -> NSImage {
         make(tone: tone, appearance: appearance(for: colorScheme))
@@ -13,6 +22,30 @@ enum MenuBarIconImage {
         tone: MoteStatusTone,
         appearance: NSAppearance,
         pointSize: NSSize = pointSize
+    ) -> NSImage {
+        let key = CacheKey(
+            tone: tone,
+            appearanceName: appearance.name.rawValue,
+            width: Int(pointSize.width * backingScale),
+            height: Int(pointSize.height * backingScale)
+        )
+        if let cached = cache.withLock({ $0[key] }) {
+            return cached
+        }
+        let image = render(tone: tone, appearance: appearance, pointSize: pointSize)
+        return cache.withLock { storage in
+            if let cached = storage[key] {
+                return cached
+            }
+            storage[key] = image
+            return image
+        }
+    }
+
+    private static func render(
+        tone: MoteStatusTone,
+        appearance: NSAppearance,
+        pointSize: NSSize
     ) -> NSImage {
         let pixelWidth = Int(pointSize.width * backingScale)
         let pixelHeight = Int(pointSize.height * backingScale)
@@ -116,7 +149,51 @@ enum MenuBarIconImage {
         context.restoreGState()
     }
 
-    private static func nsColor(_ color: Color) -> NSColor {
+    static func nsColor(_ color: Color) -> NSColor {
         NSColor(color)
+    }
+}
+
+enum MenuBarStatusDot {
+    private static let pointSize = NSSize(width: 12, height: 12)
+    private static let backingScale: CGFloat = 2
+
+    static func make(tone: MoteStatusTone, filled: Bool) -> NSImage {
+        let pixel = Int(pointSize.width * backingScale)
+        let image = NSImage(size: pointSize)
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixel,
+            pixelsHigh: pixel,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            return image
+        }
+
+        bitmap.size = pointSize
+        image.addRepresentation(bitmap)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        if let context = NSGraphicsContext.current?.cgContext {
+            let color = MenuBarIconImage.nsColor(tone.color)
+            let rect = CGRect(origin: .zero, size: pointSize).insetBy(dx: 2.2, dy: 2.2)
+            if filled {
+                context.setFillColor(color.cgColor)
+                context.fillEllipse(in: rect)
+            } else {
+                context.setStrokeColor(color.cgColor)
+                context.setLineWidth(1.5)
+                context.strokeEllipse(in: rect.insetBy(dx: 0.75, dy: 0.75))
+            }
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        image.isTemplate = false
+        return image
     }
 }

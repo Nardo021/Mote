@@ -99,16 +99,8 @@ final class AppState {
         return DateHelpers.formatLatency(relayLatency)
     }
 
-    var lockPermissionText: String {
-        lockPermissionGranted ? "Granted" : "Required"
-    }
-
     var headerTransportText: String? {
         ConnectionStatusCopy.headerTransportLine(state: connectionState, latencyText: latencyText)
-    }
-
-    var menuRelayText: String? {
-        ConnectionStatusCopy.menuRelayLine(host: relayHost, latencyText: latencyText, state: connectionState)
     }
 
     var connectionErrorText: ConnectionStatusCopy.InlineError? {
@@ -117,10 +109,6 @@ final class AppState {
 
     var startupErrorText: String? {
         ConnectionStatusCopy.startupErrorText(lastError)
-    }
-
-    var lockAvailabilityText: String {
-        "Available"
     }
 
     var connectActionTitle: String {
@@ -230,11 +218,6 @@ final class AppState {
         }
         lockPermissionGranted = trusted
         startAtLogin = LoginItemService.isEnabled
-    }
-
-    func openAccessibilitySettings() {
-        AccessibilityPermission.check(prompt: true)
-        AccessibilityPermission.openSystemSettings()
     }
 
     func copyDeviceID() {
