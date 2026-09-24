@@ -44,11 +44,13 @@ private struct AdvancedDebugContent: View {
             VStack(alignment: .leading, spacing: MoteSpacing.tight) {
                 Text("Relay URL override")
                     .font(MoteTypography.primary)
-                TextField("Relay URL override", text: $appState.debugRelayOverride)
+                TextField("Relay URL override", text: relayURLBinding)
                     .textFieldStyle(.roundedBorder)
                     .font(MoteTypography.technical)
+                    .textContentType(.URL)
+                    .autocorrectionDisabled()
                     .onSubmit {
-                        appState.saveDebugRelayOverride()
+                        appState.setRelayURLOverride(appState.relayURLOverride)
                     }
             }
             .padding(.vertical, MoteSpacing.tight)
@@ -145,6 +147,13 @@ private struct AdvancedDebugContent: View {
                 .foregroundStyle(.tertiary)
                 .padding(.top, MoteSpacing.tight)
         }
+    }
+
+    private var relayURLBinding: Binding<String> {
+        Binding(
+            get: { appState.relayURLOverride },
+            set: { appState.setRelayURLOverride($0) }
+        )
     }
 
     private var lastCommandText: String {

@@ -23,9 +23,9 @@ Bundle identifier（文档与工程默认值；发布时换成自己的）：
 com.example.mote
 ```
 
-默认生产 Relay 主机名为 `relay.example.com`。本机请用设置或 `MOTE_RELAY_URL` 指向真实 Relay。
+默认生产 Relay 主机名为 `relay.example.com`。本机在设置里填写公网 Relay URL，或设 `MOTE_RELAY_URL`。不要让 Mac 去打局域网 IP。
 
-不通过 App Store 分发。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。日常自己用：在本机选付费 Development Team，用 Xcode **Run** 覆盖安装即可。
+不通过 App Store 分发。仓库不提供现成签名包。其他人请自行用 Xcode 构建并签名：把 Bundle ID 从 `com.example.mote` 换成自己的，选自己的 Development Team。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。日常自己用：在本机选付费 Development Team，用 Xcode **Run** 覆盖安装即可。
 
 ## 打开与构建
 
@@ -68,9 +68,9 @@ macos/
 ## 运行时行为
 
 1. 启动时加载持久的 `device_id` 和设置。
-2. 缺少设备凭据 → 主窗口显示 **Mote is not configured** 和 **Pair**。不会假装已连接或显示虚假延迟。
-3. 点 Pair 后状态为 **Waiting for Approval…**。Dashboard 批准 → 凭据写入钥匙串并立刻连接，无需重启。
-4. 凭据存在且已启用 Connect → 出站 `wss://relay.example.com/v1/ws/device`。
+2. 缺少设备凭据 → 主窗口显示 **Mote is not configured**、**Relay URL** 和 **Pair**。不会假装已连接或显示虚假延迟。
+3. 填入公网 Relay URL 后点 Pair，状态为 **Waiting for Approval…**。Dashboard 批准 → 凭据写入钥匙串并立刻连接，无需重启。
+4. 凭据存在且已启用 Connect → 出站该基址上的 `wss://…/v1/ws/device`。
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
 7. 锁屏优先走登录会话，不依赖辅助功能。设置窗不再展示 Lock Permission。
@@ -104,7 +104,7 @@ Connection Error
 
 ### 与 Mote Relay 配对
 
-1. 打开 Mote，点 **Pair**。
+1. 打开 Mote，把 **Relay URL** 填成你的公网基址（例如 `https://relay.example.com`），点 **Pair**。
 2. Dashboard **Devices** 出现待批准请求，点 **Allow**。
 3. Mac 实时写入钥匙串并连接。无需重启。
 
@@ -122,9 +122,9 @@ docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --
 
 - DEBUG 设置 → **Developer** 区可以把设备凭据保存到钥匙串
 - 可选环境变量：`MOTE_DEVICE_CREDENTIAL`（钥匙串为空时的 DEBUG 回退；除非你保存，否则不持久化）
-- 可选 Relay 覆盖：`MOTE_RELAY_URL` 或 DEBUG URL 字段（本地 Relay 用 `http://127.0.0.1:3000`）
+- 可选 Relay 覆盖：设置里的 **Relay URL**，或 `MOTE_RELAY_URL`（本地 Relay 用 `http://127.0.0.1:3000`）。`MOTE_RELAY_URL` 优先。
 
-这些 DEBUG 控件会在 Release 中编译剔除。不要在生产中关闭 TLS 校验。
+DEBUG **Developer** 里的凭据和模拟命令会在 Release 中编译剔除。Relay URL 在 Release 中保留。不要在生产中关闭 TLS 校验。
 
 ## 锁屏动作与辅助功能
 
@@ -169,13 +169,13 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 默认约 `520 × 560`，最小约 `460 × 480`。内容最大宽度 520 px。内容按纵向分组：
 
-- 设备名 + 连接状态；已连接时显示 `Relay · 4 ms`
-- **Connection** — Relay 主机与延迟；未配置时不显示。断开 / 禁用 / 凭据失效后主按钮为 **Reconnect**。轮换或无效凭据时出现折叠的 **Paste credential**
+- 设备名在左，状态靠右；已连接时显示 `Relay · 4 ms`
+- **Connection** — 可编辑 Relay URL 与延迟；未配置时不显示。断开 / 禁用 / 凭据失效后主按钮为 **Reconnect**。轮换或无效凭据时出现折叠的 **Paste credential**
 - **Startup** — Start Mote at Login，绑定真实的 `SMAppService` 状态
 - **Device** — 可编辑设备名、缩写 Device ID、复制完整 ID、Version
 - **Shortcuts** — 说明 + **Open Shortcut Setup**（复制 Device ID 并打开 `/s/:deviceId`）
 
-未配置顺序：状态头 → Pair 说明 → Device → Startup → Shortcuts。不要显示 Connection，也不要第二遍状态标题。配对中头为 **Waiting for Approval…**。
+未配置顺序：状态头 → Setup（Relay URL + Pair）→ Device → Startup → Shortcuts。不要显示 Connection，也不要第二遍状态标题。配对中头为 **Waiting for Approval…**。
 
 ### 菜单栏
 
@@ -183,7 +183,7 @@ DEBUG **Developer** 可以把本地命令注入 `CommandProcessor`（校验 → 
 
 ### Debug / Advanced
 
-DEBUG 构建设置底部有折叠的 **Advanced**：Relay Endpoint、协议版本、连接状态、命令 ID、开发凭据、模拟命令和 Test Lock。Release 会编译剔除。正常界面不显示凭据、Bearer token 或钥匙串内容。
+DEBUG 构建设置底部有折叠的 **Advanced**：解析后的 Relay Endpoint、协议版本、连接状态、命令 ID、开发凭据、模拟命令和 Test Lock。这部分 Release 会编译剔除。Relay URL 字段在正常设置里，Release 保留。正常界面不显示凭据、Bearer token 或钥匙串内容。
 
 ## 协议
 

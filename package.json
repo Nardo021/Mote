@@ -1,0 +1,13 @@
+{
+  "name": "mote",
+  "private": true,
+  "scripts": {
+    "build": "npm ci --prefix dashboard && npm run build --prefix dashboard && npm ci --prefix relay",
+    "deploy": "npm run build && wrangler deploy",
+    "dev:worker": "npm run build && wrangler dev",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

@@ -4,10 +4,11 @@ import { dirname } from "node:path";
 import Database from "better-sqlite3";
 
 import { migrate } from "./migrations.js";
+import type { MoteDatabase } from "./sql.js";
 
-export type MoteDatabase = Database.Database;
+export type { MoteDatabase } from "./sql.js";
 
-export function applyPragmas(db: MoteDatabase): void {
+export function applyPragmas(db: Database.Database): void {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");

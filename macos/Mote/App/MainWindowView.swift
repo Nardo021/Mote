@@ -7,7 +7,7 @@ struct MainWindowView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: MoteSpacing.major) {
+                VStack(alignment: .leading, spacing: MoteSpacing.item + MoteSpacing.tight) {
                     header
                         .id("mote-top")
                         .accessibilityFocused($headerIsFocused)
@@ -39,6 +39,7 @@ struct MainWindowView: View {
             }
         }
         .background(MoteColors.canvas)
+        .background(WindowChrome())
         .frame(
             minWidth: MoteSpacing.windowMinWidth,
             idealWidth: MoteSpacing.windowIdealWidth,
@@ -79,8 +80,8 @@ struct MainWindowView: View {
 
     private var connectionSection: some View {
         MoteSection(title: "Connection") {
-            MoteRow(label: "Relay") {
-                MoteValueText(text: appState.relayHost, monospaced: true)
+            MoteRow(label: "Relay", interactive: true, hidesLabel: true) {
+                RelayURLField(text: relayURLBinding, accessibilityName: "Relay")
             }
             MoteGroupDivider()
             MoteRow(label: "Latency") {
@@ -106,12 +107,13 @@ struct MainWindowView: View {
                 appState.disconnect()
             }
         } else {
-            Button(appState.connectActionTitle) {
-                appState.connect()
+            MoteTrailingAction {
+                Button(appState.connectActionTitle) {
+                    appState.connect()
+                }
+                .moteButtonStyle(prominent: true)
+                .keyboardShortcut(.defaultAction)
             }
-            .moteButtonStyle(prominent: true)
-            .keyboardShortcut(.defaultAction)
-            .padding(.vertical, MoteSpacing.tight)
         }
     }
 
@@ -158,14 +160,12 @@ struct MainWindowView: View {
     }
 
     private var shortcutsSection: some View {
-        MoteSection(title: "Shortcuts") {
-            MoteHelperBlock(text: "Opens the setup page with this Device ID.") {
-                MoteTextAction(
-                    title: "Open Shortcut Setup",
-                    hint: "Copies the Device ID and opens the shortcut setup page."
-                ) {
-                    appState.openShortcutSetup()
-                }
+        MoteSection(title: "Shortcuts", footer: "Opens the setup page with this Device ID.") {
+            MoteTextAction(
+                title: "Open Shortcut Setup",
+                hint: "Copies the Device ID and opens the shortcut setup page."
+            ) {
+                appState.openShortcutSetup()
             }
         }
     }
@@ -174,6 +174,13 @@ struct MainWindowView: View {
         Binding(
             get: { appState.deviceName },
             set: { appState.setDeviceName($0) }
+        )
+    }
+
+    private var relayURLBinding: Binding<String> {
+        Binding(
+            get: { appState.relayURLOverride },
+            set: { appState.setRelayURLOverride($0) }
         )
     }
 

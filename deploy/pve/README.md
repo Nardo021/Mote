@@ -1,6 +1,8 @@
 # PVE / LXC
 
-Mote Relay 运行在专用的 Proxmox VE LXC 中。文档示例源站地址是 `192.0.2.10`，请换成自己的 LXC IP。Cloudflare Tunnel 已经运行在 PVE 宿主机上；不要在 Mote LXC 或 Compose 栈里再装一份 `cloudflared`。
+这是自托管里的可选拓扑。推荐部署是仓库根 [README](../../README.md) 的 Cloudflare 一键部署。通用 Docker + 公网 HTTPS 也在该 README 的「自托管」。
+
+Mote Relay 可以运行在专用的 Proxmox VE LXC 中。文档示例源站地址是 `192.0.2.10`，请换成自己的 LXC IP。若 Cloudflare Tunnel 已经运行在 PVE 宿主机上，不要在 Mote LXC 或 Compose 栈里再装一份 `cloudflared`。
 
 ```text
 PVE Host

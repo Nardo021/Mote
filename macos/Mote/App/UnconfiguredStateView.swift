@@ -5,29 +5,29 @@ struct UnconfiguredStateView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        MoteGroupSurface {
-            VStack(alignment: .leading, spacing: MoteSpacing.related) {
-                VStack(alignment: .leading, spacing: MoteSpacing.tight) {
-                    Text(title)
-                        .font(MoteTypography.primaryMedium)
-                        .foregroundStyle(.primary)
-                        .lineSpacing(MoteTypography.wrappingLineSpacing)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    MoteWrappingText(text: subtitle)
+        MoteSection(title: "Setup", footer: footer) {
+            VStack(alignment: .leading, spacing: 0) {
+                if !appState.isPairing {
+                    MoteRow(label: "Relay URL", interactive: true, hidesLabel: true) {
+                        RelayURLField(text: relayURLBinding)
+                    }
                 }
-                .id(subtitle)
 
                 if let error = pairingError {
+                    if !appState.isPairing {
+                        MoteGroupDivider()
+                    }
                     MoteInlineErrorView(title: error.title, detail: error.detail)
+                }
+
+                if !appState.isPairing || pairingError != nil {
+                    MoteGroupDivider()
                 }
 
                 actionButton
             }
-            .padding(.vertical, MoteSpacing.tight)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: subtitle)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: appState.isPairing)
         }
-        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -37,24 +37,34 @@ struct UnconfiguredStateView: View {
                 appState.cancelPairing()
             }
         } else {
-            Button("Pair") {
-                appState.beginPairing()
+            MoteTrailingAction {
+                Button("Pair") {
+                    appState.beginPairing()
+                }
+                .moteButtonStyle(prominent: true)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!appState.canBeginPairing)
+                .accessibilityHint(
+                    appState.canBeginPairing
+                        ? "Asks Mote Relay to approve this Mac."
+                        : "Enter a public Relay URL first."
+                )
             }
-            .moteButtonStyle(prominent: true)
-            .keyboardShortcut(.defaultAction)
-            .accessibilityHint("Asks Mote Relay to approve this Mac.")
         }
     }
 
-    private var title: String {
-        appState.isPairing ? "Waiting for approval" : "Mote is not configured"
+    private var relayURLBinding: Binding<String> {
+        Binding(
+            get: { appState.relayURLOverride },
+            set: { appState.setRelayURLOverride($0) }
+        )
     }
 
-    private var subtitle: String {
+    private var footer: String {
         if appState.isPairing {
-            return "Relay can see this Device ID. Allow this Mac in the Dashboard and it will connect automatically."
+            return "Allow this Mac in the Dashboard and it will connect automatically."
         }
-        return "Pair this Mac so Relay can approve it. The device credential stays in the Keychain and is never shown again."
+        return "Set your public Relay URL, then Pair. The device credential stays in the Keychain."
     }
 
     private var pairingError: ConnectionStatusCopy.InlineError? {

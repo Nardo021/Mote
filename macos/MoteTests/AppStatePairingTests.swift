@@ -58,6 +58,35 @@ final class AppStatePairingTests: XCTestCase {
         XCTAssertEqual(state.lastError, "Pairing expired. Try again.")
     }
 
+    func testRelayURLOverrideChangesResolvedHost() {
+        let suite = "mote.tests.relay-url.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let state = AppState(
+            settings: SettingsStore(defaults: defaults),
+            credentials: CredentialManager(store: InMemoryKeychainStore()),
+            pairing: MockPairingService()
+        )
+
+        XCTAssertEqual(state.relayHost, RelayDefaults.productionHost)
+        if ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] == nil {
+            XCTAssertFalse(state.canBeginPairing)
+        }
+
+        state.setRelayURLOverride("https://relay.example.net")
+        XCTAssertEqual(state.relayHost, "relay.example.net")
+        XCTAssertEqual(state.settings.load().relayURLOverride, "https://relay.example.net")
+        XCTAssertTrue(state.canBeginPairing)
+
+        state.setRelayURLOverride("not-a-url")
+        XCTAssertEqual(state.relayHost, RelayDefaults.productionHost)
+        if ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] == nil {
+            XCTAssertFalse(state.canBeginPairing)
+        }
+    }
+
     func testCancelPairingCallsCancelAndResetsState() async {
         let pairing = MockPairingService()
         pairing.holdDecision = true

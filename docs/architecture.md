@@ -61,6 +61,8 @@ Apple Shortcut / Dashboard → Mote Relay → Mote Agent → Lock
 
 ### 基础设施
 
+推荐安装是 Cloudflare 一键部署（Worker + Durable Object）。下面是自托管形状：任意 Docker 主机 + 公网 HTTPS（Tunnel 或反向代理）即可。Proxmox VE + 现有 Cloudflare Tunnel 是其中一种拓扑。客户端不要使用局域网 IP。
+
 ```text
 PVE Host
 │

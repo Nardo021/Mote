@@ -27,4 +27,41 @@ final class RelayConfigurationTests: XCTestCase {
         let configuration = RelayConfiguration(baseURL: url)
         XCTAssertEqual(configuration.webSocketURL.absoluteString, "ws://127.0.0.1:8787/v1/ws/device")
     }
+
+    func testSettingsOverrideIsUsedWhenEnvironmentIsAbsent() throws {
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] != nil,
+            "MOTE_RELAY_URL is set in the test environment"
+        )
+        let configuration = RelayConfiguration.resolve(settingsOverride: "https://relay.example.net")
+        XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.example.net")
+        XCTAssertEqual(configuration.hostDisplayName, "relay.example.net")
+        XCTAssertEqual(
+            configuration.webSocketURL.absoluteString,
+            "wss://relay.example.net/v1/ws/device"
+        )
+    }
+
+    func testInvalidSettingsOverrideFallsBackToProduction() throws {
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] != nil,
+            "MOTE_RELAY_URL is set in the test environment"
+        )
+        let configuration = RelayConfiguration.resolve(settingsOverride: "not-a-url")
+        XCTAssertEqual(configuration.baseURL.absoluteString, RelayDefaults.productionBaseURLString)
+    }
+
+    func testParseBaseURLRequiresHTTPHost() {
+        XCTAssertEqual(
+            RelayConfiguration.parseBaseURL("https://relay.example.net")?.absoluteString,
+            "https://relay.example.net"
+        )
+        XCTAssertEqual(
+            RelayConfiguration.parseBaseURL("http://127.0.0.1:3000")?.absoluteString,
+            "http://127.0.0.1:3000"
+        )
+        XCTAssertNil(RelayConfiguration.parseBaseURL("relay.example.com"))
+        XCTAssertNil(RelayConfiguration.parseBaseURL("ftp://relay.example.com"))
+        XCTAssertNil(RelayConfiguration.parseBaseURL("   "))
+    }
 }

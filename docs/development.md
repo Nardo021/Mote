@@ -33,7 +33,7 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -destination 'platform=mac
 
 ## Phase 3 — Mote Relay
 
-已完成。后端和 PVE 部署位于 `relay/` 和 `deploy/`。
+已完成。后端位于 `relay/`，Compose 位于 `deploy/`。PVE 文档是可选路径。
 
 ```text
 cd relay
@@ -65,7 +65,7 @@ wss://relay.example.com/v1/ws/pair
 
 针对本地 Relay 的开发配对：
 
-1. DEBUG 版 Mote for Mac 把 Relay URL 覆盖设为 `http://127.0.0.1:3000`。
+1. Mote for Mac 把 Relay URL 设为 `http://127.0.0.1:3000`（设置里的字段，或 `MOTE_RELAY_URL`）。
 2. 点 **Pair**，在本地 Dashboard 批准。
 3. 或继续用 CLI 后粘贴凭据：
 

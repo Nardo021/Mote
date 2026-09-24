@@ -1,6 +1,6 @@
 # GitHub Actions
 
-CI 工作流将放在这里。当前仓库还没有 workflow YAML。
+`deploy-cloudflare.yml` 在推送到 `main` 时部署 Worker。未设置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 时会跳过。
 
 若添加 CI，应对已经落地的工程跑构建与测试：
 

@@ -1,5 +1,4 @@
-import type { Database } from "better-sqlite3";
-
+import type { MoteDatabase } from "./sql.js";
 import { nowMs } from "../utils/time.js";
 
 export type Migration = {
@@ -104,7 +103,7 @@ export const MIGRATIONS: readonly Migration[] = [
   },
 ];
 
-function ensureMigrationsTable(db: Database): void {
+function ensureMigrationsTable(db: MoteDatabase): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id INTEGER PRIMARY KEY,
@@ -113,7 +112,7 @@ function ensureMigrationsTable(db: Database): void {
   `);
 }
 
-export function appliedMigrationIds(db: Database): Set<number> {
+export function appliedMigrationIds(db: MoteDatabase): Set<number> {
   ensureMigrationsTable(db);
   const rows = db
     .prepare("SELECT id FROM schema_migrations ORDER BY id")
@@ -121,7 +120,7 @@ export function appliedMigrationIds(db: Database): Set<number> {
   return new Set(rows.map((row) => row.id));
 }
 
-export function migrate(db: Database): number {
+export function migrate(db: MoteDatabase): number {
   ensureMigrationsTable(db);
   const applied = appliedMigrationIds(db);
   const insert = db.prepare(

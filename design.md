@@ -150,18 +150,16 @@ RGB 79, 124, 255
 
 ```text
 Canvas
-#F7F8FA
+windowBackgroundColor
 ```
 
-在需要自定义表面时，用作主应用背景。
-
-合适时优先使用原生 macOS 窗口材质。
+主窗口画布使用系统窗口背景，与透明标题栏连成一块。不要再铺一层自定义灰底。
 
 ### 主表面
 
 ```text
 Surface
-#FFFFFF
+textBackgroundColor
 ```
 
 用于：
@@ -555,11 +553,11 @@ Mote 不应看起来像被拉伸到 macOS 上的 iOS 应用。
 
 ## 13. 边框与阴影
 
-优先用边框和原生材质分隔，而不是厚重阴影。
+优先用系统材质和 1 px 纯黑/白 hairline 分隔结构，而不是厚重阴影。
 
 ### 边框
 
-使用 1 px 的轻微边框。
+分组表单用 1 px hairline（浅色 `black @ 6%`，深色 `white @ 8%`）。不要用带色相的灰描边。
 
 ### 阴影
 
@@ -569,7 +567,7 @@ Mote 不应看起来像被拉伸到 macOS 上的 iOS 应用。
 - 菜单
 - 临时浮动面板
 
-不要给每个设置卡片都加阴影。
+不要给每个设置分组都加阴影。窗口与标题栏靠系统背景色统一，不靠投影。
 
 ## 14. 主窗口
 
@@ -586,17 +584,16 @@ Mote 不应看起来像被拉伸到 macOS 上的 iOS 应用。
 当前层级：
 
 ```text
-MacBook Pro
-● Connected
-Relay · 4 ms
+MacBook Pro                         ● Connected
+                                    Relay · 4 ms
 
 Connection
-Relay                 relay.example.com
+Relay                 https://relay.example.com
 Latency               4 ms
-Disconnect
+                                        Disconnect
 
 Startup
-Start Mote at Login   [ON]
+Start Mote at Login                    [ON]
 
 Device
 Name                  MacBook Pro
@@ -604,21 +601,20 @@ Device ID             7B0F…
 Version               1.5.6 (14)
 ```
 
-默认窗口不显示 Remote Actions 或 Lock Permission。锁屏走登录会话，不需要辅助功能。未配置时不显示 Connection，顺序为 Pair → Device → Startup → Shortcuts。
+默认窗口不显示 Remote Actions 或 Lock Permission。锁屏走登录会话，不需要辅助功能。未配置时不显示 Connection，顺序为 Setup（Relay URL + Pair）→ Device → Startup → Shortcuts。Release 可填写并保存 Relay URL。
 
-使用分组分区，而不是仪表盘卡片。
+分区标题用句首大写，不要用全大写 overline。主按钮用系统 `borderedProminent`，右对齐，不要自定义蓝胶囊。使用分组分区，而不是仪表盘卡片。
 
 ## 15. 主状态头
 
-不要做巨大的状态卡片。当前实现把头做成：
+不要做巨大的状态卡片。当前实现把头做成一行：
 
 ```text
-MacBook Pro
-● Connected
-Relay · 4 ms
+MacBook Pro                         ● Connected
+                                    Relay · 4 ms
 ```
 
-未连接或出错时不显示传输行。设备名仍应是最容易扫到的身份信息。连接信息（Relay、Latency）是次要的。
+未连接或出错时不显示传输行。设备名仍应是最容易扫到的身份信息。状态靠右，连接信息（Relay、Latency）是次要的。
 
 ## 16. 菜单栏设计
 
@@ -945,12 +941,13 @@ Reconnect Mote with a valid device credential.
 当 Mote 没有凭据时：
 
 ```text
-Mote is not configured
-
-Click Pair so Mote Relay can approve this Mac.
-
-[Pair]
+Setup
+Relay URL             https://relay.example.com
+                                         [Pair]
+Set your public Relay URL, then Pair.
 ```
+
+头上的状态已经说明未配置，Setup 里不要再重复一遍标题。
 
 配对等待中：
 
@@ -1032,19 +1029,18 @@ Persistent WebSocket Transport
 
 ```text
 ┌─────────────────────────────────────────────┐
-│ MacBook Pro                                 │
-│ ● Connected                                 │
-│ Relay · 4 ms                                │
+│ MacBook Pro                   ● Connected   │
+│                               Relay · 4 ms  │
 │                                             │
-│ CONNECTION                                  │
-│ Relay                       relay.example.com  │
+│ Connection                                  │
+│ Relay              https://relay.example.com│
 │ Latency                              4 ms   │
-│ Disconnect                                  │
+│                                 Disconnect  │
 │                                             │
-│ STARTUP                                     │
+│ Startup                                     │
 │ Start Mote at Login                [ ON ]   │
 │                                             │
-│ DEVICE                                      │
+│ Device                                      │
 │ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
 │ Version                      1.5.6 (14)     │
@@ -1054,25 +1050,18 @@ Persistent WebSocket Transport
 视觉处理：
 
 ```text
-background        #F7F8FA
-surface           #FFFFFF
-text              #17191C
-secondary text    #626871
-border            #E1E4E8
-accent            #4F7CFF
+background        windowBackgroundColor
+surface           textBackgroundColor
+accent            #4F7CFF (AccentColor)
 connected         #2F9E63
 ```
 
 ## 30. 深色模式示例
 
 ```text
-background        #101114
-surface           #17191D
-secondary surface #1E2126
-text              #F4F5F7
-secondary text    #A8ADB5
-border            #2C3037
-accent            #6B91FF
+background        windowBackgroundColor
+surface           textBackgroundColor
+accent            #6B91FF (AccentColor)
 connected         #49C47D
 ```
 
@@ -1138,7 +1127,7 @@ Mote 是桌面工具，不是响应式网站。
 
 不要在每个内容分区后面都放模糊/材质。
 
-设置更适合标准表面。
+主窗口用 `windowBackgroundColor` 加透明标题栏。分组表单用 `textBackgroundColor` 和 hairline，不要再铺一层自定义卡片底。
 
 ## 34. 应用图标方向
 

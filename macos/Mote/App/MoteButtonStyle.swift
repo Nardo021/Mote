@@ -5,10 +5,8 @@ struct MoteButtonChrome: ViewModifier {
     var isStatic: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.isEnabled) private var isEnabled
     @GestureState private var pressed = false
-    @State private var hovering = false
 
     func body(content: Content) -> some View {
         chrome(content)
@@ -18,8 +16,6 @@ struct MoteButtonChrome: ViewModifier {
                 reduceMotion || isStatic ? nil : .easeOut(duration: 0.15),
                 value: pressed
             )
-            .onHover { hovering = $0 }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: hovering)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .updating($pressed) { _, state, _ in
@@ -32,26 +28,14 @@ struct MoteButtonChrome: ViewModifier {
     private func chrome(_ content: Content) -> some View {
         if prominent {
             content
-                .buttonStyle(.plain)
-                .font(MoteTypography.primaryMedium)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .foregroundStyle(.white)
-                .background(
-                    fillColor,
-                    in: RoundedRectangle(cornerRadius: MoteSpacing.radiusSmall, style: .continuous)
-                )
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .tint(Color.accentColor)
         } else {
             content
                 .buttonStyle(.bordered)
+                .controlSize(.regular)
         }
-    }
-
-    private var fillColor: Color {
-        if hovering && isEnabled {
-            return MoteColors.accentHover(for: colorScheme)
-        }
-        return MoteColors.accentFill(for: colorScheme)
     }
 
     private var scale: CGFloat {
@@ -74,7 +58,6 @@ struct MoteTextAction: View {
     var usesCancelShortcut: Bool = false
     let action: () -> Void
 
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovering = false
 
@@ -95,9 +78,7 @@ struct MoteTextAction: View {
     }
 
     private var labelColor: Color {
-        hovering
-            ? MoteColors.accentHover(for: colorScheme)
-            : MoteColors.accentFill(for: colorScheme)
+        hovering ? Color.accentColor.opacity(0.85) : Color.accentColor
     }
 }
 

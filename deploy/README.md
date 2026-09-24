@@ -1,6 +1,8 @@
 # 部署
 
-专用 Proxmox VE LXC 上的 **Mote Relay** 生产布局。`cloudflared` 不在本目录管理。`relay.example.com` 与 `192.0.2.10` 是示例，换成自己的主机名和源站 IP。
+自托管用的 Docker Compose。推荐部署是仓库根 README 里的 Cloudflare 一键部署。`relay.example.com` 与 `192.0.2.10` 是示例，换成自己的公网主机名和源站地址。自托管步骤见仓库根 [README](../README.md)。
+
+HTTPS 与 Tunnel 不在本目录管理。Compose 栈只跑 Relay。Proxmox VE + 现有 `cloudflared` 是可选路径，见 [pve/README.md](pve/README.md)。
 
 ```text
 PVE Host

@@ -7,7 +7,7 @@ struct WindowHeaderView: View {
     let transportText: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MoteSpacing.tight) {
+        HStack(alignment: .top, spacing: MoteSpacing.related) {
             Text(deviceName)
                 .font(MoteTypography.deviceName)
                 .tracking(MoteTypography.deviceNameTracking)
@@ -17,11 +17,12 @@ struct WindowHeaderView: View {
                 .truncationMode(.tail)
                 .lineSpacing(MoteTypography.headingLineSpacing)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .help(deviceName)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityHeading(.h1)
 
-            VStack(alignment: .leading, spacing: MoteSpacing.micro) {
+            VStack(alignment: .trailing, spacing: MoteSpacing.micro) {
                 StatusView(state: state, persistWarning: persistWarning)
                 if let transportText {
                     Text(transportText)
@@ -32,6 +33,7 @@ struct WindowHeaderView: View {
                         .textSelection(.enabled)
                 }
             }
+            .layoutPriority(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)

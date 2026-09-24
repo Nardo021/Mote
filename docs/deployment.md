@@ -1,8 +1,28 @@
 # 部署
 
-Mote Relay 运行在专用的 Proxmox VE LXC 中。Cloudflare Tunnel 已经运行在 PVE 宿主机上，不在 Mote LXC 或 Compose 栈内。
+推荐用自己的 Cloudflare 账号一键部署。Docker Compose，以及 Proxmox VE 上现有 Tunnel，是自托管方案，步骤都保留。
 
-下文的 `relay.example.com` 和 `192.0.2.10` 是示例。把 Tunnel 主机名、`MOTE_PUBLIC_URL` 和源站 IP 换成自己的。
+## Cloudflare 一键部署（推荐）
+
+仓库根目录的 [Deploy to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/Nardo021/Mote) 按钮会把项目部署到点击者自己的 Cloudflare 账号。Cloudflare 克隆仓库、创建名为 `mote` 的 Worker 和它的 Durable Object，并用 Workers Builds 盯住克隆仓库的生产分支。之后往那个分支推送，线上 Relay 会重新构建并部署。
+
+部署时填写 `.dev.vars.example` 里的 `MOTE_ADMIN_PASSWORD`（至少 12 位）。用户名是 `admin`。打开 Worker 的 `*.workers.dev` 地址登录 Dashboard。Mac 的 Relay URL 和快捷指令都用这个 HTTPS 基址。
+
+本仓库自己的 `main` 要跟着更新时，在 GitHub Secrets 设置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。推送到 `main` 会跑 `.github/workflows/deploy-cloudflare.yml`。Workers Builds 的构建命令是 `npm run build`，部署命令是 `npx wrangler deploy`。
+
+别人点按钮得到的是一份克隆。本仓库的新提交不会自动进他们的账号；他们把上游合并进自己的克隆并推送后，才会重新部署。
+
+SQLite 在 Durable Object 里，不在容器磁盘上。
+
+## 自托管（Docker）
+
+Mote Relay 也可以是单个 Docker 容器。把 `deploy/.env` 里的 `MOTE_PUBLIC_URL` 设成你的公网 HTTPS 基址，在任意 Docker 主机上 `docker compose up`。步骤见仓库根 [README](../README.md) 的「自托管」。
+
+客户端（Mac、快捷指令、Dashboard 浏览器）只使用该公网 URL，不要用局域网 IP。HTTPS 终止在你自己的 Tunnel 或反向代理上；Compose 栈里没有 Caddy、Nginx 或 `cloudflared`。
+
+下文的 `relay.example.com` 和 `192.0.2.10` 是示例。把公网主机名、`MOTE_PUBLIC_URL` 和源站地址换成自己的。
+
+Proxmox VE + 宿主机上已有的 Cloudflare Tunnel 是可选拓扑，不是唯一部署方式。该路径的逐步说明见 [deploy/pve/README.md](../deploy/pve/README.md)。
 
 ```text
 PVE Host
@@ -32,7 +52,7 @@ Mote Relay
 
 ## Compose
 
-`deploy/docker-compose.yml` 以仓库根目录为 build context，用 `relay/Dockerfile` 构建单一 Relay 镜像（内含 Dashboard 静态资源）。活动栈只有 Relay。容器把 `3000` 发布到 LXC 网卡，供 PVE 宿主机上的 `cloudflared` 访问 `http://192.0.2.10:3000`。
+`deploy/docker-compose.yml` 以仓库根目录为 build context，用 `relay/Dockerfile` 构建单一 Relay 镜像（内含 Dashboard 静态资源）。活动栈只有 Relay。容器把 `3000` 发布到 Docker 主机网卡，供你的 HTTPS 前端（或可选的 PVE 宿主机 `cloudflared`）访问。
 
 更新后的部署仍是：
 

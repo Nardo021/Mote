@@ -60,6 +60,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             window.minSize = NSSize(width: MoteSpacing.windowMinWidth, height: MoteSpacing.windowMinHeight)
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .visible
+            window.backgroundColor = .windowBackgroundColor
+            window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
             window.center()
             hostedMainWindow = window

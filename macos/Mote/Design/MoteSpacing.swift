@@ -11,9 +11,12 @@ enum MoteSpacing {
 
     static let radiusSmall: CGFloat = 6
     static let radiusCard: CGFloat = 8
-    static let radiusGroup: CGFloat = 12
-    static let radiusMax: CGFloat = 12
+    static let radiusGroup: CGFloat = 10
+    static let radiusMax: CGFloat = 10
     static let groupInset: CGFloat = 12
+    static let sectionTitleInset: CGFloat = 4
+    static let sectionTitleGap: CGFloat = 6
+    static let rowVertical: CGFloat = 10
 
     static let windowMinWidth: CGFloat = 460
     static let windowIdealWidth: CGFloat = 520

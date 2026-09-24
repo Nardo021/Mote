@@ -90,19 +90,27 @@ struct RelayConfiguration: Equatable, Sendable {
 
     static func resolve(settingsOverride: String? = nil) -> RelayConfiguration {
         if let environment = ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey],
-           let url = URL(string: environment),
-           url.scheme != nil {
+           let url = parseBaseURL(environment) {
             return RelayConfiguration(baseURL: url)
         }
 
-        #if DEBUG
-        if let settingsOverride,
-           let url = URL(string: settingsOverride),
-           url.scheme != nil {
+        if let settingsOverride, let url = parseBaseURL(settingsOverride) {
             return RelayConfiguration(baseURL: url)
         }
-        #endif
 
         return .production
+    }
+
+    static func parseBaseURL(_ raw: String) -> URL? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              url.host != nil
+        else {
+            return nil
+        }
+        return url
     }
 }

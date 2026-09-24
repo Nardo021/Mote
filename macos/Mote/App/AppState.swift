@@ -17,11 +17,11 @@ final class AppState {
     var wantsConnection = true
     var shouldOpenSettings = false
     var credentialInput = ""
+    var relayURLOverride = ""
     private var pairingTask: Task<Void, Never>?
     private var activePair: PairCreated?
 
     #if DEBUG
-    var debugRelayOverride = ""
     var debugLastMockResult: MoteCommandResult?
     #endif
 
@@ -47,11 +47,15 @@ final class AppState {
     }
 
     var relayConfiguration: RelayConfiguration {
-        #if DEBUG
-        RelayConfiguration.resolve(settingsOverride: settings.load().relayURLOverride)
-        #else
-        RelayConfiguration.resolve()
-        #endif
+        RelayConfiguration.resolve(settingsOverride: relayURLOverride)
+    }
+
+    var canBeginPairing: Bool {
+        if let environment = ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey],
+           RelayConfiguration.parseBaseURL(environment) != nil {
+            return true
+        }
+        return RelayConfiguration.parseBaseURL(relayURLOverride) != nil
     }
 
     var relayHost: String {
@@ -134,9 +138,7 @@ final class AppState {
         deviceID = loaded.deviceID
         deviceName = loaded.deviceName
         wantsConnection = loaded.wantsConnection
-        #if DEBUG
-        debugRelayOverride = loaded.relayURLOverride ?? ""
-        #endif
+        relayURLOverride = loaded.relayURLOverride ?? ""
         refreshPermissionsAndLoginItem()
         agent.refreshDeviceID(deviceID)
 
@@ -164,6 +166,11 @@ final class AppState {
     func setDeviceName(_ name: String) {
         settings.saveDeviceName(name)
         deviceName = settings.load().deviceName
+    }
+
+    func setRelayURLOverride(_ raw: String) {
+        relayURLOverride = raw
+        settings.saveRelayURLOverride(raw)
     }
 
     func setStartAtLogin(_ enabled: Bool) {
@@ -244,6 +251,9 @@ final class AppState {
     }
 
     func beginPairing() {
+        if !RuntimeContext.isRunningTests {
+            settings.saveRelayURLOverride(relayURLOverride)
+        }
         pairingTask?.cancel()
         pairingTask = Task {
             await runPairing()
@@ -356,10 +366,6 @@ final class AppState {
 
     func clearDebugCredential() async {
         await clearDeviceCredential()
-    }
-
-    func saveDebugRelayOverride() {
-        settings.saveRelayURLOverride(debugRelayOverride)
     }
 
     func sendMockCommand(

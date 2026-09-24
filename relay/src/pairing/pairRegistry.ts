@@ -1,17 +1,16 @@
-import type { WebSocket } from "ws";
-
 import { PROTOCOL_VERSION } from "../config/constants.js";
+import type { RelaySocket } from "../websocket/connectionRegistry.js";
 import type { PairOutgoingMessage } from "./pairTypes.js";
 
 type RegisteredPairSocket = {
   requestId: string;
-  socket: WebSocket;
+  socket: RelaySocket;
 };
 
 export class PairSocketRegistry {
   private readonly sockets = new Map<string, RegisteredPairSocket>();
 
-  register(requestId: string, socket: WebSocket): WebSocket | undefined {
+  register(requestId: string, socket: RelaySocket): RelaySocket | undefined {
     const previous = this.sockets.get(requestId);
     this.sockets.set(requestId, { requestId, socket });
     return previous?.socket;
@@ -44,7 +43,7 @@ export class PairSocketRegistry {
     this.sockets.delete(requestId);
   }
 
-  remove(requestId: string, socket: WebSocket): void {
+  remove(requestId: string, socket: RelaySocket): void {
     const registered = this.sockets.get(requestId);
     if (registered?.socket === socket) {
       this.sockets.delete(requestId);
