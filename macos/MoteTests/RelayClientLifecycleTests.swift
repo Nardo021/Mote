@@ -10,7 +10,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.stop(intentional: true)
         try? await Task.sleep(for: .milliseconds(300))
         XCTAssertEqual(harness.recorder.snapshot().last, .disconnected)
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
     }
 
@@ -24,7 +24,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteSystemWake()
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertEqual(harness.recorder.snapshot().last, .disconnected)
     }
 
@@ -38,7 +38,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         }
         try? await Task.sleep(for: .milliseconds(400))
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
     }
 
     func testInvalidCredentialsDoNotReconnect() async {
@@ -50,7 +50,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         }
         try? await Task.sleep(for: .milliseconds(400))
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
     }
 
     func testUnsupportedVersionDoesNotReconnect() async {
@@ -62,7 +62,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         }
         try? await Task.sleep(for: .milliseconds(400))
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
     }
 
     func testAuthenticationTimeoutSchedulesReconnect() async {
@@ -93,19 +93,21 @@ final class RelayClientLifecycleTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(30))
         let settled = await harness.heartbeatCount
         try? await Task.sleep(for: .milliseconds(180))
-        XCTAssertEqual(await harness.heartbeatCount, settled)
+        await assertHeartbeats(harness, settled)
 
         await harness.transport.enqueueIncoming(authOK)
         await harness.client.noteSystemWake()
         await harness.client.noteSystemWake()
         await waitUntil {
-            harness.recorder.snapshot().contains(.connected) && await harness.heartbeatCount > settled
+            let connected = harness.recorder.snapshot().contains(.connected)
+            let beats = await harness.heartbeatCount
+            return connected && beats > settled
         }
         let connects = await harness.transport.connectCount
         await harness.client.noteSystemWake()
         try? await Task.sleep(for: .milliseconds(80))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
-        XCTAssertGreaterThan(await harness.heartbeatCount, settled)
+        await assertConnects(harness, connects)
+        await assertHeartbeatsGreaterThan(harness, settled)
     }
 
     func testWakeDoesNotReconnectWhenUserDisconnected() async {
@@ -116,7 +118,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         let connects = await harness.transport.connectCount
         await harness.client.noteSystemWake()
         try? await Task.sleep(for: .milliseconds(150))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
     }
 
     func testSleepKeepsTerminalCredentialState() async {
@@ -145,7 +147,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         let connects = await harness.transport.connectCount
         await harness.client.noteSystemWake()
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
     }
 
@@ -154,7 +156,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.start()
         try? await Task.sleep(for: .milliseconds(150))
-        XCTAssertEqual(await harness.transport.connectCount, 0)
+        await assertConnects(harness, 0)
         XCTAssertTrue(harness.recorder.snapshot().contains(.error("Network unavailable")))
 
         await harness.client.noteNetworkPath(satisfied: true)
@@ -164,24 +166,24 @@ final class RelayClientLifecycleTests: XCTestCase {
         let connects = await harness.transport.connectCount
         await harness.client.noteNetworkPath(satisfied: false)
         try? await Task.sleep(for: .milliseconds(1_500))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
     }
 
     func testSatisfiedPathReconnectsOnceAndSkipsLiveSession() async {
         let harness = makeHarness()
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.start()
-        XCTAssertEqual(await harness.transport.connectCount, 0)
+        await assertConnects(harness, 0)
 
         await harness.client.noteNetworkPath(satisfied: true)
         await waitUntil { harness.recorder.snapshot().contains(.authenticating) }
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
 
         await harness.transport.enqueueIncoming(authOK)
         await waitUntil { harness.recorder.snapshot().contains(.connected) }
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(120))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
     }
 
     func testAuthenticatedNetworkLossStopsTransportWithoutReconnect() async {
@@ -190,13 +192,13 @@ final class RelayClientLifecycleTests: XCTestCase {
         await waitUntil { await harness.heartbeatCount >= 1 }
         await harness.client.noteNetworkPath(satisfied: false)
         XCTAssertEqual(harness.recorder.snapshot().last, .error("Network unavailable"))
-        XCTAssertGreaterThan(await harness.transport.closeCount, 0)
+        await assertClosesGreaterThan(harness, 0)
         try? await Task.sleep(for: .milliseconds(30))
         let settled = await harness.heartbeatCount
         try? await Task.sleep(for: .milliseconds(180))
-        XCTAssertEqual(await harness.heartbeatCount, settled)
+        await assertHeartbeats(harness, settled)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
     }
 
     func testNetworkRestorationStartsOneFreshConnection() async {
@@ -205,7 +207,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
         XCTAssertTrue(
             harness.recorder.snapshot().contains(.reconnecting)
                 || harness.recorder.snapshot().contains(.authenticating)
@@ -220,7 +222,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: true)
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
         try? await Task.sleep(for: .milliseconds(150))
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
     }
 
     func testStaleCloseAfterRestorationDoesNotDropNewGeneration() async {
@@ -276,9 +278,11 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: true)
         await harness.transport.enqueueIncoming(authOK)
         await waitUntil(timeout: 0.4) {
-            await harness.transport.connectCount == 2 && harness.recorder.snapshot().contains(.connected)
+            let connects = await harness.transport.connectCount
+            let connected = harness.recorder.snapshot().contains(.connected)
+            return connects == 2 && connected
         }
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
         XCTAssertEqual(harness.recorder.snapshot().last, .connected)
         XCTAssertFalse(
             harness.recorder.snapshot().contains(.error(RelayCloseReason.invalidCredentials.rawValue))
@@ -295,7 +299,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(150))
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
     }
 
     func testNetworkRestorationWhileAuthenticatedDoesNotDuplicate() async {
@@ -304,7 +308,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: true)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(150))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         XCTAssertEqual(harness.recorder.snapshot().last, .connected)
     }
 
@@ -316,7 +320,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertEqual(harness.recorder.snapshot().last, .disconnected)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
     }
@@ -332,7 +336,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertEqual(
             harness.recorder.snapshot().last,
             .error(RelayCloseReason.invalidCredentials.rawValue)
@@ -351,7 +355,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertEqual(
             harness.recorder.snapshot().last,
             .error(RelayCloseReason.credentialRotated.rawValue)
@@ -368,7 +372,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, connects)
+        await assertConnects(harness, connects)
         XCTAssertEqual(harness.recorder.snapshot().last, .disabled)
     }
 
@@ -379,7 +383,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
     }
 
@@ -390,10 +394,10 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteSystemWake()
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         await harness.client.noteNetworkPath(satisfied: true)
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
     }
 
     func testNetworkReturnsDuringSleepAndWakeReconnectsOnce() async {
@@ -402,12 +406,12 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteSystemSleep()
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         await harness.client.noteSystemWake()
         await harness.client.noteSystemWake()
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
         try? await Task.sleep(for: .milliseconds(120))
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
     }
 
     func testNetworkLossBeforeSleepReconnectsOnceOnWake() async {
@@ -417,10 +421,10 @@ final class RelayClientLifecycleTests: XCTestCase {
         XCTAssertEqual(harness.recorder.snapshot().last, .error("Network unavailable"))
         await harness.client.noteSystemSleep()
         await harness.client.noteNetworkPath(satisfied: true)
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         await harness.client.noteSystemWake()
         await waitUntil(timeout: 0.4) { await harness.transport.connectCount == 2 }
-        XCTAssertEqual(await harness.transport.connectCount, 2)
+        await assertConnects(harness, 2)
     }
 
     func testTerminationIgnoresNetworkRestoration() async {
@@ -430,7 +434,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.client.noteNetworkPath(satisfied: false)
         await harness.client.noteNetworkPath(satisfied: true)
         try? await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(await harness.transport.connectCount, 1)
+        await assertConnects(harness, 1)
         XCTAssertFalse(harness.recorder.snapshot().contains(.reconnecting))
     }
 
@@ -465,6 +469,46 @@ final class RelayClientLifecycleTests: XCTestCase {
             authTimeout: authTimeout
         )
         return RelayHarness(client: client, transport: transport, recorder: recorder)
+    }
+
+    private func assertConnects(
+        _ harness: RelayHarness,
+        _ expected: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let observed = await harness.transport.connectCount
+        XCTAssertEqual(observed, expected, file: file, line: line)
+    }
+
+    private func assertHeartbeats(
+        _ harness: RelayHarness,
+        _ expected: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let observed = await harness.heartbeatCount
+        XCTAssertEqual(observed, expected, file: file, line: line)
+    }
+
+    private func assertHeartbeatsGreaterThan(
+        _ harness: RelayHarness,
+        _ minimum: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let observed = await harness.heartbeatCount
+        XCTAssertGreaterThan(observed, minimum, file: file, line: line)
+    }
+
+    private func assertClosesGreaterThan(
+        _ harness: RelayHarness,
+        _ minimum: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let observed = await harness.transport.closeCount
+        XCTAssertGreaterThan(observed, minimum, file: file, line: line)
     }
 
     private func waitUntil(timeout: TimeInterval = 1.5, _ predicate: () async -> Bool) async {
