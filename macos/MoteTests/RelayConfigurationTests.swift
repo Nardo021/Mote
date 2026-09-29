@@ -2,24 +2,26 @@ import XCTest
 @testable import Mote
 
 final class RelayConfigurationTests: XCTestCase {
-    func testProductionWebSocketURL() {
-        let configuration = RelayConfiguration.production
-        XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.example.com")
-        XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://relay.example.com/v1/ws/device")
-        XCTAssertEqual(configuration.hostDisplayName, "relay.example.com")
+    func testExplicitURLBuildsCanonicalPaths() throws {
+        let configuration = RelayConfiguration(
+            baseURL: try XCTUnwrap(URL(string: "https://relay.example.net"))
+        )
+        XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.example.net")
+        XCTAssertEqual(configuration.webSocketURL.absoluteString, "wss://relay.example.net/v1/ws/device")
+        XCTAssertEqual(configuration.hostDisplayName, "relay.example.net")
         XCTAssertEqual(
             configuration.pairRequestsURL.absoluteString,
-            "https://relay.example.com/v1/pair/requests"
+            "https://relay.example.net/v1/pair/requests"
         )
         XCTAssertEqual(
             configuration.shortcutSetupURL(deviceID: "7B0F0000-0000-0000-0000-0000000091AC").absoluteString,
-            "https://relay.example.com/s/7B0F0000-0000-0000-0000-0000000091AC"
+            "https://relay.example.net/s/7B0F0000-0000-0000-0000-0000000091AC"
         )
-        XCTAssertTrue(
-            configuration.pairWebSocketURL(requestID: "req", pairSecret: "sec")
-                .absoluteString
-                .hasPrefix("wss://relay.example.com/v1/ws/pair?")
+        XCTAssertEqual(
+            configuration.pairWebSocketURL.absoluteString,
+            "wss://relay.example.net/v1/ws/pair"
         )
+        XCTAssertFalse(configuration.pairWebSocketURL.absoluteString.contains("pair_secret"))
     }
 
     func testHTTPOverrideBecomesWS() throws {
@@ -33,7 +35,9 @@ final class RelayConfigurationTests: XCTestCase {
             ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] != nil,
             "MOTE_RELAY_URL is set in the test environment"
         )
-        let configuration = RelayConfiguration.resolve(settingsOverride: "https://relay.example.net")
+        let configuration = try XCTUnwrap(
+            RelayConfiguration.resolve(settingsOverride: "https://relay.example.net")
+        )
         XCTAssertEqual(configuration.baseURL.absoluteString, "https://relay.example.net")
         XCTAssertEqual(configuration.hostDisplayName, "relay.example.net")
         XCTAssertEqual(
@@ -42,13 +46,15 @@ final class RelayConfigurationTests: XCTestCase {
         )
     }
 
-    func testInvalidSettingsOverrideFallsBackToProduction() throws {
+    func testMissingOrInvalidURLFailsClosed() throws {
         try XCTSkipIf(
             ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] != nil,
             "MOTE_RELAY_URL is set in the test environment"
         )
-        let configuration = RelayConfiguration.resolve(settingsOverride: "not-a-url")
-        XCTAssertEqual(configuration.baseURL.absoluteString, RelayDefaults.productionBaseURLString)
+        XCTAssertNil(RelayConfiguration.resolve())
+        XCTAssertNil(RelayConfiguration.resolve(settingsOverride: "not-a-url"))
+        XCTAssertNil(RelayConfiguration.resolve(settingsOverride: "   "))
+        XCTAssertNil(RelayConfiguration.resolve(settingsOverride: "https://relay.example.com/extra path"))
     }
 
     func testParseBaseURLRequiresHTTPHost() {

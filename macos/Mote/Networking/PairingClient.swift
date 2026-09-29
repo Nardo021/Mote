@@ -75,10 +75,18 @@ struct RelayPairingClient: PairingServicing {
         requestID: String,
         pairSecret: String
     ) async throws -> PairDecision {
-        let transport = transportFactory(
-            configuration.pairWebSocketURL(requestID: requestID, pairSecret: pairSecret)
+        let socketURL = configuration.pairWebSocketURL
+        precondition(
+            !socketURL.absoluteString.contains("pair_secret"),
+            "Pairing WebSocket URLs must not contain the pairing secret."
         )
+        let transport = transportFactory(socketURL)
         try await transport.connect()
+        try await transport.send(
+            try ProtocolJSON.encode(
+                PairAuthMessage(requestID: requestID, pairSecret: pairSecret)
+            )
+        )
         defer {
             Task {
                 await transport.close(reason: nil)
@@ -135,6 +143,20 @@ private struct PairCreateBody: Encodable {
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case deviceName = "device_name"
+    }
+}
+
+private struct PairAuthMessage: Encodable {
+    var type: String = "pair_auth"
+    var version: Int = ProtocolConstants.version
+    var requestID: String
+    var pairSecret: String
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case version
+        case requestID = "request_id"
+        case pairSecret = "pair_secret"
     }
 }
 

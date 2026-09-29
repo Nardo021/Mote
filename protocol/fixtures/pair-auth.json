@@ -1,0 +1,6 @@
+{
+  "type": "pair_auth",
+  "version": 1,
+  "request_id": "22222222-2222-4222-8222-222222222222",
+  "pair_secret": "example-pair-secret"
+}

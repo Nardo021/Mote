@@ -1,6 +1,5 @@
-export const PROTOCOL_VERSION = 1 as const;
+export { PROTOCOL_VERSION } from "../protocol/protocolVersion.js";
 
-export const HEARTBEAT_INTERVAL_MS = 30_000;
 export const DEFAULT_COMMAND_TTL_MS = 10_000;
 export const DEFAULT_COMMAND_TIMEOUT_MS = 12_000;
 export const DEFAULT_HEARTBEAT_STALE_MS = 90_000;
@@ -11,9 +10,6 @@ export const DEFAULT_RATE_LIMIT_MAX = 10;
 export const DEFAULT_RATE_LIMIT_WINDOW_MS = 10_000;
 export const DEFAULT_MAX_PENDING_COMMANDS = 32;
 export const DEFAULT_STALE_SWEEP_INTERVAL_MS = 15_000;
-export const DEFAULT_PORT = 3000;
-export const PRODUCTION_PUBLIC_URL = "https://relay.example.com";
-export const PRODUCTION_HOST = "relay.example.com";
 export const DEVICE_WEBSOCKET_PATH = "/v1/ws/device";
 export const PAIR_WEBSOCKET_PATH = "/v1/ws/pair";
 export const DEFAULT_PAIR_TTL_MS = 10 * 60 * 1000;

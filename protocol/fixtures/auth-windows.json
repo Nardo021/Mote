@@ -1,0 +1,9 @@
+{
+  "type": "auth",
+  "version": 1,
+  "device_id": "22222222-2222-4222-8222-222222222222",
+  "credential": "device-credential",
+  "app_version": "1.0.0 (1)",
+  "platform": "windows",
+  "actions": ["lock"]
+}

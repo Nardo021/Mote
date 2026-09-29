@@ -1,3 +1,4 @@
+import type { DevicePlatform, ImplementedAction } from "./actions.js";
 import type { ProtocolVersion } from "./protocolVersion.js";
 
 export type AuthMessage = {
@@ -6,6 +7,8 @@ export type AuthMessage = {
   device_id: string;
   credential: string;
   app_version?: string;
+  platform?: DevicePlatform;
+  actions?: ImplementedAction[];
 };
 
 export type AuthResultOk = {
@@ -42,9 +45,10 @@ export type CommandMessage = {
   version: ProtocolVersion;
   id: string;
   device_id: string;
-  action: string;
+  action: ImplementedAction;
   created_at: number;
   expires_at: number;
+  /** Opaque non-empty value from Relay. Not a signature and not replay state. */
   nonce: string;
 };
 
@@ -72,6 +76,13 @@ export type ErrorMessage = {
   type: "error";
   version: ProtocolVersion;
   error: string;
+};
+
+export type PairAuthMessage = {
+  type: "pair_auth";
+  version: ProtocolVersion;
+  request_id: string;
+  pair_secret: string;
 };
 
 export type IncomingDeviceMessage = AuthMessage | HeartbeatMessage | CommandResultMessage;

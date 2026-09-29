@@ -9,7 +9,7 @@ describe("command validator", () => {
     assert.equal(validateCommandAction("lock"), "lock");
   });
 
-  it("rejects reserved and unknown actions", () => {
+  it("rejects actions outside the active Protocol v1 set", () => {
     for (const action of ["sleep", "mute", "unmute", "play_pause", "rm -rf /", "shell"]) {
       assert.throws(
         () => validateCommandAction(action),

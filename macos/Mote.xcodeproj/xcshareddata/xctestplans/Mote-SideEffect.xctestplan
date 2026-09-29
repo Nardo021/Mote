@@ -1,0 +1,32 @@
+{
+  "configurations" : [
+    {
+      "id" : "C4D8E1F2-91AB-4C33-8E70-55A1B2C3D4E5",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Mote.xcodeproj",
+      "identifier" : "A5C0282E8B4344AE9073CAF2",
+      "name" : "Mote"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "selectedTests" : [
+        "LockActionLiveTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Mote.xcodeproj",
+        "identifier" : "49F29EB6C27F4D62BEECD402",
+        "name" : "MoteTests"
+      }
+    }
+  ],
+  "version" : 1
+}

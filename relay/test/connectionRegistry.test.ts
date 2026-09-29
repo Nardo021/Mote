@@ -29,6 +29,8 @@ describe("connection registry", () => {
       authenticatedAt: 1,
       lastHeartbeat: 1,
       lastSeen: 1,
+      platform: null,
+      actions: ["lock"],
     });
     assert.equal(registry.isOnline("dev-1"), true);
     assert.equal(registry.get("dev-1")?.connectionId, "c1");
@@ -45,6 +47,8 @@ describe("connection registry", () => {
       authenticatedAt: 1,
       lastHeartbeat: 1,
       lastSeen: 1,
+      platform: null,
+      actions: ["lock"],
     });
     const previous = registry.register({
       deviceId: "dev-1",
@@ -53,6 +57,8 @@ describe("connection registry", () => {
       authenticatedAt: 2,
       lastHeartbeat: 2,
       lastSeen: 2,
+      platform: null,
+      actions: ["lock"],
     });
     assert.equal(previous?.connectionId, "c1");
     assert.equal(registry.get("dev-1")?.connectionId, "c2");
@@ -68,6 +74,8 @@ describe("connection registry", () => {
       authenticatedAt: 2,
       lastHeartbeat: 2,
       lastSeen: 2,
+      platform: null,
+      actions: ["lock"],
     });
     assert.equal(registry.remove("dev-1", "c1"), false);
     assert.equal(registry.isOnline("dev-1"), true);

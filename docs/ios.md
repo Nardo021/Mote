@@ -1,6 +1,6 @@
 # Mote iOS
 
-原生 iPhone 应用**尚未进仓库**。本文记录个人使用约定，以及它如何接到已经落地的 Relay。文档中的 `relay.example.com` 和 `com.example.mote.ios` 是示例。
+原生 iPhone 应用**尚未进仓库**。本文记录个人使用约定，以及它如何接到已经落地的 Relay。文档中的 `relay.example.com` 是示例主机名。Mac 应用身份是 `com.nardo021.mote`。
 
 当前 iPhone 触发方式仍是 Apple 快捷指令，见 [shortcuts.md](shortcuts.md)。
 
@@ -49,11 +49,12 @@ HTTP 形状与快捷指令相同，见 [protocol.md](protocol.md)。
 | ----------- | ---------------------------- | ------ |
 | `shortcut`  | 公开命令 API（当前快捷指令） | 已实现 |
 | `dashboard` | 管理员在 Dashboard 点 Lock   | 已实现 |
-| `ios`       | 原生 iOS 客户端              | 已预留 |
 
-公开 `POST /v1/devices/:deviceId/commands` 现在一律记成 `shortcut`。等 iOS 客户端落地时，再让这条路径（或单独的受信任入口）写入 `ios`。在此之前不要假装 Activity 里已经有 iOS 记录。
+Protocol v1 不包含 `ios` 来源。公开命令 API 一律记成 `shortcut`。若以后的原生客户端需要单独来源，那是新的协议决定，不是现在的占位值。
 
-iOS 使用的 token 仍然是 `send_command`。不要把 Mac 的 `device_connection` 放进手机。
+请求体不能自己声明来源。
+
+iOS 使用的 token 仍然是 `send_command`，并且绑定一台设备。不要把 Mac 的 `device_connection` 放进手机。
 
 ## 建议的工程形状
 
@@ -66,7 +67,7 @@ ios/
 └── MoteTests/
 ```
 
-建议 Bundle ID：`com.example.mote.ios`（实现时换成自己的）。Mac 文档默认占用 `com.example.mote`。
+Mac 已占用 `com.nardo021.mote`。将来的 iOS 包名再单独定，本阶段不实现 iOS 应用。
 
 最低系统版本与具体屏幕以实现为准。视觉语言仍遵守仓库根目录 [design.md](../design.md)：克制、原生、状态清楚。
 

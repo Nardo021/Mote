@@ -1,6 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import {
   DEFAULT_AUTH_TIMEOUT_MS,
   DEFAULT_COMMAND_TIMEOUT_MS,
@@ -14,21 +11,16 @@ import {
   DEFAULT_PAIR_RATE_LIMIT_MAX,
   DEFAULT_PAIR_RATE_LIMIT_WINDOW_MS,
   DEFAULT_PAIR_TTL_MS,
-  DEFAULT_PORT,
   DEFAULT_RATE_LIMIT_MAX,
   DEFAULT_RATE_LIMIT_WINDOW_MS,
   DEFAULT_STALE_SWEEP_INTERVAL_MS,
-  PRODUCTION_PUBLIC_URL,
 } from "./constants.js";
 
 export type RuntimeEnv = "development" | "production" | "test";
 
 export type EnvConfig = {
   env: RuntimeEnv;
-  host: string;
-  port: number;
   publicUrl: string;
-  databasePath: string;
   logLevel: string;
   commandTtlMs: number;
   commandTimeoutMs: number;
@@ -40,7 +32,6 @@ export type EnvConfig = {
   rateLimitWindowMs: number;
   maxPendingCommands: number;
   staleSweepIntervalMs: number;
-  dashboardDist: string;
   pairTtlMs: number;
   pairRateLimitMax: number;
   pairRateLimitWindowMs: number;
@@ -67,74 +58,19 @@ function parseInteger(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
-function defaultHost(env: RuntimeEnv): string {
-  return env === "production" ? "0.0.0.0" : "127.0.0.1";
-}
-
 function defaultPublicUrl(env: RuntimeEnv): string {
-  return env === "production" ? PRODUCTION_PUBLIC_URL : "http://127.0.0.1:3000";
-}
-
-function defaultDatabasePath(env: RuntimeEnv): string {
-  if (env === "production") {
-    return "/data/mote.sqlite";
-  }
-  return resolve("data/mote.sqlite");
-}
-
-function defaultDashboardDist(env: RuntimeEnv): string {
-  if (env === "production") {
-    return "/app/dashboard";
-  }
-  return resolve(process.cwd(), "../dashboard/dist");
-}
-
-export function loadDotEnvFile(filePath: string): void {
-  if (!existsSync(filePath)) {
-    return;
-  }
-  const text = readFileSync(filePath, "utf8");
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.trim();
-    if (line === "" || line.startsWith("#")) {
-      continue;
-    }
-    const separator = line.indexOf("=");
-    if (separator <= 0) {
-      continue;
-    }
-    const key = line.slice(0, separator).trim();
-    let value = line.slice(separator + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
-  }
-}
-
-export function loadLocalEnvFiles(): void {
-  loadDotEnvFile(resolve(".env"));
+  // Worker passes an explicit public URL. Production must not dial a documentation hostname.
+  return env === "production" ? "" : "http://127.0.0.1:8787";
 }
 
 export function loadConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
   const env = overrides.env ?? parseRuntimeEnv(process.env.MOTE_ENV);
   return {
     env,
-    host: overrides.host ?? process.env.MOTE_HOST ?? defaultHost(env),
-    port: overrides.port ?? parseInteger(process.env.MOTE_PORT, DEFAULT_PORT),
     publicUrl:
       overrides.publicUrl ??
       process.env.MOTE_PUBLIC_URL ??
       defaultPublicUrl(env),
-    databasePath:
-      overrides.databasePath ??
-      process.env.MOTE_DATABASE_PATH ??
-      defaultDatabasePath(env),
     logLevel:
       overrides.logLevel ??
       process.env.MOTE_LOG_LEVEL ??
@@ -169,10 +105,6 @@ export function loadConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
       overrides.maxPendingCommands ?? DEFAULT_MAX_PENDING_COMMANDS,
     staleSweepIntervalMs:
       overrides.staleSweepIntervalMs ?? DEFAULT_STALE_SWEEP_INTERVAL_MS,
-    dashboardDist:
-      overrides.dashboardDist ??
-      process.env.MOTE_DASHBOARD_DIST ??
-      defaultDashboardDist(env),
     pairTtlMs:
       overrides.pairTtlMs ??
       parseInteger(process.env.MOTE_PAIR_TTL_MS, DEFAULT_PAIR_TTL_MS),

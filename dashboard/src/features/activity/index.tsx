@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -13,15 +13,14 @@ import {
   arrayIncludesFilter,
   useLocalTable,
 } from "../../components/data-table/use-local-table.js";
-import { AppHeader } from "../../components/layout/app-header.js";
-import { Main } from "../../components/layout/main.js";
+import {
+  DashboardPage,
+  dashboardListClass,
+} from "../../components/layout/dashboard-page.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
-import { LoadingState } from "../../components/LoadingState.js";
 import { EventStatusBadge } from "../../components/StatusBadge.js";
-import { useAdminEvents } from "../../events/AdminEventsProvider.js";
-import { livePollInterval } from "../../events/topics.js";
+import { useLiveRefresh } from "../../hooks/useLiveRefresh.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
-import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import { formatDuration } from "../../lib/format.js";
 import { isRetryableStatus } from "../../lib/retry.js";
@@ -52,19 +51,12 @@ export function ActivityPage() {
     setDevices(deviceResult.devices);
   }, []);
 
-  useEffect(() => {
-    void refresh().catch((cause: unknown) => {
-      toast.error(translateError(cause, t, "activity.loadFailed"));
-    });
-  }, [refresh, t]);
-  const { live } = useAdminEvents(ACTIVITY_EVENT_TOPICS, () => {
-    void refresh().catch(() => undefined);
+  useLiveRefresh(refresh, {
+    topics: ACTIVITY_EVENT_TOPICS,
+    errorKey: "activity.loadFailed",
+    ready: events !== null,
+    offlinePollMs: 8_000,
   });
-  usePolling(
-    () => refresh().catch(() => undefined),
-    livePollInterval(live, 8_000),
-    events !== null,
-  );
 
   const onlineIds = useMemo(
     () =>
@@ -173,21 +165,11 @@ export function ActivityPage() {
 
   const table = useLocalTable(events ?? [], columns);
 
-  if (events === null) {
-    return (
-      <>
-        <AppHeader fixed />
-        <Main>
-          <LoadingState label={t("common.loading")} />
-        </Main>
-      </>
-    );
-  }
-
   return (
     <>
-      <AppHeader fixed />
-      <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
+      <DashboardPage ready={events !== null} className={dashboardListClass}>
+        {events === null ? null : (
+        <>
         <PageHeading title={t("activity.title")} />
         <DataTable
           table={table}
@@ -217,12 +199,13 @@ export function ActivityPage() {
               options: [
                 { label: format.source("dashboard"), value: "dashboard" },
                 { label: format.source("shortcut"), value: "shortcut" },
-                { label: format.source("ios"), value: "ios" },
               ],
             },
           ]}
         />
-      </Main>
+        </>
+        )}
+      </DashboardPage>
     </>
   );
 }

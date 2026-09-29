@@ -1,17 +1,29 @@
 import { Permission, isPermission } from "../auth/permissions.js";
 import type { MoteDatabase } from "../storage/database.js";
 import { nowMs } from "../utils/time.js";
-import type { ApiTokenRecord, ApiTokenRow } from "./tokenTypes.js";
+import {
+  isCommandClientKind,
+  type ApiTokenRecord,
+  type ApiTokenRow,
+} from "./tokenTypes.js";
+
+const TOKEN_COLUMNS =
+  "id, name, token_hash, permission, client_kind, device_id, enabled, created_at, last_used_at";
 
 function mapTokenRow(row: ApiTokenRow): ApiTokenRecord {
   if (!isPermission(row.permission)) {
     throw new Error(`Invalid stored permission: ${row.permission}`);
+  }
+  if (!isCommandClientKind(row.client_kind)) {
+    throw new Error(`Invalid stored client kind: ${row.client_kind}`);
   }
   return {
     id: row.id,
     name: row.name,
     tokenHash: row.token_hash,
     permission: row.permission,
+    clientKind: row.client_kind,
+    deviceId: row.device_id,
     enabled: row.enabled === 1,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
@@ -24,14 +36,20 @@ export class TokenRepository {
   insert(record: ApiTokenRecord): void {
     this.db
       .prepare(
-        `INSERT INTO api_tokens (id, name, token_hash, permission, enabled, created_at, last_used_at)
-         VALUES (@id, @name, @token_hash, @permission, @enabled, @created_at, @last_used_at)`,
+        `INSERT INTO api_tokens (
+           id, name, token_hash, permission, client_kind, device_id, enabled, created_at, last_used_at
+         )
+         VALUES (
+           @id, @name, @token_hash, @permission, @client_kind, @device_id, @enabled, @created_at, @last_used_at
+         )`,
       )
       .run({
         id: record.id,
         name: record.name,
         token_hash: record.tokenHash,
         permission: record.permission,
+        client_kind: record.clientKind,
+        device_id: record.deviceId,
         enabled: record.enabled ? 1 : 0,
         created_at: record.createdAt,
         last_used_at: record.lastUsedAt,
@@ -41,7 +59,7 @@ export class TokenRepository {
   findById(id: string): ApiTokenRecord | undefined {
     const row = this.db
       .prepare(
-        `SELECT id, name, token_hash, permission, enabled, created_at, last_used_at
+        `SELECT ${TOKEN_COLUMNS}
          FROM api_tokens WHERE id = ?`,
       )
       .get(id) as ApiTokenRow | undefined;
@@ -51,7 +69,7 @@ export class TokenRepository {
   findByTokenHash(tokenHash: string): ApiTokenRecord | undefined {
     const row = this.db
       .prepare(
-        `SELECT id, name, token_hash, permission, enabled, created_at, last_used_at
+        `SELECT ${TOKEN_COLUMNS}
          FROM api_tokens WHERE token_hash = ?`,
       )
       .get(tokenHash) as ApiTokenRow | undefined;
@@ -61,7 +79,7 @@ export class TokenRepository {
   list(): ApiTokenRecord[] {
     const rows = this.db
       .prepare(
-        `SELECT id, name, token_hash, permission, enabled, created_at, last_used_at
+        `SELECT ${TOKEN_COLUMNS}
          FROM api_tokens ORDER BY created_at ASC`,
       )
       .all() as ApiTokenRow[];

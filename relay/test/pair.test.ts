@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, before, describe, it } from "node:test";
+import { WebSocket } from "ws";
 
 import { ErrorCode } from "../src/utils/errors.js";
 import {
-  nextMessage,
   openSocket,
   openSocketListening,
   startTestServer,
@@ -13,7 +14,7 @@ import {
 } from "./helpers.js";
 
 const PASSWORD = "correct-horse-admin";
-const ORIGIN = "http://127.0.0.1:3000";
+const ORIGIN = "http://127.0.0.1:8787";
 const PAIR_DEVICE_ID = "22222222-2222-4222-8222-222222222222";
 const OTHER_DEVICE_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -47,6 +48,46 @@ async function login(server: TestServer): Promise<string> {
   return sessionCookie(response);
 }
 
+function pairSocketUrl(server: TestServer): string {
+  const url = `${server.baseUrl.replace("http", "ws")}/v1/ws/pair`;
+  const parsed = new URL(url);
+  assert.equal(parsed.search, "");
+  assert.equal(parsed.pathname, "/v1/ws/pair");
+  assert.equal(url.includes("pair_secret"), false);
+  return url;
+}
+
+function closeInfo(socket: WebSocket, timeoutMs = 1_000): Promise<{ code: number; reason: string }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Timed out waiting for WebSocket close"));
+    }, timeoutMs);
+    socket.once("close", (code, reason) => {
+      clearTimeout(timer);
+      resolve({ code, reason: reason.toString("utf8") });
+    });
+  });
+}
+
+async function openAuthenticatedPairSocket(
+  server: TestServer,
+  requestId: string,
+  pairSecret: string,
+) {
+  const url = pairSocketUrl(server);
+  assert.equal(url.includes(pairSecret), false);
+  const listening = await openSocketListening(url);
+  listening.socket.send(
+    JSON.stringify({
+      type: "pair_auth",
+      version: 1,
+      request_id: requestId,
+      pair_secret: pairSecret,
+    }),
+  );
+  return listening;
+}
+
 async function createPairRequest(
   server: TestServer,
   deviceId = PAIR_DEVICE_ID,
@@ -71,6 +112,7 @@ describe("device pairing", () => {
       pairRateLimitWindowMs: 60_000,
       pairIpRateLimitMax: 40,
       pairIpRateLimitWindowMs: 60_000,
+      authTimeoutMs: 5_000,
     });
     server.ctx.admins.create("admin", PASSWORD);
     cookie = await login(server);
@@ -210,9 +252,7 @@ describe("device pairing", () => {
         pair_secret: string;
       };
 
-    const { socket, next } = await openSocketListening(
-      `${server.baseUrl.replace("http", "ws")}/v1/ws/pair?request_id=${requestId}&pair_secret=${encodeURIComponent(pairSecret)}`,
-    );
+    const { socket, next } = await openAuthenticatedPairSocket(server, requestId, pairSecret);
     const pending = await next();
     assert.equal(pending.type, "pair_pending");
     const approval = server.app.inject({
@@ -262,10 +302,17 @@ describe("device pairing", () => {
       "Wrong Secret",
     );
     const { request_id: requestId } = created.json() as { request_id: string };
-    const socket = await openSocket(
-      `${server.baseUrl.replace("http", "ws")}/v1/ws/pair?request_id=${requestId}&pair_secret=definitely-wrong`,
+    const socket = await openSocket(pairSocketUrl(server));
+    const closed = closeInfo(socket);
+    socket.send(
+      JSON.stringify({
+        type: "pair_auth",
+        version: 1,
+        request_id: requestId,
+        pair_secret: "definitely-wrong",
+      }),
     );
-    await assert.rejects(nextMessage(socket, 400), /closed/i);
+    assert.deepEqual(await closed, { code: 1008, reason: "invalid_credentials" });
   });
 
   it("rejects cancel with the wrong pair secret", async () => {
@@ -325,9 +372,7 @@ describe("device pairing", () => {
         request_id: string;
         pair_secret: string;
       };
-    const { socket, next } = await openSocketListening(
-      `${server.baseUrl.replace("http", "ws")}/v1/ws/pair?request_id=${requestId}&pair_secret=${encodeURIComponent(pairSecret)}`,
-    );
+    const { socket, next } = await openAuthenticatedPairSocket(server, requestId, pairSecret);
     assert.equal((await next()).type, "pair_pending");
     const rejection = server.app.inject({
       method: "POST",
@@ -369,6 +414,94 @@ describe("device pairing", () => {
     } finally {
       await stopTestServer(shortLived);
     }
+  });
+
+  it("never puts the pairing secret in the websocket URL", () => {
+    const secret = "super-secret-value";
+    const url = pairSocketUrl(server);
+    assert.equal(url.includes(secret), false);
+    assert.equal(new URL(url).searchParams.has("pair_secret"), false);
+    const sources = [
+      new URL("../src/worker/index.ts", import.meta.url),
+      new URL("../src/worker/sockets.ts", import.meta.url),
+    ];
+    for (const sourceUrl of sources) {
+      const source = readFileSync(sourceUrl, "utf8");
+      assert.equal(source.includes("pair_secret"), false, sourceUrl.pathname);
+      assert.equal(source.includes("searchParams"), false, sourceUrl.pathname);
+    }
+  });
+
+  it("ignores a pairing secret supplied in the query string", async () => {
+    const created = await createPairRequest(
+      server,
+      "12121212-1212-4212-8212-121212121212",
+      "Query Secret",
+    );
+    const { request_id: requestId, pair_secret: pairSecret } = created.json() as {
+      request_id: string;
+      pair_secret: string;
+    };
+    const { socket, next } = await openSocketListening(
+      `${pairSocketUrl(server)}?request_id=${requestId}&pair_secret=${encodeURIComponent(pairSecret)}`,
+    );
+    await assert.rejects(next(400));
+    socket.close();
+    const listed = await server.app.inject({
+      method: "GET",
+      url: "/admin/api/pair-requests",
+      headers: adminHeaders(cookie),
+    });
+    assert.equal(
+      (listed.json().requests as Array<{ id: string }>).some((request) => request.id === requestId),
+      true,
+    );
+  });
+
+  it("closes an unauthenticated pairing socket after the auth timeout", async () => {
+    const shortAuth = await startTestServer({ authTimeoutMs: 80 });
+    try {
+      const socket = await openSocket(pairSocketUrl(shortAuth));
+      const closed = closeInfo(socket, 1_000);
+      assert.deepEqual(await closed, { code: 1008, reason: "auth_timeout" });
+    } finally {
+      await stopTestServer(shortAuth);
+    }
+  });
+
+  it("does not push a credential to a socket that has not authenticated", async () => {
+    const created = await createPairRequest(
+      server,
+      "13131313-1313-4313-8313-131313131313",
+      "Late Auth",
+    );
+    const { request_id: requestId, pair_secret: pairSecret } = created.json() as {
+      request_id: string;
+      pair_secret: string;
+    };
+    const socket = await openSocket(pairSocketUrl(server));
+    let received = false;
+    socket.on("message", () => {
+      received = true;
+    });
+    const approved = await server.app.inject({
+      method: "POST",
+      url: `/admin/api/pair-requests/${requestId}/approve`,
+      headers: adminHeaders(cookie),
+      payload: {},
+    });
+    assert.equal(approved.statusCode, 200);
+    assert.equal(received, false);
+    const closed = closeInfo(socket);
+    socket.send(
+      JSON.stringify({
+        type: "pair_auth",
+        version: 1,
+        request_id: requestId,
+        pair_secret: pairSecret,
+      }),
+    );
+    assert.deepEqual(await closed, { code: 1008, reason: "invalid_credentials" });
   });
 
   it("serves a public shortcut setup page without tokens or online status", async () => {

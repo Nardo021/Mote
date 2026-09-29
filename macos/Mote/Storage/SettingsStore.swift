@@ -10,8 +10,29 @@ final class SettingsStore: @unchecked Sendable {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, legacyValues: [String: Any]? = nil) {
         self.defaults = defaults
+        if let legacyValues {
+            applyLegacy(legacyValues)
+        } else if !RuntimeContext.isRunningTests, defaults === UserDefaults.standard {
+            let legacy = UserDefaults.standard.persistentDomain(forName: AppIdentity.legacyBundleID) ?? [:]
+            applyLegacy(legacy)
+        }
+    }
+
+    private func applyLegacy(_ legacy: [String: Any]) {
+        var current: [String: Any] = [:]
+        for key in PreferenceMigration.keys {
+            if let value = defaults.object(forKey: key) {
+                current[key] = value
+            }
+        }
+        let copied = PreferenceMigration.valuesToCopy(current: current, legacy: legacy)
+        guard !copied.isEmpty else { return }
+        for (key, value) in copied {
+            defaults.set(value, forKey: key)
+        }
+        MoteLog.app.info("Copied legacy device preferences")
     }
 
     func load() -> AppSettings {

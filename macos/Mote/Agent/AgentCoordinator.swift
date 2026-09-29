@@ -63,7 +63,12 @@ final class AgentCoordinator {
         onState?(.disconnected)
     }
 
+    func markTerminated() {
+        client?.markTerminated()
+    }
+
     func shutdown() async {
+        client?.markTerminated()
         await client?.stop(intentional: true)
         MoteLog.agent.info("Agent shutdown")
     }

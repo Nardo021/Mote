@@ -1,0 +1,6 @@
+{
+  "type": "heartbeat_ack",
+  "version": 1,
+  "sent_at": 50,
+  "server_at": 60
+}

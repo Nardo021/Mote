@@ -70,8 +70,8 @@ final class AppStatePairingTests: XCTestCase {
             pairing: MockPairingService()
         )
 
-        XCTAssertEqual(state.relayHost, RelayDefaults.productionHost)
         if ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] == nil {
+            XCTAssertEqual(state.relayHost, "")
             XCTAssertFalse(state.canBeginPairing)
         }
 
@@ -81,8 +81,8 @@ final class AppStatePairingTests: XCTestCase {
         XCTAssertTrue(state.canBeginPairing)
 
         state.setRelayURLOverride("not-a-url")
-        XCTAssertEqual(state.relayHost, RelayDefaults.productionHost)
         if ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey] == nil {
+            XCTAssertEqual(state.relayHost, "")
             XCTAssertFalse(state.canBeginPairing)
         }
     }

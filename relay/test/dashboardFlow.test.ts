@@ -15,7 +15,7 @@ const PASSWORD = "correct-horse-admin";
 
 function headers(cookie: string) {
   return {
-    origin: "http://127.0.0.1:3000",
+    origin: "http://127.0.0.1:8787",
     "content-type": "application/json",
     cookie,
   };
@@ -38,7 +38,7 @@ describe("simulated dashboard and shortcut flow", () => {
       method: "POST",
       url: "/admin/api/session",
       headers: {
-        origin: "http://127.0.0.1:3000",
+        origin: "http://127.0.0.1:8787",
         "content-type": "application/json",
       },
       payload: { username: "admin", password: PASSWORD },
@@ -106,7 +106,7 @@ describe("simulated dashboard and shortcut flow", () => {
       method: "POST",
       url: "/admin/api/tokens",
       headers: headers(cookie),
-      payload: { name: "iPhone Shortcut" },
+      payload: { name: "iPhone Shortcut", device_id: created.id },
     });
     const shortcutToken = tokenResponse.json().token as string;
 

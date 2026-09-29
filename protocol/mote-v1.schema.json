@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mote-protocol-v1",
+  "title": "Mote Protocol v1",
+  "$defs": {
+    "auth": {
+      "required": ["type", "version", "device_id", "credential"],
+      "properties": {
+        "type": { "const": "auth" },
+        "version": { "const": 1 },
+        "device_id": { "type": "string" },
+        "credential": { "type": "string" },
+        "app_version": { "type": "string" },
+        "platform": { "enum": ["macos", "windows"] },
+        "actions": {
+          "type": "array",
+          "items": { "enum": ["lock"] }
+        }
+      }
+    },
+    "heartbeat": {
+      "required": ["type", "version", "device_id", "sent_at"],
+      "properties": {
+        "type": { "const": "heartbeat" },
+        "version": { "const": 1 },
+        "device_id": { "type": "string" },
+        "sent_at": { "type": "integer" }
+      }
+    },
+    "command_result": {
+      "required": ["type", "version", "command_id", "status", "completed_at"],
+      "properties": {
+        "type": { "const": "command_result" },
+        "version": { "const": 1 },
+        "command_id": { "type": "string" },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "expired",
+            "invalid",
+            "unsupported",
+            "permission_required"
+          ]
+        },
+        "completed_at": { "type": "integer" },
+        "error": { "type": "string" }
+      }
+    },
+    "auth_result": {
+      "required": ["type", "version", "status"],
+      "properties": {
+        "type": { "const": "auth_result" },
+        "version": { "const": 1 },
+        "status": { "enum": ["ok", "error"] },
+        "error": { "type": "string" }
+      }
+    },
+    "heartbeat_ack": {
+      "required": ["type", "version", "sent_at", "server_at"],
+      "properties": {
+        "type": { "const": "heartbeat_ack" },
+        "version": { "const": 1 },
+        "sent_at": { "type": "integer" },
+        "server_at": { "type": "integer" }
+      }
+    },
+    "command": {
+      "required": [
+        "type",
+        "version",
+        "id",
+        "device_id",
+        "action",
+        "created_at",
+        "expires_at",
+        "nonce"
+      ],
+      "properties": {
+        "type": { "const": "command" },
+        "version": { "const": 1 },
+        "id": { "type": "string" },
+        "device_id": { "type": "string" },
+        "action": { "const": "lock" },
+        "created_at": { "type": "integer" },
+        "expires_at": { "type": "integer" },
+        "nonce": { "type": "string" }
+      }
+    },
+    "error": {
+      "required": ["type", "version", "error"],
+      "properties": {
+        "type": { "const": "error" },
+        "version": { "const": 1 },
+        "error": { "type": "string" }
+      }
+    },
+    "pair_auth": {
+      "required": ["type", "version", "request_id", "pair_secret"],
+      "properties": {
+        "type": { "const": "pair_auth" },
+        "version": { "const": 1 },
+        "request_id": { "type": "string" },
+        "pair_secret": { "type": "string" }
+      }
+    },
+    "pair_pending": {
+      "required": ["type", "version"],
+      "properties": {
+        "type": { "const": "pair_pending" },
+        "version": { "const": 1 }
+      }
+    },
+    "pair_approved": {
+      "required": ["type", "version", "device_id", "credential", "name"],
+      "properties": {
+        "type": { "const": "pair_approved" },
+        "version": { "const": 1 },
+        "device_id": { "type": "string" },
+        "credential": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "pair_rejected": {
+      "required": ["type", "version", "error"],
+      "properties": {
+        "type": { "const": "pair_rejected" },
+        "version": { "const": 1 },
+        "error": { "type": "string" }
+      }
+    },
+    "pair_expired": {
+      "required": ["type", "version"],
+      "properties": {
+        "type": { "const": "pair_expired" },
+        "version": { "const": 1 }
+      }
+    }
+  }
+}

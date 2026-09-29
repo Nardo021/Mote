@@ -1,15 +1,44 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
+
+import { WebSocket, WebSocketServer } from "ws";
+
 import { createAppContext, type AppContext } from "../src/appContext.js";
-import { buildApp } from "../src/app.js";
 import { loadConfig, type EnvConfig } from "../src/config/env.js";
+import { DEVICE_WEBSOCKET_PATH, PAIR_WEBSOCKET_PATH } from "../src/config/constants.js";
+import { openMemoryDatabase, type MoteDatabase } from "../src/storage/database.js";
+import { handleWorkerRequest } from "../src/worker/api.js";
 import {
-  openMemoryDatabase,
-  type MoteDatabase,
-} from "../src/storage/database.js";
-import type { FastifyInstance } from "fastify";
-import { WebSocket } from "ws";
+  beginPairSocket,
+  deviceAttachment,
+  onDeviceMessage,
+  onPairMessage,
+  onSocketClose,
+  sweepSockets,
+  type HibernatingSocket,
+  type SocketAttachment,
+} from "../src/worker/sockets.js";
+
+const DEV_ORIGIN = "http://127.0.0.1:8787";
+
+export type InjectOptions = {
+  method: string;
+  url: string;
+  headers?: Record<string, string | undefined>;
+  payload?: unknown;
+};
+
+export type InjectResult = {
+  statusCode: number;
+  headers: Record<string, string>;
+  body: string;
+  json: <T = any>() => T;
+};
 
 export type TestServer = {
-  app: FastifyInstance;
+  app: {
+    inject: (options: InjectOptions) => Promise<InjectResult>;
+  };
   ctx: AppContext;
   db: MoteDatabase;
   port: number;
@@ -17,12 +46,45 @@ export type TestServer = {
   wsUrl: string;
 };
 
+class NodeHibernatingSocket implements HibernatingSocket {
+  attachment: SocketAttachment | null = null;
+  private readonly closedPromise: Promise<void>;
+
+  constructor(private readonly socket: WebSocket) {
+    this.closedPromise = new Promise((resolve) => {
+      socket.once("close", () => resolve());
+    });
+  }
+
+  whenClosed(): Promise<void> {
+    return this.closedPromise;
+  }
+
+  get readyState(): number {
+    return this.socket.readyState;
+  }
+
+  send(data: string): void {
+    this.socket.send(data);
+  }
+
+  close(code?: number, reason?: string): void {
+    this.socket.close(code, reason);
+  }
+
+  serializeAttachment(value: SocketAttachment): void {
+    this.attachment = value;
+  }
+
+  deserializeAttachment(): SocketAttachment | null {
+    return this.attachment;
+  }
+}
+
 export function testConfig(overrides: Partial<EnvConfig> = {}): EnvConfig {
   return loadConfig({
     env: "test",
-    host: "127.0.0.1",
-    port: 0,
-    databasePath: ":memory:",
+    publicUrl: DEV_ORIGIN,
     logLevel: "silent",
     commandTtlMs: 10_000,
     commandTimeoutMs: 250,
@@ -44,26 +106,241 @@ export async function startTestServer(
   const config = testConfig(overrides);
   const db = openMemoryDatabase();
   const ctx = createAppContext(config, db);
-  const app = await buildApp(ctx);
-  await app.listen({ host: "127.0.0.1", port: 0 });
-  const address = app.server.address();
+  const sockets = new Set<NodeHibernatingSocket>();
+  let stopped = false;
+  const httpServer = createServer((request, response) => {
+    void serveHttp(request, response, ctx).catch(() => {
+      if (!response.headersSent) {
+        response.statusCode = 500;
+      }
+      response.end();
+    });
+  });
+  const wss = new WebSocketServer({ noServer: true });
+  httpServer.on("upgrade", (request, socket, head) => {
+    let url: URL;
+    try {
+      url = new URL(request.url ?? "/", "http://127.0.0.1");
+    } catch {
+      socket.destroy();
+      return;
+    }
+    if (url.pathname !== DEVICE_WEBSOCKET_PATH && url.pathname !== PAIR_WEBSOCKET_PATH) {
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      const hibernating = new NodeHibernatingSocket(ws);
+      sockets.add(hibernating);
+      if (url.pathname === DEVICE_WEBSOCKET_PATH) {
+        hibernating.serializeAttachment(deviceAttachment(remoteAddress(request)));
+      } else {
+        beginPairSocket(hibernating);
+      }
+      ws.on("message", (data) => {
+        const attachment = hibernating.deserializeAttachment();
+        if (attachment?.kind === "pair") {
+          onPairMessage(hibernating, ctx, data);
+          return;
+        }
+        onDeviceMessage(hibernating, ctx, data);
+      });
+      ws.on("close", () => {
+        sockets.delete(hibernating);
+        onSocketClose(hibernating, ctx);
+      });
+    });
+  });
+
+  const sweep = setInterval(() => {
+    if (stopped) {
+      return;
+    }
+    sweepSockets([...sockets], ctx);
+  }, 20);
+  sweep.unref();
+
+  await new Promise<void>((resolve) => {
+    httpServer.listen(0, "127.0.0.1", () => resolve());
+  });
+  const address = httpServer.address();
   if (typeof address !== "object" || address === null) {
     throw new Error("Failed to bind test server");
   }
-  const port = address.port;
+  const port = (address as AddressInfo).port;
+  const baseUrl = `http://127.0.0.1:${port}`;
   return {
-    app,
+    app: {
+      inject: (options) => injectRequest(baseUrl, options),
+    },
     ctx,
     db,
     port,
-    baseUrl: `http://127.0.0.1:${port}`,
-    wsUrl: `ws://127.0.0.1:${port}/v1/ws/device`,
-  };
+    baseUrl,
+    wsUrl: `ws://127.0.0.1:${port}${DEVICE_WEBSOCKET_PATH}`,
+    close: async () => {
+      stopped = true;
+      clearInterval(sweep);
+      const open = [...sockets];
+      for (const socket of open) {
+        try {
+          socket.close(1001, "shutdown");
+        } catch {
+          // already closing
+        }
+      }
+      await Promise.all(open.map((socket) => socket.whenClosed()));
+      wss.close();
+      await new Promise<void>((resolve, reject) => {
+        httpServer.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+      db.close();
+    },
+  } as TestServer & { close: () => Promise<void> };
 }
 
 export async function stopTestServer(server: TestServer): Promise<void> {
-  await server.app.close();
+  const closable = server as TestServer & { close?: () => Promise<void> };
+  if (closable.close) {
+    await closable.close();
+    return;
+  }
   server.db.close();
+}
+
+async function serveHttp(
+  request: IncomingMessage,
+  response: ServerResponse,
+  ctx: AppContext,
+): Promise<void> {
+  const host = request.headers.host ?? "127.0.0.1";
+  const url = new URL(request.url ?? "/", `http://${host}`);
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(request.headers)) {
+    if (value === undefined) {
+      continue;
+    }
+    headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+  }
+  if (!headers.has("cf-connecting-ip")) {
+    headers.set("cf-connecting-ip", "127.0.0.1");
+  }
+  const body = await readRawBody(request);
+  const method = request.method ?? "GET";
+  const init: RequestInit = { method, headers };
+  if (body !== undefined && method !== "GET" && method !== "HEAD") {
+    init.body = body;
+  }
+  const workerResponse = await handleWorkerRequest(new Request(url, init), ctx);
+  writeHead(response, workerResponse);
+  if (workerResponse.body === null) {
+    response.end();
+    return;
+  }
+  const reader = workerResponse.body.getReader();
+  const stop = () => {
+    void reader.cancel().catch(() => undefined);
+  };
+  response.on("close", stop);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        response.end();
+        return;
+      }
+      if (!response.write(value)) {
+        await new Promise<void>((resolve) => {
+          response.once("drain", () => resolve());
+        });
+      }
+    }
+  } finally {
+    response.off("close", stop);
+  }
+}
+
+function writeHead(response: ServerResponse, workerResponse: Response): void {
+  const cookies = workerResponse.headers.getSetCookie();
+  response.statusCode = workerResponse.status;
+  workerResponse.headers.forEach((value, key) => {
+    if (key.toLowerCase() === "set-cookie") {
+      return;
+    }
+    response.setHeader(key, value);
+  });
+  if (cookies.length > 0) {
+    response.setHeader("set-cookie", cookies);
+  }
+}
+
+function readRawBody(request: IncomingMessage): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+    request.on("end", () => {
+      if (chunks.length === 0) {
+        resolve(undefined);
+        return;
+      }
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    });
+    request.on("error", reject);
+  });
+}
+
+function remoteAddress(request: IncomingMessage): string {
+  return request.socket.remoteAddress ?? "127.0.0.1";
+}
+
+export async function injectRequest(
+  baseUrl: string,
+  options: InjectOptions,
+): Promise<InjectResult> {
+  const headers = new Headers();
+  if (options.headers) {
+    for (const [key, value] of Object.entries(options.headers)) {
+      if (value !== undefined) {
+        headers.set(key, value);
+      }
+    }
+  }
+  let body: string | undefined;
+  if (options.payload !== undefined) {
+    body = typeof options.payload === "string" ? options.payload : JSON.stringify(options.payload);
+    if (!headers.has("content-type")) {
+      headers.set("content-type", "application/json");
+    }
+  }
+  const method = options.method.toUpperCase();
+  const init: RequestInit = { method, headers };
+  if (body !== undefined && method !== "GET" && method !== "HEAD") {
+    init.body = body;
+  }
+  const response = await fetch(new URL(options.url, baseUrl), init);
+  const text = await response.text();
+  const headerMap: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headerMap[key] = value;
+  });
+  const cookies = response.headers.getSetCookie();
+  if (cookies.length > 0) {
+    headerMap["set-cookie"] = cookies.join("\n");
+  }
+  return {
+    statusCode: response.status,
+    headers: headerMap,
+    body: text,
+    json: <T = any>() => JSON.parse(text) as T,
+  };
 }
 
 export function nextMessage(

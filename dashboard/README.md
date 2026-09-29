@@ -15,7 +15,7 @@ Relay 的管理员界面。生产环境由 Mote Relay 静态托管，不是单�
 /settings/relay      Settings · Relay
 ```
 
-未登录时显示 Login。没有注册、邮件找回或 OAuth。第一个管理员用 Relay CLI 创建。
+未登录时显示 Login。没有注册、邮件找回或 OAuth。第一个管理员由 Worker 在启动时用 `MOTE_ADMIN_PASSWORD` 创建。忘记密码后无法找回；登录状态下可在 Account 页修改。
 
 ## 技术栈
 
@@ -26,12 +26,11 @@ Relay 的管理员界面。生产环境由 Mote Relay 静态托管，不是单�
 
 ## 本地开发
 
-先开 Relay，再开 Vite：
+先开 Worker，再开 Vite：
 
 ```text
-# Terminal 1
-cd relay
-npm run dev
+# Terminal 1，仓库根
+npm run dev:worker
 
 # Terminal 2
 cd dashboard
@@ -39,7 +38,7 @@ npm install
 npm run dev
 ```
 
-Vite 在 `http://127.0.0.1:5173`，并把 `/admin/api`、`/v1`、`/health`、`/ready` 代理到 `http://127.0.0.1:3000`。`/admin/api` 的代理超时已关闭，以便 `GET /admin/api/events`（SSE）保持长连接。管理员 cookie 走同一浏览器源。
+Vite 在 `http://127.0.0.1:5173`，并把 `/admin/api`、`/v1`、`/health`、`/ready` 代理到 `http://127.0.0.1:8787`。`/admin/api` 的代理超时已关闭，以便 `GET /admin/api/events`（SSE）保持长连接。管理员 cookie 走同一浏览器源。
 
 ```text
 npm run typecheck
@@ -47,7 +46,7 @@ npm test
 npm run build
 ```
 
-`npm run build` 写出 `dashboard/dist`。Docker 镜像把它拷进 Relay 容器。不要在生产环境跑 Vite。
+`npm run build` 写出 `dashboard/dist`。Wrangler 把它作为 Workers Assets 发布。不要在生产环境跑 Vite。
 
 ## 实时刷新
 

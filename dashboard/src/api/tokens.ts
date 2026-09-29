@@ -1,14 +1,24 @@
-import type { AdminToken, CreatedToken } from "../types/token.js";
+import type { AdminToken, CommandClientKind, CreatedToken } from "../types/token.js";
 import { apiRequest } from "./client.js";
+
+export type CreateTokenInput = {
+  name: string;
+  clientKind: CommandClientKind;
+  deviceId: string;
+};
 
 export function listTokens(): Promise<{ tokens: AdminToken[] }> {
   return apiRequest<{ tokens: AdminToken[] }>("/admin/api/tokens");
 }
 
-export function createToken(name: string): Promise<CreatedToken> {
+export function createToken(input: CreateTokenInput): Promise<CreatedToken> {
   return apiRequest<CreatedToken>("/admin/api/tokens", {
     method: "POST",
-    body: { name },
+    body: {
+      name: input.name,
+      client_kind: input.clientKind,
+      device_id: input.deviceId,
+    },
   });
 }
 

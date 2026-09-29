@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 
 import { AppHeader } from "../../components/layout/app-header.js";
 import { Main } from "../../components/layout/main.js";
+import { PageHeading } from "../../components/layout/page-heading.js";
 import { SidebarNav } from "./sidebar-nav.js";
 
 export function SettingsLayout() {
@@ -32,9 +33,7 @@ export function SettingsLayout() {
     <>
       <AppHeader />
       <Main fixed>
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-          {t("settings.title")}
-        </h1>
+        <PageHeading title={t("settings.title")} />
         <Separator className="my-4 lg:my-6" />
         <div className="flex flex-1 flex-col gap-2 overflow-hidden lg:flex-row lg:gap-12">
           <aside className="top-0 lg:sticky lg:w-1/5">

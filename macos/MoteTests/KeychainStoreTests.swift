@@ -28,31 +28,47 @@ final class KeychainStoreTests: XCTestCase {
         XCTAssertNil(afterDelete)
     }
 
-    func testSaveUsesSharedAccessSoLaterLaunchesDoNotNeedAPrompt() throws {
-        let service = "com.example.mote.test.\(UUID().uuidString)"
-        let account = "device_connection"
-        let store = KeychainStore(service: service)
-        try store.save(Data("secret".utf8), account: account)
-        defer { try? store.delete(account: account) }
-
-        XCTAssertTrue(
-            keychainItemHasSharedAccess(service: service, account: account),
-            "Ad-hoc builds cannot persist Always Allow; the item must allow any local app.\n\(keychainACLDump(service: service, account: account))"
-        )
-        XCTAssertEqual(try store.read(account: account), Data("secret".utf8))
+    func testCanonicalServiceMatchesBundleIdentity() {
+        XCTAssertEqual(KeychainStore().service, AppIdentity.keychainService)
+        XCTAssertEqual(AppIdentity.keychainService, AppIdentity.bundleID)
+        XCTAssertEqual(AppIdentity.bundleID, "com.nardo021.mote")
+        XCTAssertNotEqual(AppIdentity.keychainService, AppIdentity.legacyBundleID)
     }
 
-    func testReadRewritesLegacyACLToSharedAccess() throws {
-        let service = "com.example.mote.test.\(UUID().uuidString)"
+    func testIsolatedServiceSaveReadRotateDelete() throws {
+        let service = "com.nardo021.mote.test.\(UUID().uuidString)"
         let account = "device_connection"
-        let add: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: Data("legacy".utf8),
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ]
-        XCTAssertEqual(SecItemAdd(add as CFDictionary, nil), errSecSuccess)
+        let store = KeychainStore(service: service)
+        defer { try? store.delete(account: account) }
+
+        try store.save(Data("secret".utf8), account: account)
+        XCTAssertEqual(try store.read(account: account), Data("secret".utf8))
+        try store.save(Data("rotated".utf8), account: account)
+        XCTAssertEqual(try store.read(account: account), Data("rotated".utf8))
+        try store.delete(account: account)
+        XCTAssertNil(try store.read(account: account))
+    }
+
+    func testNewItemIsNotWorldReadableWhenACLIsQueryable() throws {
+        let service = "com.nardo021.mote.test.\(UUID().uuidString)"
+        let account = "device_connection"
+        let store = KeychainStore(service: service)
+        defer { try? store.delete(account: account) }
+        try store.save(Data("secret".utf8), account: account)
+
+        switch inspectDecryptACL(service: service, account: account) {
+        case .unavailable:
+            throw XCTSkip("ACL-specific test skipped: this runner could not query the keychain item ACL.")
+        case .worldReadable:
+            XCTFail("A newly saved item must not be world-readable.")
+        case .applicationScoped:
+            break
+        }
+    }
+
+    func testReadRewritesLegacyWorldReadableACL() throws {
+        let service = "com.nardo021.mote.test.\(UUID().uuidString)"
+        let account = "device_connection"
         defer {
             SecItemDelete([
                 kSecClass as String: kSecClassGenericPassword,
@@ -60,22 +76,34 @@ final class KeychainStoreTests: XCTestCase {
                 kSecAttrAccount as String: account
             ] as CFDictionary)
         }
-
-        XCTAssertFalse(
-            keychainItemHasSharedAccess(service: service, account: account),
-            "The legacy item should still be restricted to the creating app."
-        )
+        guard installLegacyWorldReadableItem(service: service, account: account, data: Data("legacy".utf8)) else {
+            throw XCTSkip("ACL-specific test skipped: this runner's Security.framework did not permit a legacy world-readable fixture.")
+        }
+        guard case .worldReadable = inspectDecryptACL(service: service, account: account) else {
+            throw XCTSkip("ACL-specific test skipped: the legacy fixture could not be confirmed world-readable on this runner.")
+        }
 
         let store = KeychainStore(service: service)
         XCTAssertEqual(try store.read(account: account), Data("legacy".utf8))
-        XCTAssertTrue(
-            keychainItemHasSharedAccess(service: service, account: account),
-            "Reading a legacy item should rewrite it so the next launch does not prompt."
-        )
+        switch inspectDecryptACL(service: service, account: account) {
+        case .applicationScoped:
+            break
+        case .worldReadable:
+            XCTFail("Reading a relaxed item should replace it with an application-scoped item.")
+        case .unavailable:
+            throw XCTSkip("ACL-specific test skipped: ACL inspection became unavailable after the rewrite.")
+        }
+        XCTAssertEqual(try store.read(account: account), Data("legacy".utf8))
     }
 }
 
-private func keychainItemHasSharedAccess(service: String, account: String) -> Bool {
+private enum DecryptACL {
+    case applicationScoped
+    case worldReadable
+    case unavailable
+}
+
+private func inspectDecryptACL(service: String, account: String) -> DecryptACL {
     let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: service,
@@ -85,42 +113,70 @@ private func keychainItemHasSharedAccess(service: String, account: String) -> Bo
     ]
     var result: AnyObject?
     guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let result else {
-        return false
-    }
-    return FileKeychainACL.isShared(unsafeBitCast(result, to: SecKeychainItem.self))
-}
-
-private func keychainACLDump(service: String, account: String) -> String {
-    let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: service,
-        kSecAttrAccount as String: account,
-        kSecReturnRef as String: true,
-        kSecMatchLimit as String: kSecMatchLimitOne
-    ]
-    var result: AnyObject?
-    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let result else {
-        return "missing item"
+        return .unavailable
     }
     let item = unsafeBitCast(result, to: SecKeychainItem.self)
     var access: SecAccess?
     guard SecKeychainItemCopyAccess(item, &access) == errSecSuccess, let access else {
-        return "no access"
+        return .unavailable
     }
     var aclList: CFArray?
-    guard SecAccessCopyACLList(access, &aclList) == errSecSuccess, let acls = aclList as? [SecACL] else {
-        return "no acls"
+    guard SecAccessCopyACLList(access, &aclList) == errSecSuccess, aclList != nil else {
+        return .unavailable
     }
+    if FileKeychainACL.isWorldReadable(item) {
+        return .worldReadable
+    }
+    return .applicationScoped
+}
 
-    var lines: [String] = []
-    for (index, acl) in acls.enumerated() {
+private func installLegacyWorldReadableItem(service: String, account: String, data: Data) -> Bool {
+    var access: SecAccess?
+    guard SecAccessCreate("Mote device credential" as CFString, nil, &access) == errSecSuccess, let access else {
+        return false
+    }
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecAttrAccount as String: account,
+        kSecValueData as String: data,
+        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        kSecAttrAccess as String: access,
+        kSecReturnRef as String: true
+    ]
+    var result: AnyObject?
+    guard SecItemAdd(query as CFDictionary, &result) == errSecSuccess, let result else {
+        return false
+    }
+    let item = unsafeBitCast(result, to: SecKeychainItem.self)
+    var copied: SecAccess?
+    guard SecKeychainItemCopyAccess(item, &copied) == errSecSuccess, let copied else {
+        return false
+    }
+    var aclList: CFArray?
+    guard SecAccessCopyACLList(copied, &aclList) == errSecSuccess, let acls = aclList as? [SecACL] else {
+        return false
+    }
+    var updated = false
+    for acl in acls {
+        let tags = Set((SecACLCopyAuthorizations(acl) as? [Any] ?? []).map { String(describing: $0) })
+        guard tags.contains(kSecACLAuthorizationDecrypt as String) else {
+            continue
+        }
         var applications: CFArray?
         var description: CFString?
         var prompt: SecKeychainPromptSelector = []
-        _ = SecACLCopyContents(acl, &applications, &description, &prompt)
-        let auths = (SecACLCopyAuthorizations(acl) as? [Any] ?? []).map { String(describing: $0) }
-        let appCount = applications.map { CFArrayGetCount($0) } ?? -1
-        lines.append("acl[\(index)] apps=\(appCount) prompt=\(prompt.rawValue) auths=\(auths) desc=\(description as String? ?? "nil")")
+        guard SecACLCopyContents(acl, &applications, &description, &prompt) == errSecSuccess else {
+            return false
+        }
+        let label = (description as String?) ?? "Mote device credential"
+        guard SecACLSetContents(acl, nil, label as CFString, prompt) == errSecSuccess else {
+            return false
+        }
+        updated = true
     }
-    return lines.joined(separator: "\n")
+    guard updated else {
+        return false
+    }
+    return SecKeychainItemSetAccess(item, copied) == errSecSuccess
 }

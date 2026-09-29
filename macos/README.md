@@ -17,15 +17,17 @@ Mote 的原生 macOS 应用和后台 Agent。
 
 部署目标：**macOS 14+**
 
-Bundle identifier（文档与工程默认值；发布时换成自己的）：
+稳定应用身份（Bundle ID、钥匙串 service、OSLog subsystem 相同）：
 
 ```text
-com.example.mote
+com.nardo021.mote
 ```
 
-默认生产 Relay 主机名为 `relay.example.com`。本机在设置里填写公网 Relay URL，或设 `MOTE_RELAY_URL`。不要让 Mac 去打局域网 IP。
+仓库所有者是 GitHub `Nardo021`，树里没有另一套产品域名，所以不再使用占位符 `com.example.mote`。测试包是 `com.nardo021.mote.tests`。旧的 `com.example.mote` 只在一次性迁移里读取。
 
-不通过 App Store 分发。仓库不提供现成签名包。其他人请自行用 Xcode 构建并签名：把 Bundle ID 从 `com.example.mote` 换成自己的，选自己的 Development Team。Xcode 工程使用兼容自动签名的设置，Team ID 为空。不要提交 Team ID 或描述文件 UUID。日常自己用：在本机选付费 Development Team，用 Xcode **Run** 覆盖安装即可。
+Mac 没有编译进去的生产 Relay 主机名。设置里的 Relay URL 或 `MOTE_RELAY_URL` 必须是明确的 `http`/`https` 基址，否则保持 **Not Configured**，不会去连示例域名。文档里的 `relay.example.com` 只是说明 URL 形状。
+
+不通过 App Store 分发。仓库默认 Ad-hoc 签名（`CODE_SIGN_IDENTITY = "-"`），`DEVELOPMENT_TEAM` 为空。不要把 Team ID、证书、描述文件或密码提交进仓库。本机要稳定钥匙串身份时，在 Xcode 里选自己的 Development Team 或 Developer ID，不要改仓库里的 Bundle ID。Ad-hoc 每次构建 cdhash 都会变，系统可能弹出钥匙串提示；这不是把凭据改回任意进程可读的理由。
 
 ## 打开与构建
 
@@ -37,10 +39,12 @@ open macos/Mote.xcodeproj
 
 ```text
 xcodebuild -project macos/Mote.xcodeproj -scheme Mote -configuration Debug -destination 'platform=macOS' build
-xcodebuild -project macos/Mote.xcodeproj -scheme Mote -configuration Debug -destination 'platform=macOS' test
+xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -configuration Debug -destination 'platform=macOS' test
 ```
 
-若需要完整签名的登录项，请在本机选择 Development Team。日常 Debug 构建使用 Ad-hoc（`Sign to Run Locally`）即可。
+日常 Debug 可以用 Ad-hoc（Sign to Run Locally）。登录项和钥匙串要在多次构建之间保持同一身份时，在本机 Xcode 选择 Development Team。不要把签名材料提交进仓库。
+
+`Mote-Safe` 是 scheme 的默认测试计划。它跑协议、连接生命周期、偏好和钥匙串用例，并跳过 `LockActionLiveTests`。注入闭包的 `LockActionTests` 不会锁屏。真实锁屏是 DEBUG **Test Lock**，不是 CI。发行签名见 [docs/release.md](../docs/release.md)。
 
 ## 布局
 
@@ -74,7 +78,7 @@ macos/
 5. 仅在 `auth_result.status == "ok"` 之后才进入应用层 **Connected**。
 6. 每 30 秒心跳一次；延迟是来自 `heartbeat_ack` 的近似 RTT。已连接标题旁显示 `Relay · 4 ms`。
 7. 锁屏优先走登录会话，不依赖辅助功能。设置窗不再展示 Lock Permission。
-8. 断开后按带抖动的指数退避（1–30 秒）重连，除非用户选择了 **Disconnect**，或 Dashboard 禁用 / 轮换了凭据。
+8. 断开后按带抖动的指数退避（1–30 秒）重连。用户 **Disconnect**、应用退出、设备禁用、凭据轮换、无效凭据和协议版本不匹配会停掉自动重连。网络丢失、心跳过期、套接字失败、未知关闭原因、系统唤醒和网络恢复会重连。系统睡眠只暂停传输，不当成认证失败。锁屏命令不会拆掉 Relay 连接。
 9. Dashboard **Disable** → 状态为 **Disabled**，立即停止重连。Dashboard Enable 后按 **Reconnect**（凭据未变）。不要 Pair。
 10. Dashboard **Rotate credential** → 停止重连。Connection 区折叠 **Paste credential**，粘贴 Dashboard 显示的一次性新凭据后连接。已登记设备再 Pair 会 409。
 11. 关闭设置窗口不会退出。**Quit Mote** 会停止重连、关闭套接字、取消心跳并退出。
@@ -97,8 +101,10 @@ Connection Error
 
 角色：`device_connection`（不是快捷指令的 `send_command` token）。
 
-- 只存放在钥匙串，service 为 `com.example.mote`，account 为 `device_connection`
-- 永不写入 UserDefaults、日志或源码
+- 只存放在钥匙串，service 为 `com.nardo021.mote`，account 为 `device_connection`
+- 若只有旧 service `com.example.mote` 里的项：先写入新 service，读回确认一致，再删旧项。写入或校验失败时保留旧项。明文不进日志
+- `device_id` 仍是本机生成的 UUID。Bundle ID 变化时，会把旧偏好域 `com.example.mote` 里缺失的 `device_id`、设备名、连接意愿和 Relay URL 抄过来，不覆盖已经存在的值，也不删除旧偏好文件
+- 凭据本身永不写入 UserDefaults、日志或源码
 - 生产主路径是 **Pair**；已登记后凭据被轮换时，在 Connection 区折叠的 **Paste credential** 粘贴 Dashboard 给出的新值
 - 快捷指令 token 不会被 Mote 保存。**Shortcuts** 区只预填 Device ID，token 输入框是助手，不持久化
 
@@ -108,13 +114,7 @@ Connection Error
 2. Dashboard **Devices** 出现待批准请求，点 **Allow**。
 3. Mac 实时写入钥匙串并连接。无需重启。
 
-CLI 仍可用于恢复：
-
-```text
-docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
-```
-
-然后在 Mac 折叠区粘贴设备凭据。
+凭据轮换在 Dashboard 完成，然后在 Mac 折叠区粘贴新值。没有用来改线上数据库的 CLI。
 
 ### 临时 DEBUG 配对
 
@@ -122,9 +122,21 @@ docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --
 
 - DEBUG 设置 → **Developer** 区可以把设备凭据保存到钥匙串
 - 可选环境变量：`MOTE_DEVICE_CREDENTIAL`（钥匙串为空时的 DEBUG 回退；除非你保存，否则不持久化）
-- 可选 Relay 覆盖：设置里的 **Relay URL**，或 `MOTE_RELAY_URL`（本地 Relay 用 `http://127.0.0.1:3000`）。`MOTE_RELAY_URL` 优先。
+- 可选 Relay 覆盖：设置里的 **Relay URL**，或 `MOTE_RELAY_URL`（本地 Wrangler 用 `http://127.0.0.1:8787`）。`MOTE_RELAY_URL` 优先。
 
 DEBUG **Developer** 里的凭据和模拟命令会在 Release 中编译剔除。Relay URL 在 Release 中保留。不要在生产中关闭 TLS 校验。
+
+## 应用沙盒
+
+沙盒保持关闭（`ENABLE_APP_SANDBOX = NO`，entitlement `com.apple.security.app-sandbox` 为 false）。
+
+锁屏主路径是 `login.framework` 的私有符号 `SACLockScreenImmediate`，失败时才回退到 `CGEvent` 的 Control-Command-Q。这两条都不是沙盒允许的公开 API。登录项是菜单栏应用自己（`SMAppService.mainApp`），没有单独的 helper。打开沙盒会拆掉当前要求的锁屏实现。钥匙串 ACL 与沙盒无关：凭据仍然只给创建它的应用，不向任意本地进程开放。
+
+## 连接生命周期
+
+`RelayClient` 是唯一的连接状态机：传输、认证、心跳、重连、睡眠和网络路径。`AgentCoordinator` 只决定要不要连。`AppState` 把状态投影到菜单栏和设置。手动启动和登录项启动都走 `applicationDidFinishLaunching` → `AppState.start()`。退出时先标记终止，再停观察者、心跳、重连和套接字，不删凭据，也不再预约重连。
+
+系统将睡眠：停心跳和重连，状态为 Disconnected。系统已唤醒，或 `NWPathMonitor` 从不可用变为可用：若用户仍希望连接、凭据还在、且不是禁用或凭据类终止状态，立刻重连一次。同一次只保留一个连接代际。
 
 ## 锁屏动作与辅助功能
 
@@ -198,7 +210,8 @@ CONNECT → auth → auth_result → heartbeat ↔ heartbeat_ack → command →
 
 ```text
 POST /v1/pair/requests
-wss://<relay-host>/v1/ws/pair?request_id=…&pair_secret=…
+wss://<relay-host>/v1/ws/pair
+pair_auth { request_id, pair_secret }
 ```
 
 时间戳为 Unix 纪元毫秒。默认命令 TTL 为 10 秒。Mac 侧认证超时约 10 秒。

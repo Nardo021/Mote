@@ -5,7 +5,6 @@ enum CommandValidationFailure: Equatable, Sendable {
     case missingCommandID
     case wrongDevice
     case unknownAction
-    case unsupportedAction
     case expired
     case invalidTimestamp
     case missingNonce
@@ -15,7 +14,7 @@ enum CommandValidationFailure: Equatable, Sendable {
         switch self {
         case .expired:
             return .expired
-        case .unknownAction, .unsupportedAction:
+        case .unknownAction:
             return .unsupported
         case .invalidVersion, .missingCommandID, .wrongDevice, .invalidTimestamp, .missingNonce, .duplicate:
             return .invalid
@@ -43,6 +42,7 @@ struct CommandValidator: Sendable {
         if command.deviceID != expectedDeviceID {
             return .rejected(.wrongDevice)
         }
+        // Nonce is an opaque non-empty field. It is not a signature and not a replay cache.
         if command.nonce.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .rejected(.missingNonce)
         }
@@ -60,9 +60,6 @@ struct CommandValidator: Sendable {
 
         guard let action = command.parsedAction else {
             return .rejected(.unknownAction)
-        }
-        if !action.isImplemented {
-            return .rejected(.unsupportedAction)
         }
         if seenIDs.contains(command.id) {
             return .rejected(.duplicate)

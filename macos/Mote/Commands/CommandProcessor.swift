@@ -29,9 +29,6 @@ actor CommandProcessor {
             } catch ActionExecutionError.permissionRequired {
                 MoteLog.actions.error("Permission failure id=\(command.id, privacy: .public)")
                 return .status(.permissionRequired, commandID: command.id)
-            } catch ActionExecutionError.unsupported {
-                MoteLog.commands.error("Command unsupported id=\(command.id, privacy: .public)")
-                return .status(.unsupported, commandID: command.id)
             } catch {
                 MoteLog.commands.error("Command failed id=\(command.id, privacy: .public)")
                 return .status(.failed, commandID: command.id, error: "execution_failed")

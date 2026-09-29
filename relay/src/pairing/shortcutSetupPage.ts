@@ -1,6 +1,3 @@
-import type { FastifyInstance } from "fastify";
-
-import type { AppContext } from "../appContext.js";
 import { isUuid } from "../utils/ids.js";
 
 function escapeHtml(value: string): string {
@@ -51,23 +48,4 @@ export function renderShortcutSetupPage(
   ${addShortcut}
 </body>
 </html>`;
-}
-
-export async function registerShortcutSetupPage(
-  app: FastifyInstance,
-  ctx: AppContext,
-): Promise<void> {
-  app.get("/s/:deviceId", async (request, reply) => {
-    const params = request.params as { deviceId: string };
-    return reply
-      .type("text/html; charset=utf-8")
-      .header("Cache-Control", "no-store")
-      .send(
-        renderShortcutSetupPage(
-          ctx.config.publicUrl,
-          params.deviceId,
-          ctx.config.shortcutIcloudUrl,
-        ),
-      );
-  });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -33,19 +33,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { listDevices, lockDevice } from "../../api/devices.js";
 import { getOverview } from "../../api/overview.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
-import { AppHeader } from "../../components/layout/app-header.js";
-import { Main } from "../../components/layout/main.js";
+import { DashboardPage } from "../../components/layout/dashboard-page.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
-import { LoadingState } from "../../components/LoadingState.js";
 import {
   DeviceStatusBadge,
   EventStatusBadge,
   RelayStatusBadge,
 } from "../../components/StatusBadge.js";
-import { useAdminEvents } from "../../events/AdminEventsProvider.js";
-import { livePollInterval } from "../../events/topics.js";
+import { useLiveRefresh } from "../../hooks/useLiveRefresh.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
-import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import type { OverviewResponse } from "../../types/activity.js";
 import type { AdminDevice } from "../../types/device.js";
@@ -69,37 +65,17 @@ export function OverviewPage() {
     setDevices(nextDevices.devices);
   }, []);
 
-  useEffect(() => {
-    void refresh().catch((cause: unknown) => {
-      toast.error(translateError(cause, t, "errors.unknown"));
-    });
-  }, [refresh, t]);
-  const { live } = useAdminEvents(OVERVIEW_EVENT_TOPICS, () => {
-    void refresh().catch(() => undefined);
+  useLiveRefresh(refresh, {
+    topics: OVERVIEW_EVENT_TOPICS,
+    errorKey: "errors.unknown",
+    ready: overview !== null,
   });
-  usePolling(
-    () => refresh().catch(() => undefined),
-    livePollInterval(live, 5_000),
-    overview !== null,
-  );
-
-  const header = <AppHeader />;
-
-  if (overview === null) {
-    return (
-      <>
-        {header}
-        <Main>
-          <LoadingState label={t("common.loading")} />
-        </Main>
-      </>
-    );
-  }
 
   return (
     <>
-      {header}
-      <Main className="flex flex-col gap-4">
+      <DashboardPage ready={overview !== null} fixed={false} className="flex flex-col gap-4">
+      {overview === null ? null : (
+      <>
         <PageHeading
           title={t("overview.title")}
           action={<RelayStatusBadge status={overview.relay.status} />}
@@ -206,34 +182,16 @@ export function OverviewPage() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="lg:col-span-3">
-                <CardHeader>
-                  <CardTitle>{t("overview.recent")}</CardTitle>
-                  <CardDescription>
-                    {t("overview.recentDescription")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ActivityList overview={overview} />
-                </CardContent>
-              </Card>
+              <RecentActivityCard className="lg:col-span-3" overview={overview} />
             </div>
           </TabsContent>
           <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("overview.recent")}</CardTitle>
-                <CardDescription>
-                  {t("overview.recentDescription")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ActivityList overview={overview} />
-              </CardContent>
-            </Card>
+            <RecentActivityCard overview={overview} />
           </TabsContent>
         </Tabs>
-      </Main>
+      </>
+      )}
+      </DashboardPage>
       {lockTarget ? (
         <ConfirmDialog
           title={t("detail.lockTitle", { name: lockTarget.name })}
@@ -260,6 +218,27 @@ export function OverviewPage() {
         />
       ) : null}
     </>
+  );
+}
+
+function RecentActivityCard({
+  overview,
+  className,
+}: {
+  overview: OverviewResponse;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card {...(className !== undefined ? { className } : {})}>
+      <CardHeader>
+        <CardTitle>{t("overview.recent")}</CardTitle>
+        <CardDescription>{t("overview.recentDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ActivityList overview={overview} />
+      </CardContent>
+    </Card>
   );
 }
 

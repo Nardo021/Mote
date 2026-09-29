@@ -6,6 +6,9 @@ actor MockRelayTransport: MessageTransport {
     private(set) var outgoing: [Data] = []
     private var closed = false
     private var pendingReceiveError: TransportError?
+    private(set) var connectCount = 0
+    private(set) var closeCount = 0
+    private var payloadOnNextClose: Data?
 
     func enqueueIncoming(_ data: Data) {
         if let waiter = waiters.first {
@@ -21,7 +24,16 @@ actor MockRelayTransport: MessageTransport {
     }
 
     func connect() async throws {
+        connectCount += 1
         closed = false
+        pendingReceiveError = nil
+    }
+
+    func messageTypes() -> [String] {
+        outgoing.compactMap { data in
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            return object?["type"] as? String
+        }
     }
 
     func send(_ data: Data) async throws {
@@ -52,7 +64,21 @@ actor MockRelayTransport: MessageTransport {
         failReceive(.closed(reason: reason))
     }
 
+    func deliverOnNextClose(_ data: Data) {
+        payloadOnNextClose = data
+    }
+
     func close(reason: String?) async {
+        closeCount += 1
+        if let payload = payloadOnNextClose {
+            payloadOnNextClose = nil
+            if let waiter = waiters.first {
+                waiters.removeFirst()
+                waiter.resume(returning: payload)
+            } else {
+                incoming.append(payload)
+            }
+        }
         failReceive(.cancelled)
     }
 

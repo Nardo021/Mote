@@ -7,7 +7,6 @@ protocol ScreenLocking: Sendable {
 }
 
 enum ActionExecutionError: Error, Equatable, Sendable {
-    case unsupported
     case permissionRequired
     case failed(String)
 }

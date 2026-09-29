@@ -17,7 +17,7 @@
 
 ## Phase 1 — 仓库基础
 
-已完成。仓库布局、文档和部署文件。
+已完成。仓库布局和文档。
 
 ## Phase 2 — Mote for Mac
 
@@ -26,77 +26,59 @@
 ```text
 open macos/Mote.xcodeproj
 xcodebuild -project macos/Mote.xcodeproj -scheme Mote -destination 'platform=macOS' build
-xcodebuild -project macos/Mote.xcodeproj -scheme Mote -destination 'platform=macOS' test
+xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -destination 'platform=macOS' test
 ```
 
-见 [macos/README.md](../macos/README.md)。
+见 [macos/README.md](../macos/README.md)。默认测试计划 `Mote-Safe` 不会锁屏。真实锁屏只在本机 DEBUG **Test Lock**。
 
-## Phase 3 — Mote Relay
+## Relay 本地开发
 
-已完成。后端位于 `relay/`，Compose 位于 `deploy/`。PVE 文档是可选路径。
+Relay 没有本地 Node 服务器。本地运行时就是 Wrangler。
+
+```text
+# 仓库根。先构建 Dashboard，再在 http://127.0.0.1:8787 启动 Worker
+npm run dev:worker
+```
+
+复制 `.dev.vars.example` 为 `.dev.vars`，填一个至少 12 位的 `MOTE_ADMIN_PASSWORD`。Worker 在还没有管理员时会用它创建 `admin`。
+
+Mac 的 Relay URL 填 `http://127.0.0.1:8787`，然后 Pair。Dashboard 就在同一个地址。
+
+检查：
 
 ```text
 cd relay
-npm install
-npm run dev
-npm run typecheck
 npm test
-npm run build
-npm start
-npm run cli -- device create --name "Development Mac" --id <MAC_DEVICE_ID>
-npm run cli -- token create --name "Development Shortcut"
+npm run typecheck
 ```
 
-本地端点：
+仓库根还可以：
 
 ```text
-http://127.0.0.1:3000
-ws://127.0.0.1:3000/v1/ws/device
-ws://127.0.0.1:3000/v1/ws/pair
+npm test               # Relay、Dashboard、仓库一致性
+npm run typecheck      # 先生成 Worker 类型，再检查 Relay 与 Dashboard
+npm run build          # Dashboard 生产构建，并安装 Relay 依赖。不部署
+npm run worker:dry-run # wrangler deploy --dry-run，不上传
+npm run ci             # 上面几项串起来
+npm run cf-typegen     # 只生成 relay/worker-configuration.d.ts
 ```
 
-生产（示例主机名；部署时换成自己的）：
-
-```text
-https://relay.example.com
-wss://relay.example.com/v1/ws/device
-wss://relay.example.com/v1/ws/pair
-```
-
-针对本地 Relay 的开发配对：
-
-1. Mote for Mac 把 Relay URL 设为 `http://127.0.0.1:3000`（设置里的字段，或 `MOTE_RELAY_URL`）。
-2. 点 **Pair**，在本地 Dashboard 批准。
-3. 或继续用 CLI 后粘贴凭据：
-
-```text
-npm run build
-npm run cli -- device create --name "Development Mac" --id <MAC_DEVICE_ID>
-npm run cli -- token create --name "Development Shortcut"
-```
-
-不要在 Release 中关闭 TLS 检查。
-
-见 [relay/README.md](../relay/README.md) 和 [design.md](../design.md)。
+`relay/worker-configuration.d.ts` 不入库。干净检出靠 `npm run typecheck` 或 `npm run cf-typegen` 重新生成。不要在日常检查里执行不带 `--dry-run` 的 `wrangler deploy`。
 
 ## Dashboard 本地开发
 
-Dashboard 是 Vite SPA，位于 `dashboard/`。UI 使用 shadcn/ui，颜色 token 仍对齐 [design.md](../design.md)。开发时可以和 Relay 分开跑：
+改界面时可以让 Vite 热更新，API 仍打到 Wrangler：
 
 ```text
 # Terminal 1
-cd relay
-npm run dev
+npm run dev:worker
 
 # Terminal 2
 cd dashboard
-npm install
 npm run dev
 ```
 
-Vite 开发服务器（`http://127.0.0.1:5173`）把 `/admin/api`、`/v1`、`/health` 和 `/ready` 代理到 `http://127.0.0.1:3000`。`/admin/api` 代理的 `timeout` / `proxyTimeout` 为 0，以免掐断 Dashboard SSE。Cookie 仍然走同一浏览器源。
-
-生产构建：
+Vite 在 `http://127.0.0.1:5173`，并把 `/admin/api`、`/v1`、`/health`、`/ready` 代理到 `http://127.0.0.1:8787`。`/admin/api` 代理的 `timeout` / `proxyTimeout` 为 0，以免掐断 Dashboard SSE。Cookie 仍然走 Vite 的源。
 
 ```text
 cd dashboard
@@ -105,23 +87,9 @@ npm test
 npm run build
 ```
 
-Docker 镜像会把 `dashboard/dist` 拷进 Relay 容器。不要在生产环境跑 Vite。
+生产环境由 Workers Assets 提供 `dashboard/dist`。不要在生产环境跑 Vite。
 
-引导管理员：
-
-```text
-cd relay
-npm run build
-npm run cli -- admin create --username admin
-```
-
-无 TTY 时：
-
-```text
-printf '%s\n' "$PASSWORD" | npm run cli -- admin create --username admin --password-stdin
-```
-
-见 [dashboard/README.md](../dashboard/README.md)。
+见 [dashboard/README.md](../dashboard/README.md) 和 [relay/README.md](../relay/README.md)。
 
 ## Phase 4 — Apple 快捷指令
 
@@ -129,38 +97,48 @@ printf '%s\n' "$PASSWORD" | npm run cli -- admin create --username admin --passw
 
 仓库不附带 `.shortcut` 文件。在 Mote iOS 落地之前，这是 iPhone 的正式触发方式。
 
-## Phase 5 — Mote iOS
+## 验证
 
-下一步。原生 iPhone 应用，走现有 HTTPS 命令 API。
+Node.js 22 或更新。三个 lockfile 都要装：
 
-- 付费 Apple Developer + Xcode 直装到自己的手机
-- 不上架 App Store，不把 TestFlight 当日常更新
-- 同一 Bundle ID 覆盖安装；改 Version / Build 后再 Run
-- 不要提交 Team ID
-- 活动来源 `ios` 已在 SQLite 预留
+```text
+npm ci
+npm ci --prefix relay
+npm ci --prefix dashboard
+npm test
+npm run typecheck
+npm run build
+npm run worker:dry-run
+```
 
-约定见 [ios.md](ios.md)。仓库里还没有 `ios/`。
+`npm run ci` 把 Relay、协议、Dashboard 和 Worker 干跑串成一条命令。macOS 仍用 `xcodebuild`。发布和签名见 [release.md](release.md)。
 
-## 之后 — 本地直连
+## macOS 测试
 
-- Bonjour 发现
-- 与 Mac 的本地认证连接
-- 自动 Relay 回退
+Xcode 工程是 `macos/Mote.xcodeproj`。Scheme 是 `Mote`。应用显示名 **Mote**，Bundle ID 是 `com.nardo021.mote`（钥匙串 service 和 OSLog subsystem 相同），macOS 14+，Swift 6。Team ID 不入库。沙盒关闭，Hardened Runtime 打开。见 [macos/README.md](../macos/README.md)。
 
-不要在 Phase 5 里一并实现。
+默认测试计划 `Mote-Safe` 编译全部 XCTest，并跳过 `LockActionLiveTests`。`LockActionTests` 只注入闭包，不会锁屏。副作用计划 `Mote-SideEffect` 只包含那个跳过的类；类内部还要求 `MOTE_RUN_SIDE_EFFECT_TESTS=1`，而且不调用锁屏函数。
 
-## macOS 工程
+```text
+xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -destination 'platform=macOS' test
+```
 
-Xcode 工程是 `macos/Mote.xcodeproj`。应用显示名 **Mote**，文档与工程默认 bundle identifier 为 `com.example.mote`（发布时换成自己的），macOS 14+，Swift 6。Team ID 未设置，不要提交。见 [macos/README.md](../macos/README.md)。
+真实钥匙串用例使用 `com.nardo021.mote.test.<uuid>`，不读写生产 service。ACL 查询若被运行环境拒绝，对应用例会跳过，不能把跳过写成 ACL 已通过。在 Windows 上这些测试无法执行，不能把未运行当成已通过。
+
+## 尚未实现
+
+原生 iOS 应用不在仓库里。Protocol v1 的活动来源仍是 `shortcut` 和 `dashboard`。个人约定见 [ios.md](ios.md)。
+
+本地直连（Bonjour、局域网）未实现。自动更新未实现，见 [release.md](release.md)。
 
 ## 不要添加的内容
 
 - App Store / TestFlight 作为个人日常分发
+- 第二套 Relay 运行时（Node、Fastify、Express、Hono、Koa、NestJS）
 - Next / Nuxt / SvelteKit / 单独的 Dashboard 服务器
 - Redis、PostgreSQL、ORM
-- NestJS、Express
 - Kubernetes、微服务、MQTT
 - Bonjour、蓝牙或其他本地直连传输代码（尚未到这一阶段）
 - 任意 shell 执行
 - 分析 / 遥测 SaaS
-- 应用源码中的真实密钥、Team ID、局域网 IP 或生产证书（当前生产 LXC 地址只属于基础设施文档）
+- 应用源码中的真实密钥、Team ID 或生产证书

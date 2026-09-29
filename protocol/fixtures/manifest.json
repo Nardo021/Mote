@@ -1,0 +1,24 @@
+{
+  "incoming": [
+    "auth-minimal.json",
+    "auth-macos.json",
+    "auth-windows.json",
+    "heartbeat.json",
+    "command-result.json"
+  ],
+  "pairing": ["pair-auth.json"],
+  "pairingOutgoing": [
+    "pair-pending.json",
+    "pair-approved.json",
+    "pair-rejected.json",
+    "pair-expired.json"
+  ],
+  "outgoing": [
+    "auth-result-ok.json",
+    "auth-result-error.json",
+    "heartbeat-ack.json",
+    "command.json",
+    "error.json"
+  ],
+  "invalid": ["invalid/auth-version.json", "invalid/auth-unknown-action.json"]
+}

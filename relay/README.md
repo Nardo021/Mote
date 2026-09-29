@@ -1,171 +1,65 @@
 # Mote Relay
 
-**Mote** 的已认证命令中继。Apple 快捷指令（以及之后的 Mote iOS）通过 HTTPS 发送 `lock`。Dashboard 也可以发同一条命令。Mote for Mac 保持一条持久 WebSocket，并在本地执行该允许列表动作。
+Mote 的后端。生产运行时只有：
 
-该进程从不运行 shell 命令、AppleScript 或 SSH。
+```text
+Cloudflare Worker
+    → 一个 MoteRelay Durable Object（idFromName("mote")）
+    → Durable Object SQLite
+    → Durable Object WebSocket
 
-## 技术栈
+Dashboard：Workers Assets
+```
 
-- Node.js 22+
-- TypeScript（strict、ESM）
-- Fastify + `@fastify/websocket` + `@fastify/static` + `@fastify/cookie`
-- Dashboard：React + TypeScript + Vite（构建后由本进程静态托管）
-- 通过 `better-sqlite3` 使用 SQLite
+Mac 主动连出 `wss://…/v1/ws/device`。Dashboard 和快捷指令走 HTTPS。没有 Node 服务器，也没有 Docker 镜像。
 
-## 开发
+## 本地
+
+在仓库根：
+
+```text
+cp .dev.vars.example .dev.vars
+npm run dev:worker
+```
+
+Wrangler 监听 `http://127.0.0.1:8787`。`.dev.vars` 里的 `MOTE_ADMIN_PASSWORD` 会在数据库还没有管理员时创建 `admin`。
+
+改 Dashboard 界面时，另开 `npm run dev --prefix dashboard`。Vite 在 `5173`，并把 API 代理到 `8787`。
 
 ```text
 cd relay
-npm install
-npm run dev
-```
-
-默认本地端点：
-
-```text
-http://127.0.0.1:3000            Dashboard（需先构建 dashboard，或另开 Vite）
-http://127.0.0.1:3000/admin/api  Admin API
-ws://127.0.0.1:3000/v1/ws/device
-ws://127.0.0.1:3000/v1/ws/pair
-```
-
-本地同时开发 Dashboard：
-
-```text
-cd ../dashboard
-npm install
-npm run dev
-```
-
-若要用文件配置，把 `.env.example` 复制为 `.env`。已有环境变量优先。
-
-其他脚本：
-
-```text
-npm run typecheck
 npm test
-npm run build
-npm start
-npm run cli -- device list
+npm run typecheck
 ```
 
-`npm run cli` 需要先 `npm run build`。未构建时用 `npm run cli:dev -- ...`。
+`npm run typecheck` 会先生成并检查共享代码、测试，以及生产入口 `src/worker/index.ts`。`worker-configuration.d.ts` 由仓库根的 `npm run cf-typegen` 从 `wrangler.jsonc` 生成，已 gitignore，不提交。密钥 `MOTE_ADMIN_PASSWORD`、`MOTE_PUBLIC_URL`、`MOTE_SHORTCUT_ICLOUD_URL` 不在 Wrangler vars 里，所以写在 Worker `Env` 的可选字段上。
 
-## 引导
+测试里的 HTTP 和 WebSocket 走 Worker 适配器：`handleWorkerRequest`，以及 Durable Object 使用的同一套套接字处理。内存 SQLite 只给测试用。
 
-Mote for Mac 自己生成持久的 `device_id`。生产路径是 Mac 点 **Pair**，再在 Dashboard 批准。CLI 仍可用于恢复：
+## 路由
+
+Worker 把这些路径交给 Durable Object，其余交给 Workers Assets：
 
 ```text
-npm run build
-npm run cli -- device create --name "Development Mac" --id <MAC_DEVICE_ID>
-npm run cli -- token create --name "Development Shortcut"
-npm run cli -- admin create --username admin
+/health
+/ready
+/v1/*                 机器 API 与设备 / 配对 WebSocket
+/admin/*              管理员 API 与 SSE
+/s/:deviceId          快捷指令安装页
 ```
 
-若省略 `--id`，Relay 会生成 UUID。那只会登记一个 Mac 不知道的 ID，因此 CLI 恢复路径仍应传入 Mac 上的 ID。
+业务规则在共享层，不在 Worker 入口里重写：Shortcut token 认证、设备范围、管理员会话、CSRF、命令提交、配对、设备和 token 操作、活动查询。
 
-密钥只打印一次。服务端只保存 SHA-256 哈希。
+## 安全边界
 
-```text
-npm run cli -- device list
-npm run cli -- device disable <device-id>
-npm run cli -- device rotate <device-id>
-npm run cli -- token list
-npm run cli -- token disable <token-id>
-npm run cli -- token rotate <token-id>
-npm run cli -- admin list
-npm run cli -- admin password --username admin
-npm run cli -- admin disable --username admin
-npm run cli -- admin enable --username admin
-```
+- 配对密钥只出现在 `pair_auth` 帧里，不出现在 URL 查询参数。
+- Shortcut token 绑定一台设备。未绑定的 token 拒绝。拿它访问别的设备返回 403。
+- `command_result` 只能由目标设备的已认证连接完成。
+- 明文 token 和设备凭据只在创建或轮换时返回一次。响应里没有哈希。
+- 日志会把 URL 里的 `pair_secret`、`token`、`credential`、`password` 打成 `[redacted]`。
 
-未构建时，可用 `npm run cli:dev -- ...` 通过 `tsx` 运行同一套 CLI。不要把管理员密码当作命令行 flag。
+细节见 [docs/security.md](../docs/security.md) 和 [docs/architecture.md](../docs/architecture.md)。
 
-## 生产 CLI
+## 在途命令
 
-```text
-docker compose exec relay node dist/cli.js device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
-docker compose exec relay node dist/cli.js token create --name "iPhone"
-docker compose exec -it relay node dist/cli.js admin create --username admin
-```
-
-## HTTP API
-
-命令客户端使用 `Authorization: Bearer <token>`，权限为 `send_command`。
-
-| 方法   | 路径                             | 认证          | 用途                                  |
-| ------ | -------------------------------- | ------------- | ------------------------------------- |
-| `POST` | `/v1/devices/:deviceId/commands` | Bearer        | 发送 `{"action":"lock"}`              |
-| `GET`  | `/v1/devices/:deviceId/status`   | Bearer        | 在线 / 最近见到                       |
-| `POST` | `/v1/pair/requests`              | 无            | Mac 发起配对；返回 `pair_secret`      |
-| `POST` | `/v1/pair/requests/:id/cancel`   | `pair_secret` | Mac 取消配对                          |
-| `GET`  | `/v1/ws/device`                  | 设备 WS 认证  | Mote Agent 套接字（升级为 WebSocket） |
-| `GET`  | `/v1/ws/pair`                    | 查询串密钥    | 配对套接字                            |
-| `GET`  | `/s/:deviceId`                   | 无            | 快捷指令安装页（不含 token）          |
-| `GET`  | `/`                              | 无            | Dashboard SPA                         |
-| `GET`  | `/admin/api/events`              | 管理员会话    | Dashboard SSE（只推 topic）           |
-| `*`    | `/admin/api/*`                   | 管理员会话    | Dashboard 管理 API                    |
-| `GET`  | `/health`                        | 无            | 进程存活                              |
-| `GET`  | `/ready`                         | 无            | 数据库 + 进程就绪；失败时 `503`       |
-
-健康检查不要求 Mac 在线。完整状态码见 [docs/protocol.md](../docs/protocol.md)。iPhone 快捷指令配置见 [docs/shortcuts.md](../docs/shortcuts.md)。iOS 约定见 [docs/ios.md](../docs/ios.md)。
-
-### Admin API（节选）
-
-均在 `/admin/api`，使用 `mote_admin_session` cookie。
-
-| 方法     | 路径                                | 用途                |
-| -------- | ----------------------------------- | ------------------- |
-| `GET`    | `/events`                           | SSE topic 通知      |
-| `GET`    | `/session`                          | 当前会话            |
-| `POST`   | `/session`                          | 登录                |
-| `DELETE` | `/session`                          | 退出                |
-| `POST`   | `/account/password`                 | 改密                |
-| `GET`    | `/overview`                         | 总览                |
-| `GET`    | `/pair-requests`                    | 待批准配对          |
-| `POST`   | `/pair-requests/:id/approve`        | 批准                |
-| `POST`   | `/pair-requests/:id/reject`         | 拒绝                |
-| `GET`    | `/devices` / `/devices/:id`         | 设备                |
-| `POST`   | `/devices/:id/commands`             | Dashboard 发 `lock` |
-| `POST`   | `/devices/:id/credential/rotate`    | 轮换设备凭据        |
-| `POST`   | `/devices/:id/disable` / `/enable`  | 启用/禁用           |
-| `GET`    | `/tokens`                           | Token 列表          |
-| `POST`   | `/tokens` / `/:id/rotate` / disable | Token 管理          |
-| `GET`    | `/activity`                         | 命令活动            |
-| `GET`    | `/system`                           | 运行参数            |
-
-## 命令语义
-
-- 离线设备返回 `409`，带 `"status":"offline"`。命令不会排队。
-- 已禁用设备返回 `409`，带 `"status":"disabled"`。
-- Mac 的 `command_result` 返回 `200`，并使用扁平的 `status` 字段（`completed`、`permission_required` 等）。
-- 截止时间前没有确认则返回 `504`，带 `"status":"timeout"`（默认等待 12 秒；命令 TTL 默认 10 秒）。
-- 不支持的动作返回 `422`。
-- 命令提交默认每 token 每 10 秒最多 10 次，超出返回 `429`。
-- 命令元数据（`id`、`created_at`、`expires_at`、`nonce`）由 Relay 生成，不是客户端生成。
-- `last_seen_at` 写入 SQLite 会节流（默认约 60 秒，或断开时落盘）。心跳本身不每次写库。
-- 活动 `source`：公开命令 API 记 `shortcut`，Dashboard 记 `dashboard`，`ios` 已预留。
-
-## 布局
-
-```text
-src/
-  index.ts           进程入口
-  cli.ts             凭据与管理员管理
-  app.ts             Fastify 应用
-  config/            环境与常量
-  api/               HTTP 路由与 Dashboard 静态托管
-  admin/             管理员账户、会话、管理 API、SSE 事件总线
-  activity/          命令活动日志
-  pairing/           配对请求、套接字、安装页
-  websocket/         设备套接字与注册表
-  auth/              按角色分离的凭据检查
-  devices/           SQLite 设备与 token 存储
-  commands/          路由、pending 映射、校验
-  protocol/          Mote Protocol v1 编解码
-  storage/           SQLite 打开与迁移
-  utils/             ID、错误、速率限制
-test/                单元测试与模拟集成测试
-data/                本地 SQLite 目录（内容已 gitignore）
-Dockerfile           多阶段生产镜像（含 Dashboard，非 root）
-```
+等待 Mac 结果的 HTTP 调用放在 Durable Object 内存里。离线立即拒绝，不排队。Durable Object 被驱逐时，这次等待会丢；这是当前规模下接受的限制。

@@ -1,5 +1,7 @@
+import AppKit
 import Foundation
 import Network
+import os
 
 struct RelayClientEvents: Sendable {
     var onState: @Sendable (ConnectionState) -> Void
@@ -10,10 +12,12 @@ struct RelayClientEvents: Sendable {
 
 actor RelayClient {
     private let deviceID: String
-    private let configurationProvider: @Sendable () -> RelayConfiguration
+    private let configurationProvider: @Sendable () -> RelayConfiguration?
     private let credentialProvider: @Sendable () async throws -> String?
     private let transportFactory: @Sendable (URL) -> any MessageTransport
     private let events: RelayClientEvents
+    private let heartbeatInterval: Duration
+    private let authTimeout: Duration
 
     private var transport: (any MessageTransport)?
     private var generation: UInt64 = 0
@@ -23,9 +27,15 @@ actor RelayClient {
     private var authTimeoutTask: Task<Void, Never>?
     private var stableResetTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
-    private var pathQueue = DispatchQueue(label: "com.example.mote.path")
+    private var pathQueue = DispatchQueue(label: "\(AppIdentity.bundleID).path")
+    private var sleepObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
+    private let terminated = OSAllocatedUnfairLock(initialState: false)
 
     private var intentionalDisconnect = false
+    private var systemSleeping = false
+    private var networkSatisfied = true
+    private var connectInFlight = false
     private var isAuthenticated = false
     private var reconnectAttempt = 0
     private var policy = ReconnectPolicy()
@@ -33,27 +43,41 @@ actor RelayClient {
 
     init(
         deviceID: String,
-        configurationProvider: @escaping @Sendable () -> RelayConfiguration,
+        configurationProvider: @escaping @Sendable () -> RelayConfiguration?,
         credentialProvider: @escaping @Sendable () async throws -> String?,
         transportFactory: @escaping @Sendable (URL) -> any MessageTransport = { WebSocketTransport(url: $0) },
-        events: RelayClientEvents
+        events: RelayClientEvents,
+        heartbeatInterval: Duration = .seconds(ProtocolConstants.heartbeatIntervalSeconds),
+        authTimeout: Duration = .seconds(ProtocolConstants.authTimeoutSeconds)
     ) {
         self.deviceID = deviceID
         self.configurationProvider = configurationProvider
         self.credentialProvider = credentialProvider
         self.transportFactory = transportFactory
         self.events = events
+        self.heartbeatInterval = heartbeatInterval
+        self.authTimeout = authTimeout
+    }
+
+    nonisolated func markTerminated() {
+        terminated.withLock { $0 = true }
     }
 
     func start() async {
+        guard !isTerminated() else { return }
+        systemSleeping = false
         intentionalDisconnect = false
-        startPathMonitorIfNeeded()
+        startObserversIfNeeded()
         await connect(isReconnect: false, resetBackoff: true)
     }
 
     func stop(intentional: Bool) async {
         intentionalDisconnect = intentional
+        connectInFlight = false
         generation += 1
+        if intentional {
+            stopObservers()
+        }
         await tearDownSocket()
         isAuthenticated = false
         events.onLatency(nil)
@@ -66,8 +90,102 @@ actor RelayClient {
     }
 
     func requestConnect() async {
+        guard !isTerminated() else { return }
+        systemSleeping = false
         intentionalDisconnect = false
+        startObserversIfNeeded()
         await connect(isReconnect: false, resetBackoff: true)
+    }
+
+    func noteSystemSleep() async {
+        guard !systemSleeping else { return }
+        systemSleeping = true
+        connectInFlight = false
+        generation += 1
+        let preserveTerminalState = intentionalDisconnect
+        isAuthenticated = false
+        await tearDownSocket()
+        events.onLatency(nil)
+        if !preserveTerminalState {
+            lastError = nil
+            events.onError(nil)
+            events.onState(.disconnected)
+        }
+        MoteLog.network.info("System sleep")
+    }
+
+    func noteSystemWake() async {
+        systemSleeping = false
+        MoteLog.network.info("System wake")
+        await recoverIfNeeded()
+    }
+
+    func noteNetworkPath(satisfied: Bool) async {
+        if satisfied {
+            await noteNetworkRestored()
+        } else {
+            await noteNetworkLost()
+        }
+    }
+
+    private func noteNetworkLost() async {
+        let becameUnavailable = networkSatisfied
+        networkSatisfied = false
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        guard becameUnavailable else { return }
+
+        if isTerminated() {
+            await invalidateTransportForNetworkLoss()
+            MoteLog.network.info("Network unavailable")
+            return
+        }
+        if intentionalDisconnect {
+            MoteLog.network.info("Network unavailable")
+            return
+        }
+
+        let invalidatedGeneration = await invalidateTransportForNetworkLoss()
+        MoteLog.network.info("Network unavailable")
+        let stillCurrent = invalidatedGeneration == nil || generation == invalidatedGeneration
+        guard stillCurrent, !networkSatisfied, !systemSleeping, !intentionalDisconnect, !isTerminated() else {
+            return
+        }
+        events.onError("Network unavailable")
+        events.onState(.error("Network unavailable"))
+    }
+
+    /// Drops the live transport generation. Returns that generation when a live
+    /// transport was invalidated, otherwise nil.
+    private func invalidateTransportForNetworkLoss() async -> UInt64? {
+        let live = isAuthenticated || transport != nil || connectInFlight || heartbeatTask != nil || receiveTask != nil
+        guard live else { return nil }
+        connectInFlight = false
+        generation += 1
+        let invalidatedGeneration = generation
+        isAuthenticated = false
+        await tearDownSocket()
+        events.onLatency(nil)
+        MoteLog.network.info("Active transport invalidated because network disappeared")
+        return invalidatedGeneration
+    }
+
+    private func noteNetworkRestored() async {
+        let becameAvailable = !networkSatisfied
+        networkSatisfied = true
+        guard becameAvailable else { return }
+        MoteLog.network.info("Network restored")
+        guard canAttemptConnection else { return }
+        MoteLog.network.info("Reconnect started because network returned")
+        await recoverIfNeeded()
+    }
+
+    private var canContinueConnectionAttempt: Bool {
+        !isTerminated() && !intentionalDisconnect && !systemSleeping && networkSatisfied
+    }
+
+    private var canAttemptConnection: Bool {
+        canContinueConnectionAttempt && !isAuthenticated && !connectInFlight
     }
 
     private func connect(isReconnect: Bool, resetBackoff: Bool) async {
@@ -75,41 +193,74 @@ actor RelayClient {
             reconnectAttempt = 0
         }
 
-        guard !intentionalDisconnect else {
-            return
-        }
+        guard canAttemptConnection else { return }
+        connectInFlight = true
+        let attemptGeneration = generation
 
         let credential: String?
         do {
             credential = try await credentialProvider()
         } catch {
-            lastError = "Keychain failure"
-            events.onError(lastError)
-            events.onState(.error("Keychain failure"))
-            MoteLog.security.error("Failed to read device credential")
+            if generation == attemptGeneration {
+                connectInFlight = false
+                lastError = "Keychain failure"
+                events.onError(lastError)
+                events.onState(.error("Keychain failure"))
+                MoteLog.security.error("Failed to read device credential")
+            }
+            return
+        }
+
+        guard generation == attemptGeneration else { return }
+        guard canContinueConnectionAttempt else {
+            connectInFlight = false
             return
         }
 
         guard let credential, !credential.isEmpty else {
+            connectInFlight = false
             events.onState(.notConfigured)
+            return
+        }
+
+        guard let configuration = configurationProvider() else {
+            connectInFlight = false
+            events.onState(.notConfigured)
+            MoteLog.network.info("Relay URL is not configured")
+            return
+        }
+
+        guard generation == attemptGeneration else { return }
+        guard canContinueConnectionAttempt else {
+            connectInFlight = false
             return
         }
 
         generation += 1
         let gen = generation
         await tearDownSocket()
+        guard gen == generation, canContinueConnectionAttempt else {
+            if gen == generation {
+                connectInFlight = false
+            }
+            return
+        }
         isAuthenticated = false
         events.onLatency(nil)
         events.onState(isReconnect ? .reconnecting : .connecting)
         MoteLog.network.info("Connection attempt")
 
-        let configuration = configurationProvider()
         let nextTransport = transportFactory(configuration.webSocketURL)
         transport = nextTransport
 
         do {
             try await nextTransport.connect()
-            guard gen == generation else { return }
+            guard gen == generation, canContinueConnectionAttempt else {
+                if gen == generation {
+                    connectInFlight = false
+                }
+                return
+            }
             events.onState(.authenticating)
             try await sendJSON(
                 AuthMessage(deviceID: deviceID, credential: credential, appVersion: AppVersion.display),
@@ -118,7 +269,11 @@ actor RelayClient {
             startReceiveLoop(generation: gen)
             startAuthTimeout(generation: gen)
         } catch {
-            if gen != generation || intentionalDisconnect {
+            if gen != generation {
+                return
+            }
+            connectInFlight = false
+            if !canContinueConnectionAttempt {
                 return
             }
             let message = Self.userFacingMessage(for: error)
@@ -143,7 +298,7 @@ actor RelayClient {
                 let data = try await transport.receive()
                 await handle(data, generation: gen)
             } catch {
-                if Task.isCancelled || gen != generation || intentionalDisconnect {
+                if Task.isCancelled || gen != generation || intentionalDisconnect || systemSleeping || !networkSatisfied {
                     return
                 }
                 if await handleReceiveFailure(error, generation: gen) {
@@ -207,6 +362,7 @@ actor RelayClient {
             return
         }
 
+        connectInFlight = false
         isAuthenticated = true
         lastError = nil
         events.onError(nil)
@@ -226,7 +382,7 @@ actor RelayClient {
 
     private func startHeartbeat(generation gen: UInt64) {
         heartbeatTask?.cancel()
-        let manager = HeartbeatManager()
+        let manager = HeartbeatManager(interval: heartbeatInterval)
         heartbeatTask = Task {
             await manager.run { [weak self] in
                 try await self?.sendHeartbeat(generation: gen)
@@ -235,7 +391,7 @@ actor RelayClient {
     }
 
     private func sendHeartbeat(generation gen: UInt64) async throws {
-        guard gen == generation, isAuthenticated else { return }
+        guard gen == generation, isAuthenticated, !systemSleeping, networkSatisfied else { return }
         let message = HeartbeatMessage(deviceID: deviceID, sentAt: DateHelpers.nowMilliseconds())
         try await sendJSON(message, generation: gen)
     }
@@ -243,13 +399,16 @@ actor RelayClient {
     private func startAuthTimeout(generation gen: UInt64) {
         authTimeoutTask?.cancel()
         authTimeoutTask = Task {
-            try? await Task.sleep(for: .seconds(ProtocolConstants.authTimeoutSeconds))
+            try? await Task.sleep(for: authTimeout)
             await self.authTimedOut(generation: gen)
         }
     }
 
     private func authTimedOut(generation gen: UInt64) async {
-        guard gen == generation, !isAuthenticated, !intentionalDisconnect else { return }
+        guard gen == generation, !isAuthenticated, canContinueConnectionAttempt else {
+            return
+        }
+        connectInFlight = false
         lastError = "Authentication timed out"
         events.onError(lastError)
         events.onState(.error("Authentication timed out"))
@@ -278,6 +437,9 @@ actor RelayClient {
         case .cancelled:
             return true
         case .closed(let reason):
+            if let reason {
+                MoteLog.network.info("Socket closed \(reason, privacy: .public)")
+            }
             return await handleAdministrativeClose(reason, generation: gen)
         case .notConnected, .invalidUTF8, .invalidRelayResponse:
             return false
@@ -285,7 +447,10 @@ actor RelayClient {
     }
 
     private func handleAdministrativeClose(_ reason: String?, generation gen: UInt64) async -> Bool {
-        guard let reason, let closeReason = RelayCloseReason(rawValue: reason) else {
+        guard let reason, let closeReason = RelayCloseReason(rawValue: reason), closeReason.stopsReconnect else {
+            if let reason, RelayCloseReason(rawValue: reason) == nil {
+                MoteLog.network.info("Unknown close reason \(reason, privacy: .public)")
+            }
             return false
         }
         intentionalDisconnect = true
@@ -303,45 +468,56 @@ actor RelayClient {
             return
         }
 
-        let message = error ?? "invalid_credentials"
+        let message = error ?? RelayCloseReason.invalidCredentials.rawValue
+        if let closeReason = RelayCloseReason(rawValue: message), closeReason.stopsReconnect {
+            await settleAdministrativeClose(generation: gen, reason: closeReason)
+            return
+        }
+
+        connectInFlight = false
         lastError = message
         events.onError(message)
         events.onState(.error(message))
         intentionalDisconnect = true
         generation += 1
         await tearDownSocket()
-        MoteLog.network.error("Authentication failed")
+        MoteLog.network.error("Terminal authentication state")
     }
 
     private func settleAdministrativeClose(generation gen: UInt64, reason: RelayCloseReason) async {
         guard gen == generation else { return }
         intentionalDisconnect = true
+        connectInFlight = false
         lastError = reason.rawValue
         events.onError(reason.rawValue)
         switch reason {
         case .deviceDisabled:
             events.onState(.disabled)
-        case .credentialRotated:
+        case .credentialRotated, .invalidCredentials, .unsupportedVersion:
             events.onState(.error(reason.rawValue))
+        case .authTimeout, .heartbeatStale, .superseded, .expired, .serverShutdown, .socketError:
+            break
         }
         generation += 1
         isAuthenticated = false
         events.onLatency(nil)
         await tearDownSocket()
-        MoteLog.network.error("Administrative close \(reason.rawValue, privacy: .public)")
+        MoteLog.network.error("Terminal credential condition \(reason.rawValue, privacy: .public)")
     }
 
     private func handleUnexpectedDisconnect(generation gen: UInt64) async {
         guard gen == generation else { return }
+        connectInFlight = false
         generation += 1
         isAuthenticated = false
         events.onLatency(nil)
         await tearDownSocket()
+        MoteLog.network.info("Disconnect transient")
         await scheduleReconnect()
     }
 
     private func scheduleReconnect() async {
-        guard !intentionalDisconnect else { return }
+        guard canAttemptConnection else { return }
         reconnectTask?.cancel()
         let attempt = reconnectAttempt
         reconnectAttempt += 1
@@ -357,7 +533,15 @@ actor RelayClient {
 
     private func beginScheduledReconnect() async {
         reconnectTask = nil
+        guard canAttemptConnection else { return }
         await connect(isReconnect: true, resetBackoff: false)
+    }
+
+    private func recoverIfNeeded() async {
+        guard canAttemptConnection else { return }
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        await connect(isReconnect: true, resetBackoff: true)
     }
 
     private func tearDownSocket() async {
@@ -384,27 +568,62 @@ actor RelayClient {
         try await transport.send(data)
     }
 
+    private func startObserversIfNeeded() {
+        startPathMonitorIfNeeded()
+        startSleepObserversIfNeeded()
+    }
+
     private func startPathMonitorIfNeeded() {
         guard !RuntimeContext.isRunningTests else { return }
         guard pathMonitor == nil else { return }
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { path in
             Task {
-                await self.pathChanged(path)
+                await self.noteNetworkPath(satisfied: path.status == .satisfied)
             }
         }
         monitor.start(queue: pathQueue)
         pathMonitor = monitor
     }
 
-    private func pathChanged(_ path: NWPath) {
-        guard path.status == .satisfied else { return }
-        guard !intentionalDisconnect, !isAuthenticated else { return }
-        reconnectTask?.cancel()
-        reconnectAttempt = 0
-        Task {
-            await self.connect(isReconnect: true, resetBackoff: true)
+    private func startSleepObserversIfNeeded() {
+        guard !RuntimeContext.isRunningTests else { return }
+        guard sleepObserver == nil else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        sleepObserver = center.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.noteSystemSleep() }
         }
+        wakeObserver = center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.noteSystemWake() }
+        }
+    }
+
+    private func stopObservers() {
+        pathMonitor?.cancel()
+        pathMonitor = nil
+        let center = NSWorkspace.shared.notificationCenter
+        if let sleepObserver {
+            center.removeObserver(sleepObserver)
+            self.sleepObserver = nil
+        }
+        if let wakeObserver {
+            center.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
+    }
+
+    private func isTerminated() -> Bool {
+        terminated.withLock { $0 }
     }
 
     private static func userFacingMessage(for error: Error) -> String {

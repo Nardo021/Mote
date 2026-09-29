@@ -36,7 +36,7 @@ private struct AdvancedDebugContent: View {
         VStack(alignment: .leading, spacing: 0) {
             MoteRow(label: "Relay Endpoint", alignment: .firstTextBaseline) {
                 MoteValueText(
-                    text: appState.relayConfiguration.webSocketURL.absoluteString,
+                    text: appState.relayConfiguration?.webSocketURL.absoluteString ?? "Not configured",
                     monospaced: true
                 )
             }

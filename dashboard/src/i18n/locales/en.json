@@ -91,7 +91,7 @@
     "password": "Password",
     "submit": "Sign in",
     "setupRequired": "Administrator not configured",
-    "unconfigured": "No administrator is configured. Create one with the Relay CLI:",
+    "unconfigured": "No administrator is configured. Set MOTE_ADMIN_PASSWORD for the Worker and reload. The first startup creates the admin user.",
     "failed": "Could not sign in."
   },
   "overview": {
@@ -135,6 +135,10 @@
     "status": "Status",
     "deviceId": "Device ID",
     "version": "Version",
+    "platform": "Platform",
+    "capabilities": "Actions",
+    "platformMacos": "Mac",
+    "platformWindows": "Windows",
     "lastSeen": "Last seen",
     "lastCommand": "Last command",
     "actions": "Actions",
@@ -211,6 +215,12 @@
     "empty": "No shortcut tokens",
     "emptyDescription": "Create a token for Apple Shortcuts.",
     "permission": "Permission",
+    "client": "Client",
+    "clientShortcut": "Shortcut",
+    "scope": "Device",
+    "scopeLegacy": "Unscoped",
+    "scopeRequired": "Choose a device",
+    "scopeEmpty": "Pair a device before creating a token.",
     "created": "Created",
     "lastUsed": "Last used",
     "actions": "Actions",
@@ -249,7 +259,7 @@
     "changePassword": "Change password",
     "currentPassword": "Current password",
     "newPassword": "New password",
-    "passwordHint": "Password recovery is not available in the Dashboard. Use the Relay CLI on the server:",
+    "passwordHint": "A forgotten password cannot be recovered. Change it here while you are signed in.",
     "signOutTitle": "Sign out?",
     "signOutDescription": "This ends the current Dashboard session.",
     "loadFailed": "Could not load settings.",
@@ -279,8 +289,7 @@
   },
   "source": {
     "shortcut": "Shortcut",
-    "dashboard": "Dashboard",
-    "ios": "iOS"
+    "dashboard": "Dashboard"
   },
   "presence": {
     "online": "Online",

@@ -1,8 +1,8 @@
-import type { FastifyRequest } from "fastify";
-
+import type { CommandSource } from "../commands/commandTypes.js";
+import { CommandSource as CommandSources } from "../commands/commandTypes.js";
 import type { EnvConfig } from "../config/env.js";
 import type { TokenRepository } from "../devices/tokenRepository.js";
-import type { ApiTokenRecord } from "../devices/tokenTypes.js";
+import type { ApiTokenRecord, CommandClientKind } from "../devices/tokenTypes.js";
 import { forbidden, unauthorized } from "../utils/errors.js";
 import { Permission } from "./permissions.js";
 import { hashSecret, verifySecret } from "./tokenHash.js";
@@ -11,6 +11,8 @@ export type AuthenticatedShortcut = {
   tokenId: string;
   name: string;
   permission: typeof Permission.send_command;
+  clientKind: CommandClientKind;
+  deviceId: string;
 };
 
 const lastUsedTouched = new Map<string, number>();
@@ -39,20 +41,26 @@ export function authenticateShortcutToken(
   if (record.permission !== Permission.send_command) {
     throw forbidden();
   }
+  if (record.deviceId === null) {
+    throw forbidden("This token is not scoped to a device.");
+  }
   return {
     tokenId: record.id,
     name: record.name,
     permission: Permission.send_command,
+    clientKind: record.clientKind,
+    deviceId: record.deviceId,
   };
 }
 
-export function authenticateShortcutRequest(
-  request: FastifyRequest,
-  tokens: TokenRepository,
-): AuthenticatedShortcut {
-  const header = request.headers.authorization;
-  const value = Array.isArray(header) ? header[0] : header;
-  return authenticateShortcutToken(value, tokens);
+export function commandSourceForToken(_client: AuthenticatedShortcut): CommandSource {
+  return CommandSources.shortcut;
+}
+
+export function assertTokenDeviceScope(client: AuthenticatedShortcut, deviceId: string): void {
+  if (client.deviceId !== deviceId) {
+    throw forbidden("This token cannot access that device.");
+  }
 }
 
 export function maybeTouchTokenLastUsed(

@@ -1,11 +1,15 @@
 import type { AppContext } from "../appContext.js";
 import { authenticateDevice } from "../auth/deviceAuth.js";
-import { AppError } from "../utils/errors.js";
 import { createConnectionId } from "../utils/ids.js";
 import { encodeOutgoing, parseIncomingDeviceMessage, rawDataToString } from "../protocol/codec.js";
 import { nowMs } from "../utils/time.js";
 import type { DeviceConnection, RelaySocket } from "../websocket/connectionRegistry.js";
 import { createHeartbeatAck } from "../websocket/heartbeat.js";
+import { rememberAgentProfile } from "../websocket/agentProfile.js";
+import { DEFAULT_DEVICE_ACTIONS, type DevicePlatform } from "../protocol/actions.js";
+import { SocketClose } from "../protocol/closeReasons.js";
+import { acceptCommandResult } from "../commands/pendingCommands.js";
+import { authenticatePairingFrame, PAIR_AUTH_CLOSE, registerAuthenticatedPairSocket } from "../pairing/pairAuth.js";
 import { authResultError, authResultOk } from "../websocket/socketAuthentication.js";
 
 export type DeviceAttachment = {
@@ -16,12 +20,15 @@ export type DeviceAttachment = {
   deviceId?: string;
   authenticatedAt?: number;
   lastHeartbeat?: number;
+  platform?: DevicePlatform | null;
+  actions?: string[];
 };
 
 export type PairAttachment = {
   kind: "pair";
-  requestId: string;
-  expiresAt: number;
+  openedAt: number;
+  requestId?: string;
+  expiresAt?: number;
 };
 
 export type SocketAttachment = DeviceAttachment | PairAttachment;
@@ -40,38 +47,33 @@ export function deviceAttachment(remoteAddress: string): DeviceAttachment {
   };
 }
 
-export function acceptPairSocket(
-  socket: HibernatingSocket,
-  ctx: AppContext,
-  requestId: string | null,
-  pairSecret: string | null,
-): void {
-  if (requestId === null || requestId === "" || pairSecret === null || pairSecret === "") {
-    socket.close(1008, "invalid_credentials");
-    return;
-  }
-  let record;
-  try {
-    record = ctx.pairing.authenticateSocket(requestId, pairSecret);
-  } catch (error) {
-    socket.close(error instanceof AppError ? 1008 : 1011, error instanceof AppError ? "invalid_credentials" : "socket_error");
-    return;
-  }
-  const attachment: PairAttachment = {
+export function beginPairSocket(socket: HibernatingSocket): void {
+  socket.serializeAttachment({
     kind: "pair",
-    requestId: record.id,
-    expiresAt: record.expiresAt,
-  };
-  socket.serializeAttachment(attachment);
-  const previous = ctx.pairSockets.register(record.id, socket);
-  if (previous && previous !== socket) {
-    try {
-      previous.close(1000, "superseded");
-    } catch {
-      // ignore
-    }
+    openedAt: nowMs(),
+  });
+}
+
+export function onPairMessage(socket: HibernatingSocket, ctx: AppContext, raw: unknown): void {
+  const attachment = socket.deserializeAttachment();
+  if (attachment === null || attachment.kind !== "pair" || attachment.requestId !== undefined) {
+    return;
   }
-  ctx.pairSockets.send(record.id, { type: "pair_pending", version: 1 });
+  const authenticated = authenticatePairingFrame(ctx, rawDataToString(raw));
+  if (!authenticated.ok) {
+    ctx.securityLog.warn({}, "pair authentication failed");
+    socket.close(authenticated.close.code, authenticated.close.reason);
+    return;
+  }
+  const next: PairAttachment = {
+    kind: "pair",
+    openedAt: attachment.openedAt,
+    requestId: authenticated.record.id,
+    expiresAt: authenticated.record.expiresAt,
+  };
+  socket.serializeAttachment(next);
+  registerAuthenticatedPairSocket(ctx, socket, authenticated.record);
+  ctx.securityLog.info({ pair_request_id: authenticated.record.id }, "pair socket authenticated");
 }
 
 export function restoreSocket(socket: HibernatingSocket, ctx: AppContext): void {
@@ -80,7 +82,9 @@ export function restoreSocket(socket: HibernatingSocket, ctx: AppContext): void 
     return;
   }
   if (attachment.kind === "pair") {
-    ctx.pairSockets.register(attachment.requestId, socket);
+    if (attachment.requestId !== undefined) {
+      ctx.pairSockets.register(attachment.requestId, socket);
+    }
     return;
   }
   if (attachment.deviceId === undefined || attachment.authenticatedAt === undefined) {
@@ -94,6 +98,8 @@ export function restoreSocket(socket: HibernatingSocket, ctx: AppContext): void 
     lastHeartbeat: attachment.lastHeartbeat ?? attachment.authenticatedAt,
     lastSeen: attachment.lastHeartbeat ?? attachment.authenticatedAt,
     remoteAddress: attachment.remoteAddress,
+    platform: attachment.platform ?? null,
+    actions: attachment.actions ?? [...DEFAULT_DEVICE_ACTIONS],
   };
   ctx.connections.register(connection);
 }
@@ -115,6 +121,7 @@ export function onDeviceMessage(socket: HibernatingSocket, ctx: AppContext, raw:
       return;
     }
     const at = nowMs();
+    const profile = rememberAgentProfile(ctx, result.device.id, parsed.message);
     const connection: DeviceConnection = {
       deviceId: result.device.id,
       connectionId: attachment.connectionId,
@@ -123,11 +130,13 @@ export function onDeviceMessage(socket: HibernatingSocket, ctx: AppContext, raw:
       lastHeartbeat: at,
       lastSeen: at,
       remoteAddress: attachment.remoteAddress,
+      platform: profile.platform,
+      actions: profile.actions,
     };
     const previous = ctx.connections.register(connection);
     if (previous && previous.connectionId !== connection.connectionId) {
       try {
-        previous.socket.close(1000, "superseded");
+        previous.socket.close(SocketClose.superseded.code, SocketClose.superseded.reason);
       } catch {
         // ignore
       }
@@ -137,13 +146,12 @@ export function onDeviceMessage(socket: HibernatingSocket, ctx: AppContext, raw:
       deviceId: result.device.id,
       authenticatedAt: at,
       lastHeartbeat: at,
+      platform: profile.platform,
+      actions: profile.actions,
     };
     socket.serializeAttachment(next);
     ctx.devices.markLastSeen(result.device.id, at);
     ctx.lastSeen.markPersisted(result.device.id, at);
-    if (parsed.message.app_version !== undefined) {
-      ctx.devices.recordAppVersion(result.device.id, parsed.message.app_version);
-    }
     socket.send(encodeOutgoing(authResultOk()));
     ctx.adminEvents.publish("devices");
     return;
@@ -174,7 +182,7 @@ export function onDeviceMessage(socket: HibernatingSocket, ctx: AppContext, raw:
       return;
     }
     case "command_result": {
-      ctx.pending.resolve(parsed.message);
+      acceptCommandResult(ctx.pending, parsed.message, authenticated.deviceId, ctx.securityLog);
       return;
     }
     default: {
@@ -190,7 +198,9 @@ export function onSocketClose(socket: HibernatingSocket, ctx: AppContext): void 
     return;
   }
   if (attachment.kind === "pair") {
-    ctx.pairSockets.remove(attachment.requestId, socket);
+    if (attachment.requestId !== undefined) {
+      ctx.pairSockets.remove(attachment.requestId, socket);
+    }
     return;
   }
   if (attachment.deviceId === undefined) {
@@ -212,24 +222,30 @@ export function sweepSockets(sockets: readonly HibernatingSocket[], ctx: AppCont
   for (const socket of sockets) {
     const attachment = socket.deserializeAttachment();
     if (attachment === null) {
-      socket.close(1008, "invalid_credentials");
+      socket.close(SocketClose.invalidCredentials.code, SocketClose.invalidCredentials.reason);
       continue;
     }
     if (attachment.kind === "pair") {
-      if (now >= attachment.expiresAt) {
-        socket.close(1000, "expired");
+      if (attachment.requestId === undefined) {
+        if (now - attachment.openedAt > ctx.config.authTimeoutMs) {
+          socket.close(PAIR_AUTH_CLOSE.authTimeout.code, PAIR_AUTH_CLOSE.authTimeout.reason);
+        }
+        continue;
+      }
+      if (attachment.expiresAt !== undefined && now >= attachment.expiresAt) {
+        socket.close(SocketClose.expired.code, SocketClose.expired.reason);
       }
       continue;
     }
     if (attachment.deviceId === undefined) {
       if (now - attachment.openedAt > ctx.config.authTimeoutMs) {
-        socket.close(1008, "auth_timeout");
+        socket.close(SocketClose.authTimeout.code, SocketClose.authTimeout.reason);
       }
       continue;
     }
     const lastHeartbeat = attachment.lastHeartbeat ?? attachment.authenticatedAt ?? attachment.openedAt;
     if (now - lastHeartbeat > ctx.config.heartbeatStaleMs) {
-      socket.close(1001, "heartbeat_stale");
+      socket.close(SocketClose.heartbeatStale.code, SocketClose.heartbeatStale.reason);
     }
   }
 }
@@ -240,5 +256,9 @@ function sendAndClose(socket: HibernatingSocket, error: string): void {
   } catch {
     // socket may already be closing
   }
-  socket.close(1008, error);
+  const close =
+    error === SocketClose.unsupportedVersion.reason
+      ? SocketClose.unsupportedVersion
+      : SocketClose.invalidCredentials;
+  socket.close(close.code, close.reason);
 }

@@ -1,21 +1,27 @@
 import Foundation
 
 enum ProtocolConstants {
+    /// Wire version. Canonical value is protocol/catalogue.json `version`.
     static let version = 1
+    /// Client expectation for command lifetime. The Relay TTL is server configuration.
     static let commandTTLMilliseconds: Int64 = 10_000
+    /// How often this Mac sends heartbeat frames. Not a wire requirement.
     static let heartbeatIntervalSeconds: TimeInterval = 30
+    /// How long this Mac waits for auth_result before it reconnects.
     static let authTimeoutSeconds: TimeInterval = 10
     static let stableConnectionResetSeconds: TimeInterval = 10
+    /// Canonical path: protocol/catalogue.json `paths.deviceWebSocket`.
     static let webSocketPath = "/v1/ws/device"
+    /// Canonical path: protocol/catalogue.json `paths.pairWebSocket`.
     static let pairWebSocketPath = "/v1/ws/pair"
     static let pairRequestsPath = "/v1/pair/requests"
 }
 
 enum RelayDefaults {
-    static let productionHost = "relay.example.com"
-    static let productionBaseURLString = "https://relay.example.com"
     static let environmentURLKey = "MOTE_RELAY_URL"
     static let environmentCredentialKey = "MOTE_DEVICE_CREDENTIAL"
+    /// Text-field hint only. Mote never dials this string.
+    static let urlFieldPlaceholder = "https://"
 }
 
 struct RelayConfiguration: Equatable, Sendable {
@@ -37,14 +43,8 @@ struct RelayConfiguration: Equatable, Sendable {
         httpURL(path: "\(ProtocolConstants.pairRequestsPath)/\(requestID)/cancel")
     }
 
-    func pairWebSocketURL(requestID: String, pairSecret: String) -> URL {
-        socketURL(
-            path: ProtocolConstants.pairWebSocketPath,
-            query: [
-                "request_id": requestID,
-                "pair_secret": pairSecret,
-            ]
-        )
+    var pairWebSocketURL: URL {
+        socketURL(path: ProtocolConstants.pairWebSocketPath)
     }
 
     func shortcutSetupURL(deviceID: String) -> URL {
@@ -82,13 +82,9 @@ struct RelayConfiguration: Equatable, Sendable {
         return components.url ?? baseURL
     }
 
-    static var production: RelayConfiguration {
-        let fallback = URL(string: "https://localhost") ?? URL(fileURLWithPath: "/")
-        let url = URL(string: RelayDefaults.productionBaseURLString) ?? fallback
-        return RelayConfiguration(baseURL: url)
-    }
-
-    static func resolve(settingsOverride: String? = nil) -> RelayConfiguration {
+    /// `MOTE_RELAY_URL`, then the settings override. No built-in hostname.
+    /// Missing or invalid input returns nil so the app stays not configured.
+    static func resolve(settingsOverride: String? = nil) -> RelayConfiguration? {
         if let environment = ProcessInfo.processInfo.environment[RelayDefaults.environmentURLKey],
            let url = parseBaseURL(environment) {
             return RelayConfiguration(baseURL: url)
@@ -98,7 +94,7 @@ struct RelayConfiguration: Equatable, Sendable {
             return RelayConfiguration(baseURL: url)
         }
 
-        return .production
+        return nil
     }
 
     static func parseBaseURL(_ raw: String) -> URL? {

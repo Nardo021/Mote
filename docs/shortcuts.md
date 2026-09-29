@@ -25,7 +25,7 @@ Mote Agent → macOS 锁屏
 3. 你有这台 Mac 的 Device ID。Dashboard 设备详情可以 **Copy Shortcut Link**，打开 `https://<relay-host>/s/<DEVICE_ID>`；Mac 的 **Shortcuts** 区也会预填 Device ID 并打开同一页。页面**不会**带上 shortcut token。
 4. 公网主机名前面没有交互式 Cloudflare Access。快捷指令无法完成浏览器登录。
 
-不要在快捷指令里使用源站局域网地址、`http://127.0.0.1:3000` 或任何局域网 URL。客户端始终走 HTTPS 公网基址。
+不要在快捷指令里使用局域网地址或开发机的 `http://127.0.0.1:8787`。客户端始终走 HTTPS 公网基址。
 
 本地 Relay 用本机 `curl` 验证，不要用手机打开发机回环地址。
 
@@ -46,23 +46,10 @@ https://relay.example.com/s/<DEVICE_ID>
 Dashboard（推荐）：
 
 1. 打开 `https://relay.example.com/` 并登录管理员。
-2. **Tokens** → 名称例如 `iPhone` → **Create Token**。
+2. **Tokens** → 名称例如 `iPhone`，并选择这一枚 token 要控制的那一台设备 → **Create Token**。
 3. 对话框里的明文只出现这一次。立刻复制，不要截图进相册或聊天。
 
-CLI（生产）：
-
-```text
-docker compose exec relay node dist/cli.js token create --name "iPhone"
-```
-
-CLI（本地已构建）：
-
-```text
-cd relay
-npm run cli -- token create --name "iPhone"
-```
-
-密钥只打印一次。Relay 只保存 SHA-256 哈希。
+没有单独的 token CLI。Relay 只保存 SHA-256 哈希。
 
 ## 接通 Siri 前先用 curl 测
 

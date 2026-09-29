@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         accessibilityTrustMonitor?.stop()
+        appState.markTerminated()
         MoteLog.app.info("Mote terminating")
     }
 

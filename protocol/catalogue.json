@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "actions": ["lock"],
+  "activitySources": ["shortcut", "dashboard"],
+  "commandClientKinds": ["shortcut"],
+  "paths": {
+    "deviceWebSocket": "/v1/ws/device",
+    "pairWebSocket": "/v1/ws/pair"
+  },
+  "commandResultStatus": [
+    "completed",
+    "failed",
+    "expired",
+    "invalid",
+    "unsupported",
+    "permission_required"
+  ],
+  "closes": [
+    {
+      "reason": "invalid_credentials",
+      "closeCode": 1008,
+      "owner": "device auth, pairing auth, unknown websocket path",
+      "retryable": true,
+      "userExposed": true,
+      "meaning": "Credential check failed, the device is disabled, the pairing secret is wrong, or the websocket path is not a protocol path. Disabled devices and bad secrets use the same reason."
+    },
+    {
+      "reason": "unsupported_version",
+      "closeCode": 1008,
+      "owner": "device auth",
+      "retryable": false,
+      "userExposed": false,
+      "meaning": "The auth frame version is not Protocol v1. The socket closes after an auth_result error frame."
+    },
+    {
+      "reason": "auth_timeout",
+      "closeCode": 1008,
+      "owner": "device and pairing sockets",
+      "retryable": true,
+      "userExposed": false,
+      "meaning": "No successful first frame before the auth timeout. The Durable Object alarm closes the socket on the next sweep after the timeout."
+    },
+    {
+      "reason": "heartbeat_stale",
+      "closeCode": 1001,
+      "owner": "device socket",
+      "retryable": true,
+      "userExposed": false,
+      "meaning": "The authenticated device socket missed the heartbeat stale window."
+    },
+    {
+      "reason": "superseded",
+      "closeCode": 1000,
+      "owner": "device and pairing sockets",
+      "retryable": false,
+      "userExposed": false,
+      "meaning": "A newer authenticated socket replaced this one."
+    },
+    {
+      "reason": "expired",
+      "closeCode": 1000,
+      "owner": "pairing socket",
+      "retryable": false,
+      "userExposed": false,
+      "meaning": "The pair request expired while the socket was waiting."
+    },
+    {
+      "reason": "credential_rotated",
+      "closeCode": 1000,
+      "owner": "device socket",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "An administrator replaced the device credential. The Mac should stop reconnecting until it has the new credential."
+    },
+    {
+      "reason": "device_disabled",
+      "closeCode": 1000,
+      "owner": "device socket",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "An administrator disabled the device. The Mac should stop reconnecting."
+    },
+    {
+      "reason": "server_shutdown",
+      "closeCode": 1001,
+      "owner": "device socket",
+      "retryable": true,
+      "userExposed": false,
+      "meaning": "The connection registry is closing sockets. The Mac may reconnect."
+    },
+    {
+      "reason": "socket_error",
+      "closeCode": 1011,
+      "owner": "pairing socket",
+      "retryable": true,
+      "userExposed": false,
+      "meaning": "Pairing authentication failed for a reason other than a rejected credential."
+    }
+  ],
+  "httpErrors": [
+    {
+      "code": "UNAUTHORIZED",
+      "status": [401],
+      "owner": "machine API and admin API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "Missing or invalid Shortcut token, or invalid administrator sign-in. Unknown users and wrong passwords share one message. Device websocket failures stay on invalid_credentials and do not say whether the device exists."
+    },
+    {
+      "code": "FORBIDDEN",
+      "status": [403],
+      "owner": "machine API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The token cannot perform the operation, is not device-scoped, or is scoped to a different device."
+    },
+    {
+      "code": "DEVICE_NOT_FOUND",
+      "status": [404],
+      "owner": "admin API and pairing",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The device id is not registered."
+    },
+    {
+      "code": "DEVICE_DISABLED",
+      "status": [409],
+      "owner": "machine API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The device exists and is disabled. The command is not queued."
+    },
+    {
+      "code": "DEVICE_OFFLINE",
+      "status": [409],
+      "owner": "machine API",
+      "retryable": true,
+      "userExposed": true,
+      "meaning": "The device has no authenticated socket. The command is not queued."
+    },
+    {
+      "code": "UNSUPPORTED_ACTION",
+      "status": [422],
+      "owner": "machine API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The action is not an active Protocol v1 action, or the connected agent did not report it."
+    },
+    {
+      "code": "INVALID_REQUEST",
+      "status": [400, 404, 413],
+      "owner": "machine API and admin API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The request is malformed, an API path is unknown, or the body exceeds the limit."
+    },
+    {
+      "code": "COMMAND_TIMEOUT",
+      "status": [504],
+      "owner": "machine API",
+      "retryable": true,
+      "userExposed": true,
+      "meaning": "The device did not return command_result before the server timeout. The HTTP body is status timeout, not an error envelope."
+    },
+    {
+      "code": "COMMAND_FAILED",
+      "status": [503],
+      "owner": "machine API",
+      "retryable": true,
+      "userExposed": true,
+      "meaning": "The command was not accepted because too many commands are already in flight."
+    },
+    {
+      "code": "RATE_LIMITED",
+      "status": [429],
+      "owner": "machine API and admin sign-in",
+      "retryable": true,
+      "userExposed": true,
+      "meaning": "The caller exceeded the command or sign-in rate limit."
+    },
+    {
+      "code": "INTERNAL_ERROR",
+      "status": [500],
+      "owner": "worker adapter",
+      "retryable": true,
+      "userExposed": false,
+      "meaning": "Unexpected server failure. The response does not include exception detail."
+    },
+    {
+      "code": "ADMIN_DISABLED",
+      "status": [403],
+      "owner": "admin API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The administrator account is disabled."
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "status": [401],
+      "owner": "admin API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "The administrator session is expired."
+    },
+    {
+      "code": "CSRF_FORBIDDEN",
+      "status": [403],
+      "owner": "admin API",
+      "retryable": false,
+      "userExposed": true,
+      "meaning": "A mutating admin request came from an origin that is not allowed."
+    }
+  ]
+}

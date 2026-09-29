@@ -15,8 +15,6 @@ actor ActionExecutor: MoteActionExecuting {
         switch action {
         case .lock:
             try lockScreen.lockScreen()
-        case .sleep, .mute, .unmute, .playPause:
-            throw ActionExecutionError.unsupported
         }
     }
 }

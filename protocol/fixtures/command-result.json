@@ -1,0 +1,7 @@
+{
+  "type": "command_result",
+  "version": 1,
+  "command_id": "cmd_unique_id",
+  "status": "completed",
+  "completed_at": 60
+}

@@ -142,7 +142,8 @@ enum ConnectionStatusCopy {
     }
 
     static func isCredentialRecovery(_ message: String) -> Bool {
-        message == "invalid_credentials" || message == RelayCloseReason.credentialRotated.rawValue
+        message == RelayCloseReason.invalidCredentials.rawValue
+            || message == RelayCloseReason.credentialRotated.rawValue
     }
 
     private static func credentialRecoveryError(for message: String?) -> InlineError {
@@ -156,6 +157,8 @@ enum ConnectionStatusCopy {
         switch message {
         case "Network unavailable":
             return "The network is unavailable."
+        case RelayCloseReason.unsupportedVersion.rawValue:
+            return "This version of Mote cannot talk to the relay."
         case "DNS failure":
             return "The relay host could not be resolved."
         case "TLS failure":

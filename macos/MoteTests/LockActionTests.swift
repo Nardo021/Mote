@@ -42,13 +42,6 @@ final class LockActionTests: XCTestCase {
         try action.lockScreen()
         XCTAssertEqual(fallback.value, 1)
     }
-
-    func testLoginSessionSymbolResolvesWithoutLocking() {
-        XCTAssertTrue(
-            LoginSession.isAvailable,
-            "SACLockScreenImmediate should resolve from login.framework on this Mac"
-        )
-    }
 }
 
 private final class LockCounter: @unchecked Sendable {

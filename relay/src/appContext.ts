@@ -48,6 +48,10 @@ export type AppContext = {
   pairDeviceRateLimiter: SlidingWindowRateLimiter;
   pairIpRateLimiter: SlidingWindowRateLimiter;
   adminEvents: AdminEventBus;
+  securityLog: {
+    info: (obj: Record<string, unknown>, msg: string) => void;
+    warn: (obj: Record<string, unknown>, msg: string) => void;
+  };
 };
 
 export function createAppContext(
@@ -80,7 +84,10 @@ export function createAppContext(
     devices,
     commandRouter,
     pending,
-    (deviceId) => connections.isOnline(deviceId),
+    (deviceId) => {
+      const connection = connections.get(deviceId);
+      return connection === undefined ? undefined : { actions: connection.actions };
+    },
     activity,
     {
       info: () => undefined,
@@ -131,24 +138,9 @@ export function createAppContext(
     pairDeviceRateLimiter,
     pairIpRateLimiter,
     adminEvents,
+    securityLog: {
+      info: () => undefined,
+      warn: () => undefined,
+    },
   };
-}
-
-export function bindCommandLogger(
-  ctx: AppContext,
-  log: {
-    info: (obj: Record<string, unknown>, msg: string) => void;
-    warn: (obj: Record<string, unknown>, msg: string) => void;
-  },
-): void {
-  ctx.commands = new CommandService(
-    ctx.config,
-    ctx.devices,
-    ctx.commandRouter,
-    ctx.pending,
-    (deviceId) => ctx.connections.isOnline(deviceId),
-    ctx.activity,
-    log,
-    ctx.adminEvents,
-  );
 }

@@ -57,11 +57,7 @@ export function LoginPage() {
               {!configured ? (
                 <Alert>
                   <AlertTitle>{t("login.setupRequired")}</AlertTitle>
-                  <AlertDescription>
-                    {t("login.unconfigured")}
-                    <br />
-                    <span className="mono">npm run cli -- admin create</span>
-                  </AlertDescription>
+                  <AlertDescription>{t("login.unconfigured")}</AlertDescription>
                 </Alert>
               ) : null}
               <Field data-invalid={error ? true : undefined}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -36,15 +36,15 @@ import {
   arrayIncludesFilter,
   useLocalTable,
 } from "../../components/data-table/use-local-table.js";
-import { AppHeader } from "../../components/layout/app-header.js";
-import { Main } from "../../components/layout/main.js";
+import { DevicePlatform } from "../../components/DevicePlatform.js";
+import {
+  DashboardPage,
+  dashboardListClass,
+} from "../../components/layout/dashboard-page.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
-import { LoadingState } from "../../components/LoadingState.js";
 import { DeviceStatusBadge, EventStatusBadge } from "../../components/StatusBadge.js";
-import { useAdminEvents } from "../../events/AdminEventsProvider.js";
-import { livePollInterval } from "../../events/topics.js";
+import { useLiveRefresh } from "../../hooks/useLiveRefresh.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
-import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import { shortenId } from "../../lib/format.js";
 import { isRetryableStatus } from "../../lib/retry.js";
@@ -75,19 +75,11 @@ export function DevicesPage() {
     setDevices(result.devices);
   }, []);
 
-  useEffect(() => {
-    void refresh().catch((cause: unknown) => {
-      toast.error(translateError(cause, t, "devices.loadFailed"));
-    });
-  }, [refresh, t]);
-  const { live } = useAdminEvents(DEVICE_EVENT_TOPICS, () => {
-    void refresh().catch(() => undefined);
+  useLiveRefresh(refresh, {
+    topics: DEVICE_EVENT_TOPICS,
+    errorKey: "devices.loadFailed",
+    ready: devices !== null,
   });
-  usePolling(
-    () => refresh().catch(() => undefined),
-    livePollInterval(live, 5_000),
-    devices !== null,
-  );
 
   const onRetry = useCallback(async (device: AdminDevice) => {
     const action = device.last_command?.action;
@@ -135,6 +127,13 @@ export function DevicesPage() {
             {shortenId(row.original.id)}
           </span>
         ),
+      },
+      {
+        accessorKey: "platform",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t("devices.platform")} />
+        ),
+        cell: ({ row }) => <DevicePlatform platform={row.original.platform} />,
       },
       {
         accessorKey: "app_version",
@@ -257,24 +256,14 @@ export function DevicesPage() {
     }
   }
 
-  if (devices === null) {
-    return (
-      <>
-        <AppHeader fixed />
-        <Main>
-          <LoadingState label={t("common.loading")} />
-        </Main>
-      </>
-    );
-  }
-
   const empty =
-    devices.length === 0 && pairing.requests.length === 0;
+    devices !== null && devices.length === 0 && pairing.requests.length === 0;
 
   return (
     <>
-      <AppHeader fixed />
-      <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
+      <DashboardPage ready={devices !== null} className={dashboardListClass}>
+        {devices === null ? null : (
+        <>
         <PageHeading title={t("devices.title")} />
         {pairing.requests.length > 0 ? (
           <section className="flex flex-col gap-3">
@@ -343,10 +332,12 @@ export function DevicesPage() {
                   { label: t("presence.disabled"), value: "disabled" },
                 ],
               },
-            ]}
-          />
+          ]}
+        />
         )}
-      </Main>
+        </>
+        )}
+      </DashboardPage>
       <Dialog
         open={renameTarget !== null}
         onOpenChange={(open) => {

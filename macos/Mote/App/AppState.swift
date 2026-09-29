@@ -33,7 +33,7 @@ final class AppState {
 
     init(
         settings: SettingsStore = SettingsStore(),
-        credentials: CredentialManager = CredentialManager(),
+        credentials: CredentialManager = .live(),
         executor: any MoteActionExecuting = ActionExecutor(),
         pairing: any PairingServicing = RelayPairingClient(),
         isAccessibilityTrusted: @escaping () -> Bool = { AccessibilityPermission.isTrusted }
@@ -46,7 +46,7 @@ final class AppState {
         bindAgent()
     }
 
-    var relayConfiguration: RelayConfiguration {
+    var relayConfiguration: RelayConfiguration? {
         RelayConfiguration.resolve(settingsOverride: relayURLOverride)
     }
 
@@ -59,7 +59,7 @@ final class AppState {
     }
 
     var relayHost: String {
-        relayConfiguration.hostDisplayName
+        relayConfiguration?.hostDisplayName ?? ""
     }
 
     var isUnconfigured: Bool {
@@ -201,7 +201,12 @@ final class AppState {
         }
     }
 
+    func markTerminated() {
+        agent.markTerminated()
+    }
+
     func quit() {
+        markTerminated()
         Task {
             await agent.shutdown()
             NSApplication.shared.terminate(nil)
@@ -270,10 +275,10 @@ final class AppState {
         activePair = nil
         connectionState = .notConfigured
         lastError = nil
-        guard let pair else { return }
+        guard let pair, let configuration = relayConfiguration else { return }
         Task {
             try? await pairing.cancel(
-                configuration: relayConfiguration,
+                configuration: configuration,
                 requestID: pair.requestID,
                 pairSecret: pair.pairSecret
             )
@@ -281,23 +286,29 @@ final class AppState {
     }
 
     func openShortcutSetup() {
+        guard let configuration = relayConfiguration else { return }
         copyDeviceID()
-        NSWorkspace.shared.open(relayConfiguration.shortcutSetupURL(deviceID: deviceID))
+        NSWorkspace.shared.open(configuration.shortcutSetupURL(deviceID: deviceID))
     }
 
     private func runPairing() async {
+        guard let configuration = relayConfiguration else {
+            connectionState = .notConfigured
+            lastError = "Could not start pairing."
+            return
+        }
         connectionState = .pairing
         lastError = nil
         do {
             let created = try await pairing.createRequest(
-                configuration: relayConfiguration,
+                configuration: configuration,
                 deviceID: deviceID,
                 deviceName: deviceName
             )
             try Task.checkCancellation()
             activePair = created
             let decision = try await pairing.waitForDecision(
-                configuration: relayConfiguration,
+                configuration: configuration,
                 requestID: created.requestID,
                 pairSecret: created.pairSecret
             )

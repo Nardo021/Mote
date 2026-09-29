@@ -1,6 +1,9 @@
 import Foundation
 import ServiceManagement
 
+/// Login item is this menu-bar app via `SMAppService.mainApp`.
+/// There is no helper daemon. Register and unregister are idempotent.
+/// Login launch and a manual launch both enter `applicationDidFinishLaunching`.
 enum LoginItemService {
     @MainActor
     static var isEnabled: Bool {

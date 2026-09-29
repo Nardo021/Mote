@@ -24,7 +24,8 @@ function setup() {
 describe("credential authentication", () => {
   it("accepts a valid Shortcut send_command token", () => {
     const { db, tokenRepository, devices } = setup();
-    const created = devices.createShortcutToken("iPhone");
+    devices.createDevice("MacBook Pro", TEST_DEVICE_ID);
+    const created = devices.createShortcutToken("iPhone", TEST_DEVICE_ID);
     const client = authenticateShortcutToken(`Bearer ${created.token}`, tokenRepository);
     assert.equal(client.permission, Permission.send_command);
     assert.equal(client.tokenId, created.id);
@@ -51,6 +52,8 @@ describe("credential authentication", () => {
       name: "wrong-role",
       tokenHash: hashSecret("device-shaped-secret"),
       permission: Permission.device_connection,
+      clientKind: "shortcut",
+      deviceId: null,
       enabled: true,
       createdAt: nowMs(),
       lastUsedAt: null,

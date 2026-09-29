@@ -16,7 +16,7 @@ describe("HTTP API", () => {
     server = await startTestServer({ rateLimitMax: 3, rateLimitWindowMs: 10_000 });
     const device = server.ctx.devices.createDevice("MacBook Pro", TEST_DEVICE_ID);
     deviceId = device.id;
-    token = server.ctx.devices.createShortcutToken("iPhone").token;
+    token = server.ctx.devices.createShortcutToken("iPhone", deviceId).token;
   });
 
   after(async () => {
@@ -55,6 +55,8 @@ describe("HTTP API", () => {
       name: "device-shaped",
       tokenHash: hashSecret("ws-only"),
       permission: Permission.device_connection,
+      clientKind: "shortcut",
+      deviceId: null,
       enabled: true,
       createdAt: nowMs(),
       lastUsedAt: null,
@@ -114,7 +116,7 @@ describe("HTTP API", () => {
   it("rate limits repeated command submissions", async () => {
     const limited = await startTestServer({ rateLimitMax: 2, rateLimitWindowMs: 10_000 });
     const created = limited.ctx.devices.createDevice("Other Mac", "22222222-2222-4222-8222-222222222222");
-    const shortcut = limited.ctx.devices.createShortcutToken("phone").token;
+    const shortcut = limited.ctx.devices.createShortcutToken("phone", created.id).token;
     const headers = { authorization: `Bearer ${shortcut}` };
     const payload = { action: "lock" };
     const first = await limited.app.inject({

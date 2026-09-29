@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+import { InfoRow } from "../../components/InfoRow.js";
 import { useAuth } from "../../hooks/useAuth.js";
 
 export function SettingsProfilePage() {
@@ -21,23 +22,8 @@ export function SettingsProfilePage() {
         <CardDescription>{t("settings.profileDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <Info label={t("settings.username")}>{user?.username ?? "—"}</Info>
+        <InfoRow label={t("settings.username")}>{user?.username ?? "—"}</InfoRow>
       </CardContent>
     </Card>
-  );
-}
-
-function Info({
-  label,
-  children,
-}: {
-  label: string;
-  children: string;
-}) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[200px_1fr]">
-      <span className="text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
   );
 }

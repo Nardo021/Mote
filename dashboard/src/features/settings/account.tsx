@@ -24,12 +24,10 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { changePassword } from "../../api/auth.js";
 import { SignOutDialog } from "../../components/sign-out-dialog.js";
-import { useAuth } from "../../hooks/useAuth.js";
 import { translateError } from "../../lib/errors.js";
 
 export function SettingsAccountPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const [changing, setChanging] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -60,14 +58,7 @@ export function SettingsAccountPage() {
           <CardDescription>{t("settings.accountDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <p className="text-muted-foreground">
-            {t("settings.passwordHint")}
-            <br />
-            <span className="mono">
-              docker compose exec relay node dist/cli.js admin password
-              --username {user?.username ?? "admin"}
-            </span>
-          </p>
+          <p className="text-muted-foreground">{t("settings.passwordHint")}</p>
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => setChanging(true)}>

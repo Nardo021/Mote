@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 
 import { getSystem } from "../../api/system.js";
+import { InfoRow } from "../../components/InfoRow.js";
 import { LoadingState } from "../../components/LoadingState.js";
 import { translateError } from "../../lib/errors.js";
 import { formatUptime } from "../../lib/format.js";
@@ -39,37 +40,22 @@ export function SettingsRelayPage() {
         <CardDescription>{t("settings.relayDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <Info label={t("settings.publicUrl")}>{system.public_url}</Info>
-        <Info label={t("settings.protocol")}>
+        <InfoRow label={t("settings.publicUrl")}>{system.public_url}</InfoRow>
+        <InfoRow label={t("settings.protocol")}>
           Mote Protocol v{system.protocol_version}
-        </Info>
-        <Info label={t("settings.environment")}>
+        </InfoRow>
+        <InfoRow label={t("settings.environment")}>
           <span className="capitalize">{system.environment}</span>
-        </Info>
-        <Info label={t("settings.database")}>SQLite</Info>
-        <Info label={t("settings.commandTtl")}>
+        </InfoRow>
+        <InfoRow label={t("settings.database")}>SQLite</InfoRow>
+        <InfoRow label={t("settings.commandTtl")}>
           {t("settings.seconds", { count: system.command_ttl_ms / 1000 })}
-        </Info>
-        <Info label={t("settings.heartbeat")}>
+        </InfoRow>
+        <InfoRow label={t("settings.heartbeat")}>
           {t("settings.seconds", { count: system.heartbeat_stale_ms / 1000 })}
-        </Info>
-        <Info label={t("settings.uptime")}>{formatUptime(system.uptime_ms)}</Info>
+        </InfoRow>
+        <InfoRow label={t("settings.uptime")}>{formatUptime(system.uptime_ms)}</InfoRow>
       </CardContent>
     </Card>
-  );
-}
-
-function Info({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[200px_1fr]">
-      <span className="text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
   );
 }

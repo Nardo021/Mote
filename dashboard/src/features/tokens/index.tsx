@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +22,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
+import { listDevices } from "../../api/devices.js";
 import {
   createToken,
   disableToken,
@@ -29,17 +37,17 @@ import {
   arrayIncludesFilter,
   useLocalTable,
 } from "../../components/data-table/use-local-table.js";
-import { AppHeader } from "../../components/layout/app-header.js";
-import { Main } from "../../components/layout/main.js";
+import {
+  DashboardPage,
+  dashboardListClass,
+} from "../../components/layout/dashboard-page.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
-import { LoadingState } from "../../components/LoadingState.js";
 import { SecretDialog } from "../../components/SecretDialog.js";
-import { useAdminEvents } from "../../events/AdminEventsProvider.js";
-import { livePollInterval } from "../../events/topics.js";
+import { useLiveRefresh } from "../../hooks/useLiveRefresh.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
-import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
-import type { AdminToken } from "../../types/token.js";
+import type { AdminDevice } from "../../types/device.js";
+import type { AdminToken, CommandClientKind } from "../../types/token.js";
 
 const TOKEN_EVENT_TOPICS = ["tokens"] as const;
 
@@ -51,6 +59,9 @@ export function TokensPage() {
   const [tokens, setTokens] = useState<AdminToken[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [clientKind, setClientKind] = useState<CommandClientKind>("shortcut");
+  const [selectedDevice, setSelectedDevice] = useState("");
+  const [devices, setDevices] = useState<AdminDevice[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
   const [secret, setSecret] = useState<{ title: string; value: string } | null>(
@@ -58,22 +69,16 @@ export function TokensPage() {
   );
 
   const refresh = useCallback(async () => {
-    setTokens((await listTokens()).tokens);
+    const [tokenResult, deviceResult] = await Promise.all([listTokens(), listDevices()]);
+    setTokens(tokenResult.tokens);
+    setDevices(deviceResult.devices);
   }, []);
 
-  useEffect(() => {
-    void refresh().catch((cause: unknown) => {
-      toast.error(translateError(cause, t, "tokens.loadFailed"));
-    });
-  }, [refresh, t]);
-  const { live } = useAdminEvents(TOKEN_EVENT_TOPICS, () => {
-    void refresh().catch(() => undefined);
+  useLiveRefresh(refresh, {
+    topics: TOKEN_EVENT_TOPICS,
+    errorKey: "tokens.loadFailed",
+    ready: tokens !== null,
   });
-  usePolling(
-    () => refresh().catch(() => undefined),
-    livePollInterval(live, 5_000),
-    tokens !== null,
-  );
 
   const columns = useMemo<ColumnDef<AdminToken>[]>(
     () => [
@@ -84,10 +89,25 @@ export function TokensPage() {
         ),
       },
       {
-        accessorKey: "permission",
+        accessorKey: "client_kind",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={t("tokens.permission")} />
+          <DataTableColumnHeader column={column} title={t("tokens.client")} />
         ),
+        cell: () => t("tokens.clientShortcut"),
+      },
+      {
+        id: "devices",
+        accessorFn: (token) => token.device_id ?? "",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t("tokens.scope")} />
+        ),
+        cell: ({ row }) => {
+          const deviceId = row.original.device_id;
+          if (deviceId === null) {
+            return t("tokens.scopeLegacy");
+          }
+          return devices.find((device) => device.id === deviceId)?.name ?? deviceId;
+        },
       },
       {
         id: "enabled",
@@ -164,7 +184,7 @@ export function TokensPage() {
         },
       },
     ],
-    [format, refresh, t],
+    [devices, format, refresh, t],
   );
 
   const table = useLocalTable(tokens ?? [], columns);
@@ -173,8 +193,14 @@ export function TokensPage() {
     event.preventDefault();
     setBusy(true);
     try {
-      const created = await createToken(name);
+      const created = await createToken({
+        name,
+        clientKind,
+        deviceId: selectedDevice,
+      });
       setName("");
+      setClientKind("shortcut");
+      setSelectedDevice("");
       setCreating(false);
       setSecret({ title: t("tokens.createdSecret"), value: created.token });
       await refresh();
@@ -185,25 +211,23 @@ export function TokensPage() {
     }
   }
 
-  if (tokens === null) {
-    return (
-      <>
-        <AppHeader fixed />
-        <Main>
-          <LoadingState label={t("common.loading")} />
-        </Main>
-      </>
-    );
-  }
-
   return (
     <>
-      <AppHeader fixed />
-      <Main className="flex flex-1 flex-col gap-4 sm:gap-6">
+      <DashboardPage ready={tokens !== null} className={dashboardListClass}>
+        {tokens === null ? null : (
+        <>
         <PageHeading
           title={t("tokens.title")}
           action={
-            <Button type="button" onClick={() => setCreating(true)}>
+            <Button
+              type="button"
+              onClick={() => {
+                setCreating(true);
+                void listDevices()
+                  .then((result) => setDevices(result.devices))
+                  .catch(() => setDevices([]));
+              }}
+            >
               {t("tokens.create")}
             </Button>
           }
@@ -225,7 +249,9 @@ export function TokensPage() {
             },
           ]}
         />
-      </Main>
+        </>
+        )}
+      </DashboardPage>
       <Dialog
         open={creating}
         onOpenChange={(open) => {
@@ -249,6 +275,50 @@ export function TokensPage() {
                   required
                 />
               </Field>
+              <Field>
+                <FieldLabel htmlFor="token-client">{t("tokens.client")}</FieldLabel>
+                <Select
+                  value={clientKind}
+                  onValueChange={(value) => {
+                    if (value === "shortcut") {
+                      setClientKind(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="token-client" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="shortcut">{t("tokens.clientShortcut")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="token-device">{t("tokens.scope")}</FieldLabel>
+                {devices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("tokens.scopeEmpty")}</p>
+                ) : (
+                  <Select
+                    value={selectedDevice}
+                    onValueChange={(value) => {
+                      if (typeof value === "string") {
+                        setSelectedDevice(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="token-device" className="w-full">
+                      <SelectValue placeholder={t("tokens.scopeRequired")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {devices.map((device) => (
+                        <SelectItem key={device.id} value={device.id}>
+                          {device.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
             </FieldGroup>
             <DialogFooter>
               <Button
@@ -259,7 +329,10 @@ export function TokensPage() {
               >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={busy}>
+              <Button
+                type="submit"
+                disabled={busy || selectedDevice === ""}
+              >
                 {busy ? <Spinner data-icon="inline-start" /> : null}
                 {t("tokens.create")}
               </Button>

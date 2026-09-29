@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, mote-v2]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  relay:
+    name: Relay / Protocol
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            relay/package-lock.json
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix relay
+      - name: Test
+        run: npm test --prefix relay
+      - name: Typecheck
+        run: npm run typecheck --prefix relay
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Install
+        run: npm ci --prefix dashboard
+      - name: Test
+        run: npm test --prefix dashboard
+      - name: Typecheck
+        run: npm run typecheck --prefix dashboard
+      - name: Production build
+        run: npm run build --prefix dashboard
+
+  worker:
+    name: Cloudflare Worker
+    runs-on: ubuntu-latest
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            relay/package-lock.json
+            dashboard/package-lock.json
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix relay
+          npm ci --prefix dashboard
+      - name: Build Dashboard assets
+        run: npm run build --prefix dashboard
+      - name: Generate Worker types
+        run: npm run cf-typegen
+      - name: Worker typecheck
+        working-directory: relay
+        run: npx tsc --noEmit -p tsconfig.worker.json
+      - name: Wrangler dry-run
+        run: npm run worker:dry-run
+
+  macos:
+    name: macOS
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      MOTE_RUN_SIDE_EFFECT_TESTS: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.1.1.app/Contents/Developer
+          xcodebuild -version
+          swift --version
+      - name: Build
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project macos/Mote.xcodeproj \
+            -scheme Mote \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath derived-data \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGNING_ALLOWED=YES
+      - name: Run safe tests
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project macos/Mote.xcodeproj \
+            -scheme Mote \
+            -testPlan Mote-Safe \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath derived-data \
+            -parallel-testing-enabled NO \
+            -skip-testing:MoteTests/LockActionLiveTests \
+            -resultBundlePath "${RUNNER_TEMP}/Mote-Safe.xcresult" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGNING_ALLOWED=YES
+
+  consistency:
+    name: Repository consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check identities, plans, and workflow boundaries
+        run: node scripts/check-repository.mjs

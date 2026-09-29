@@ -62,14 +62,17 @@ final class CommandProcessorTests: XCTestCase {
         XCTAssertEqual(result.status, .permissionRequired)
     }
 
-    func testActionExecutorDoesNotLockOnUnsupportedAction() async throws {
-        let lock = RecordingScreenLock()
-        let executor = ActionExecutor(lockScreen: lock)
-        do {
-            try await executor.execute(.sleep)
-            XCTFail("Expected unsupported")
-        } catch ActionExecutionError.unsupported {
-            XCTAssertEqual(lock.lockCount, 0)
-        }
+    func testRemovedActionDoesNotExecute() async {
+        let executor = RecordingActionExecutor()
+        let processor = CommandProcessor(deviceID: "device-1", executor: executor, now: { 1_000_000 })
+        let command = MockCommandFactory.lock(
+            deviceID: "device-1",
+            createdAt: 1_000_000,
+            expiresAt: 1_010_000,
+            action: "sleep"
+        )
+        let result = await processor.process(command)
+        XCTAssertEqual(result.status, .unsupported)
+        XCTAssertTrue(executor.executed.isEmpty)
     }
 }

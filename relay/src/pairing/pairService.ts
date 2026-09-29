@@ -2,6 +2,7 @@ import type { AdminEventBus } from "../admin/eventBus.js";
 import { hashSecret, verifySecret } from "../auth/tokenHash.js";
 import type { DeviceService } from "../devices/deviceService.js";
 import type { CreatedDevice } from "../devices/deviceTypes.js";
+import { SocketClose } from "../protocol/closeReasons.js";
 import {
   AppError,
   ErrorCode,
@@ -67,7 +68,7 @@ export class PairService {
         type: "pair_expired",
         version: 1,
       });
-      this.sockets.close(existing.id, 1000, "superseded");
+      this.sockets.close(existing.id, SocketClose.superseded.code, SocketClose.superseded.reason);
     }
 
     const id = createId();
@@ -153,7 +154,7 @@ export class PairService {
     const expired = this.requests.expirePending(nowMs());
     for (const request of expired) {
       this.sockets.send(request.id, { type: "pair_expired", version: 1 });
-      this.sockets.close(request.id, 1000, "expired");
+      this.sockets.close(request.id, SocketClose.expired.code, SocketClose.expired.reason);
     }
     if (expired.length > 0) {
       this.events.publish("pairing");

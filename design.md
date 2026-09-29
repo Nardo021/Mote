@@ -1,6 +1,6 @@
 # Mote 设计语言
 
-Mote for Mac 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。下一步的个人 iOS 客户端应沿用同一套 token 与语气，而不是另起一套消费级视觉。文案示例里的 `relay.example.com` 是占位主机名。
+Mote for Mac 已按紧凑的原生分组表单落地。下列窗口尺寸、菜单结构和状态文案以当前代码为准；颜色与原则仍是实现时应遵守的规范。将来若做个人 iOS 客户端，应沿用同一套 token 与语气，而不是另起一套消费级视觉。当前仓库没有这个应用。文案示例里的 `relay.example.com` 是占位主机名。
 
 ## 1. 设计方向
 
@@ -959,7 +959,7 @@ Mote Relay can see this Device ID. Allow it in the Dashboard.
 [Cancel]
 ```
 
-折叠的「Paste credential instead」只用于 CLI 恢复。不要显示虚假的断开指标或 `0 ms`。
+折叠的「Paste credential instead」用来粘贴 Dashboard 轮换后的新凭据。不要显示虚假的断开指标或 `0 ms`。
 
 ## 27. 文案风格
 
@@ -1158,7 +1158,7 @@ Mote 是桌面工具，不是响应式网站。
 
 ## 35. iOS 与后续传输
 
-下一步是个人用原生 iPhone 应用，仍走 Relay HTTPS。再往后才可能出现本地 Bonjour 传输。
+原生 iPhone 应用尚未实现。若要做，仍走 Relay HTTPS。本地 Bonjour 传输也未实现。
 
 当前 Mac 头已经按传输行预留位置：
 

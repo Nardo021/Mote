@@ -1,7 +1,7 @@
 import OSLog
 
 enum MoteLog {
-    static let subsystem = "com.example.mote"
+    static let subsystem = AppIdentity.logSubsystem
 
     static let app = Logger(subsystem: subsystem, category: "app")
     static let network = Logger(subsystem: subsystem, category: "network")

@@ -5,6 +5,9 @@
   "compatibility_date": "2026-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "dev": {
+    "port": 8787
+  },
   "observability": {
     "enabled": true
   },

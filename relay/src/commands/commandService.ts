@@ -70,7 +70,9 @@ export class CommandService {
     private readonly devices: DeviceService,
     private readonly router: CommandRouter,
     private readonly pending: PendingCommands,
-    private readonly isOnline: (deviceId: string) => boolean,
+    private readonly onlineDevice: (
+      deviceId: string,
+    ) => { actions: readonly string[] } | undefined,
     private readonly activity: ActivityService,
     private readonly log: CommandLogger,
     private readonly events: AdminEventBus,
@@ -87,8 +89,8 @@ export class CommandService {
   }> {
     const receivedAt = nowMs();
     const device = this.devices.requireDevice(deviceId);
-    const { action } = parseCommandBody(body);
-    validateCommandAction(action, {
+    const { action: requestedAction } = parseCommandBody(body);
+    const action = validateCommandAction(requestedAction, {
       device_id: device.id,
       device: device.name,
     });
@@ -106,13 +108,27 @@ export class CommandService {
       );
     }
 
-    if (!this.isOnline(device.id)) {
+    const online = this.onlineDevice(device.id);
+    if (online === undefined) {
       throw new AppError(
         ErrorCode.DEVICE_OFFLINE,
         "Device is currently offline.",
         409,
         {
           status: "offline",
+          device_id: device.id,
+          device: device.name,
+        },
+      );
+    }
+
+    if (!online.actions.includes(action)) {
+      throw new AppError(
+        ErrorCode.UNSUPPORTED_ACTION,
+        "Action is not supported.",
+        422,
+        {
+          status: "unsupported",
           device_id: device.id,
           device: device.name,
         },
@@ -158,20 +174,24 @@ export class CommandService {
 
     const waiter = this.pending.wait(
       command.id,
+      device.id,
       this.config.commandTimeoutMs,
       receivedAt,
       createdAt,
     );
     const sent = this.router.send(command);
     if (!sent) {
-      this.pending.resolve({
-        type: "command_result",
-        version: PROTOCOL_VERSION,
-        command_id: command.id,
-        status: "failed",
-        completed_at: nowMs(),
-        error: "device_disconnected",
-      });
+      this.pending.resolve(
+        {
+          type: "command_result",
+          version: PROTOCOL_VERSION,
+          command_id: command.id,
+          status: "failed",
+          completed_at: nowMs(),
+          error: "device_disconnected",
+        },
+        device.id,
+      );
       this.activity.recordTerminal(
         command.id,
         CommandEventStatus.failed,

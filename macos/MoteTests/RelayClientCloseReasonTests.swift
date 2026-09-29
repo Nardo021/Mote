@@ -18,6 +18,15 @@ final class RelayClientCloseReasonTests: XCTestCase {
         XCTAssertFalse(recorder.snapshot().contains(.reconnecting))
     }
 
+    func testUnknownCloseReasonStillReconnects() async {
+        let recorder = await runUntilClose(reason: "future_reason")
+        let deadline = Date().addingTimeInterval(2.0)
+        while Date() < deadline, !recorder.snapshot().contains(.reconnecting) {
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        XCTAssertTrue(recorder.snapshot().contains(.reconnecting))
+    }
+
     func testOrdinaryCloseStillReconnects() async {
         let recorder = await runUntilClose(reason: "server_shutdown")
         let deadline = Date().addingTimeInterval(2.0)
@@ -32,7 +41,9 @@ final class RelayClientCloseReasonTests: XCTestCase {
         let recorder = ConnectionStateRecorder()
         let client = RelayClient(
             deviceID: "7B0F0000-0000-0000-0000-0000000091AC",
-            configurationProvider: { RelayConfiguration.resolve() },
+            configurationProvider: {
+                RelayConfiguration(baseURL: URL(string: "https://relay.example.net")!)
+            },
             credentialProvider: { "device-credential" },
             transportFactory: { _ in transport },
             events: RelayClientEvents(

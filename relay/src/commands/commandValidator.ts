@@ -1,13 +1,15 @@
+import type { ImplementedAction } from "../protocol/actions.js";
 import { AppError, ErrorCode } from "../utils/errors.js";
-import { isImplementedAction, isKnownAction } from "./commandTypes.js";
+import { isImplementedAction } from "./commandTypes.js";
 
-export type ValidatedAction = "lock";
-
-export function validateCommandAction(action: unknown, extra: { device_id?: string; device?: string } = {}): ValidatedAction {
+export function validateCommandAction(
+  action: unknown,
+  extra: { device_id?: string; device?: string } = {},
+): ImplementedAction {
   if (typeof action !== "string" || action.trim() === "") {
     throw new AppError(ErrorCode.INVALID_REQUEST, "Action is required.", 400, extra);
   }
-  if (!isKnownAction(action) || !isImplementedAction(action)) {
+  if (!isImplementedAction(action)) {
     throw new AppError(ErrorCode.UNSUPPORTED_ACTION, "Action is not supported.", 422, {
       ...extra,
       status: "unsupported",

@@ -1,3 +1,6 @@
+import type { DevicePlatform } from "../protocol/actions.js";
+import { SocketClose } from "../protocol/closeReasons.js";
+
 export type RelaySocket = {
   send(data: string): void;
   close(code?: number, reason?: string): void;
@@ -12,6 +15,8 @@ export type DeviceConnection = {
   lastHeartbeat: number;
   lastSeen: number;
   remoteAddress?: string;
+  platform: DevicePlatform | null;
+  actions: readonly string[];
 };
 
 export class ConnectionRegistry {
@@ -62,8 +67,8 @@ export class ConnectionRegistry {
 
   closeDevice(
     deviceId: string,
-    code = 1000,
-    reason = "device_disabled",
+    code: number = SocketClose.deviceDisabled.code,
+    reason: string = SocketClose.deviceDisabled.reason,
   ): boolean {
     const current = this.connections.get(deviceId);
     if (!current) {
@@ -80,7 +85,7 @@ export class ConnectionRegistry {
   closeAll(): void {
     for (const connection of this.list()) {
       try {
-        connection.socket.close(1001, "server_shutdown");
+        connection.socket.close(SocketClose.serverShutdown.code, SocketClose.serverShutdown.reason);
       } catch {
         // ignore close errors during shutdown
       }

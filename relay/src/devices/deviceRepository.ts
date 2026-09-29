@@ -8,8 +8,12 @@ export class DeviceRepository {
   insert(record: DeviceRecord): void {
     this.db
       .prepare(
-        `INSERT INTO devices (id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version)
-         VALUES (@id, @name, @credential_hash, @enabled, @created_at, @updated_at, @last_seen_at, @app_version)`,
+        `INSERT INTO devices (
+           id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version, platform, actions
+         )
+         VALUES (
+           @id, @name, @credential_hash, @enabled, @created_at, @updated_at, @last_seen_at, @app_version, @platform, @actions
+         )`,
       )
       .run({
         id: record.id,
@@ -20,13 +24,15 @@ export class DeviceRepository {
         updated_at: record.updatedAt,
         last_seen_at: record.lastSeenAt,
         app_version: record.appVersion,
+        platform: record.platform,
+        actions: record.actions === null ? null : JSON.stringify(record.actions),
       });
   }
 
   findById(id: string): DeviceRecord | undefined {
     const row = this.db
       .prepare(
-        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version
+        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version, platform, actions
          FROM devices WHERE id = ?`,
       )
       .get(id) as DeviceRow | undefined;
@@ -36,7 +42,7 @@ export class DeviceRepository {
   list(): DeviceRecord[] {
     const rows = this.db
       .prepare(
-        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version
+        `SELECT id, name, credential_hash, enabled, created_at, updated_at, last_seen_at, app_version, platform, actions
          FROM devices ORDER BY created_at ASC`,
       )
       .all() as DeviceRow[];
@@ -75,6 +81,21 @@ export class DeviceRepository {
     const result = this.db
       .prepare("UPDATE devices SET app_version = ?, updated_at = ? WHERE id = ?")
       .run(appVersion, nowMs(), id);
+    return result.changes > 0;
+  }
+
+  updateAgentProfile(id: string, platform: string | null, actions: readonly string[]): boolean {
+    const encoded = JSON.stringify(actions);
+    const at = nowMs();
+    if (platform === null) {
+      const result = this.db
+        .prepare("UPDATE devices SET actions = ?, updated_at = ? WHERE id = ?")
+        .run(encoded, at, id);
+      return result.changes > 0;
+    }
+    const result = this.db
+      .prepare("UPDATE devices SET platform = ?, actions = ?, updated_at = ? WHERE id = ?")
+      .run(platform, encoded, at, id);
     return result.changes > 0;
   }
 }

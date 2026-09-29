@@ -15,6 +15,31 @@ final class NetworkMessageTests: XCTestCase {
         XCTAssertEqual(object?["credential"] as? String, "not-logged")
         XCTAssertEqual(object?["version"] as? Int, 1)
         XCTAssertEqual(object?["app_version"] as? String, "1.0.0 (1)")
+        XCTAssertEqual(object?["platform"] as? String, "macos")
+        XCTAssertEqual(object?["actions"] as? [String], ["lock"])
+    }
+
+    func testAuthMessageMatchesSharedFixture() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("protocol/fixtures/auth-macos.json")
+        let data = try Data(contentsOf: url)
+        let fixture = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let message = AuthMessage(
+            deviceID: fixture?["device_id"] as? String ?? "",
+            credential: fixture?["credential"] as? String ?? "",
+            appVersion: fixture?["app_version"] as? String ?? ""
+        )
+        let encoded = try JSONSerialization.jsonObject(with: ProtocolJSON.encode(message)) as? [String: Any]
+        XCTAssertEqual(encoded?["type"] as? String, fixture?["type"] as? String)
+        XCTAssertEqual(encoded?["version"] as? Int, fixture?["version"] as? Int)
+        XCTAssertEqual(encoded?["device_id"] as? String, fixture?["device_id"] as? String)
+        XCTAssertEqual(encoded?["credential"] as? String, fixture?["credential"] as? String)
+        XCTAssertEqual(encoded?["app_version"] as? String, fixture?["app_version"] as? String)
+        XCTAssertEqual(encoded?["platform"] as? String, fixture?["platform"] as? String)
+        XCTAssertEqual(encoded?["actions"] as? [String], fixture?["actions"] as? [String])
     }
 
     func testHeartbeatAndAck() throws {

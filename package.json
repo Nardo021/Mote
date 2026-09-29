@@ -1,11 +1,18 @@
 {
   "name": "mote",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "cf-typegen": "wrangler types relay/worker-configuration.d.ts --env-interface CloudflareBindings",
+    "test": "npm test --prefix relay && npm test --prefix dashboard && node scripts/check-repository.mjs",
+    "typecheck": "npm run cf-typegen && npm run typecheck --prefix relay && npm run typecheck --prefix dashboard",
     "build": "npm ci --prefix dashboard && npm run build --prefix dashboard && npm ci --prefix relay",
+    "worker:dry-run": "wrangler deploy --dry-run --outdir dist/worker && node scripts/check-worker-bundle.mjs",
+    "ci": "npm ci --prefix relay && npm ci --prefix dashboard && npm test && npm run typecheck && npm run build --prefix dashboard && npm run worker:dry-run",
     "deploy": "npm run build && wrangler deploy",
-    "dev:worker": "npm run build && wrangler dev",
-    "cf-typegen": "wrangler types"
+    "dev:worker": "npm run build && wrangler dev"
   },
   "devDependencies": {
     "wrangler": "^4.45.0"

@@ -29,14 +29,14 @@ final class CommandValidatorTests: XCTestCase {
         XCTAssertEqual(validator.validate(command, seenIDs: cache), .rejected(.unknownAction))
     }
 
-    func testRejectsReservedUnimplementedAction() {
+    func testRejectsRemovedActionAsUnknown() {
         let command = MockCommandFactory.lock(
             deviceID: deviceID,
             createdAt: now,
             expiresAt: now + 10_000,
             action: "sleep"
         )
-        XCTAssertEqual(validator.validate(command, seenIDs: cache), .rejected(.unsupportedAction))
+        XCTAssertEqual(validator.validate(command, seenIDs: cache), .rejected(.unknownAction))
     }
 
     func testRejectsWrongDevice() {

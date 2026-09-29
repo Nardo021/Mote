@@ -1,3 +1,4 @@
+import { isDevicePlatform, isImplementedAction, type ImplementedAction } from "./actions.js";
 import { PROTOCOL_VERSION } from "./protocolVersion.js";
 import {
   isCommandResultStatus,
@@ -6,6 +7,7 @@ import {
   type HeartbeatMessage,
   type IncomingDeviceMessage,
   type OutgoingDeviceMessage,
+  type PairAuthMessage,
 } from "./messages.js";
 
 export const APP_VERSION_MAX_LENGTH = 64;
@@ -63,7 +65,34 @@ function parseAuth(value: Record<string, unknown>): AuthMessage | undefined {
   if (appVersion !== undefined) {
     message.app_version = appVersion;
   }
+  if (value.platform !== undefined) {
+    if (typeof value.platform !== "string" || !isDevicePlatform(value.platform)) {
+      return undefined;
+    }
+    message.platform = value.platform;
+  }
+  if (value.actions !== undefined) {
+    const actions = parseReportedActions(value.actions);
+    if (actions === undefined) {
+      return undefined;
+    }
+    message.actions = actions;
+  }
   return message;
+}
+
+function parseReportedActions(value: unknown): ImplementedAction[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const actions: ImplementedAction[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !isImplementedAction(item) || actions.includes(item)) {
+      return undefined;
+    }
+    actions.push(item);
+  }
+  return actions;
 }
 
 function parseHeartbeat(value: Record<string, unknown>): HeartbeatMessage | undefined {
@@ -137,6 +166,42 @@ export function parseIncomingDeviceMessage(raw: string): ProtocolParseResult {
     default:
       return { ok: false, reason: "unknown_type" };
   }
+}
+
+export type PairAuthParseResult =
+  | { ok: true; message: PairAuthMessage }
+  | { ok: false; reason: ProtocolParseFailure };
+
+export function parsePairAuthMessage(raw: string): PairAuthParseResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "malformed_json" };
+  }
+  if (!isRecord(parsed)) {
+    return { ok: false, reason: "invalid_message" };
+  }
+  if (!readVersion(parsed.version)) {
+    return { ok: false, reason: "unsupported_version" };
+  }
+  if (readString(parsed.type) !== "pair_auth") {
+    return { ok: false, reason: "unknown_type" };
+  }
+  const requestId = readString(parsed.request_id);
+  const pairSecret = readString(parsed.pair_secret);
+  if (requestId === undefined || requestId === "" || pairSecret === undefined || pairSecret === "") {
+    return { ok: false, reason: "invalid_message" };
+  }
+  return {
+    ok: true,
+    message: {
+      type: "pair_auth",
+      version: PROTOCOL_VERSION,
+      request_id: requestId,
+      pair_secret: pairSecret,
+    },
+  };
 }
 
 export function encodeOutgoing(message: OutgoingDeviceMessage): string {

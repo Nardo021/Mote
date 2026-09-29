@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -34,15 +34,13 @@ import {
 import { getSystem } from "../../api/system.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { CopyButton } from "../../components/CopyButton.js";
-import { LoadingState } from "../../components/LoadingState.js";
-import { AppHeader } from "../../components/layout/app-header.js";
-import { Main } from "../../components/layout/main.js";
+import { DevicePlatform } from "../../components/DevicePlatform.js";
+import { InfoRow } from "../../components/InfoRow.js";
+import { DashboardPage } from "../../components/layout/dashboard-page.js";
 import { PageHeading } from "../../components/layout/page-heading.js";
 import { DeviceStatusBadge, EventStatusBadge } from "../../components/StatusBadge.js";
-import { useAdminEvents } from "../../events/AdminEventsProvider.js";
-import { livePollInterval } from "../../events/topics.js";
+import { useLiveRefresh } from "../../hooks/useLiveRefresh.js";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat.js";
-import { usePolling } from "../../hooks/usePolling.js";
 import { translateError } from "../../lib/errors.js";
 import {
   commandUrl,
@@ -77,29 +75,14 @@ export function DeviceDetailPage() {
     setPublicUrl(system.public_url);
   }, [id]);
 
-  useEffect(() => {
-    void refresh().catch((cause: unknown) => {
-      toast.error(translateError(cause, t, "detail.loadFailed"));
-    });
-  }, [refresh, t]);
-  const { live } = useAdminEvents(DEVICE_DETAIL_EVENT_TOPICS, () => {
-    void refresh().catch(() => undefined);
+  useLiveRefresh(refresh, {
+    topics: DEVICE_DETAIL_EVENT_TOPICS,
+    errorKey: "detail.loadFailed",
+    ready: device !== null,
   });
-  usePolling(
-    () => refresh().catch(() => undefined),
-    livePollInterval(live, 5_000),
-    device !== null,
-  );
 
   if (device === null) {
-    return (
-      <>
-        <AppHeader fixed />
-        <Main>
-          <LoadingState label={t("common.loading")} />
-        </Main>
-      </>
-    );
+    return <DashboardPage ready={false} />;
   }
 
   const current = device;
@@ -141,8 +124,7 @@ export function DeviceDetailPage() {
 
   return (
     <>
-      <AppHeader fixed />
-      <Main className="flex flex-col gap-6">
+      <DashboardPage ready className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Button
           type="button"
@@ -179,6 +161,12 @@ export function DeviceDetailPage() {
             </InfoRow>
             <InfoRow label={t("devices.version")}>
               <span className="mono">{device.app_version ?? "—"}</span>
+            </InfoRow>
+            <InfoRow label={t("devices.platform")}>
+              <DevicePlatform platform={device.platform} />
+            </InfoRow>
+            <InfoRow label={t("devices.capabilities")}>
+              {device.actions.length > 0 ? device.actions.join(", ") : "—"}
             </InfoRow>
             <InfoRow label={t("devices.lastSeen")}>
               {format.formatRelativeTime(device.last_seen_at)}
@@ -435,22 +423,7 @@ export function DeviceDetailPage() {
           onConfirm={() => void runPending("disable")}
         />
       ) : null}
-      </Main>
+      </DashboardPage>
     </>
-  );
-}
-
-function InfoRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[160px_1fr] sm:items-start">
-      <span className="text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
-    </div>
   );
 }

@@ -1,0 +1,6 @@
+{
+  "type": "auth_result",
+  "version": 1,
+  "status": "error",
+  "error": "invalid_credentials"
+}

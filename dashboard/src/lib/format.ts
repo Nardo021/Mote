@@ -17,7 +17,6 @@ const STATUS_LABELS: Record<string, string> = {
 const SOURCE_LABELS: Record<string, string> = {
   shortcut: "Shortcut",
   dashboard: "Dashboard",
-  ios: "iOS",
 };
 
 export function titleCaseAction(action: string): string {

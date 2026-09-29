@@ -1,12 +1,17 @@
 import { hashSecret } from "../auth/tokenHash.js";
 import { Permission } from "../auth/permissions.js";
+import type { DevicePlatform } from "../protocol/actions.js";
 import { AppError, ErrorCode, invalidRequest } from "../utils/errors.js";
 import { createId, createSecret, isUuid } from "../utils/ids.js";
 import { nowMs } from "../utils/time.js";
 import type { DeviceRepository } from "./deviceRepository.js";
 import type { CreatedDevice, DeviceRecord } from "./deviceTypes.js";
 import type { TokenRepository } from "./tokenRepository.js";
-import type { CreatedApiToken } from "./tokenTypes.js";
+import {
+  CommandClientKind,
+  type CommandClientKind as CommandClientKindValue,
+  type CreatedApiToken,
+} from "./tokenTypes.js";
 
 export class DeviceService {
   constructor(
@@ -42,6 +47,8 @@ export class DeviceService {
       updatedAt: createdAt,
       lastSeenAt: null,
       appVersion: null,
+      platform: null,
+      actions: null,
     });
     return { id, name: trimmed, credential, createdAt };
   }
@@ -104,11 +111,29 @@ export class DeviceService {
     this.devices.updateAppVersion(id, appVersion);
   }
 
-  createShortcutToken(name: string): CreatedApiToken {
-    const trimmed = name.trim();
+  recordAgentProfile(
+    id: string,
+    profile: { platform: DevicePlatform | null; actions: readonly string[] },
+  ): void {
+    this.devices.updateAgentProfile(id, profile.platform, profile.actions);
+  }
+
+  createShortcutToken(name: string, deviceId: string): CreatedApiToken {
+    return this.createCommandToken({ name, deviceId });
+  }
+
+  createCommandToken(input: {
+    name: string;
+    deviceId: string;
+    clientKind?: CommandClientKindValue;
+  }): CreatedApiToken {
+    const trimmed = input.name.trim();
     if (trimmed === "") {
       throw invalidRequest("Token name is required.");
     }
+    const deviceId = requireTokenDeviceId(input.deviceId);
+    this.requireDevice(deviceId);
+    const clientKind = input.clientKind ?? CommandClientKind.shortcut;
     const token = createSecret();
     const createdAt = nowMs();
     const id = createId();
@@ -117,6 +142,8 @@ export class DeviceService {
       name: trimmed,
       tokenHash: hashSecret(token),
       permission: Permission.send_command,
+      clientKind,
+      deviceId,
       enabled: true,
       createdAt,
       lastUsedAt: null,
@@ -126,6 +153,8 @@ export class DeviceService {
       name: trimmed,
       token,
       permission: Permission.send_command,
+      clientKind,
+      deviceId,
       createdAt,
     };
   }
@@ -135,6 +164,8 @@ export class DeviceService {
       id: token.id,
       name: token.name,
       permission: token.permission,
+      clientKind: token.clientKind,
+      deviceId: token.deviceId,
       enabled: token.enabled,
       createdAt: token.createdAt,
       lastUsedAt: token.lastUsedAt,
@@ -157,12 +188,18 @@ export class DeviceService {
 
   enableToken(id: string) {
     const token = this.requireToken(id);
+    if (token.deviceId === null) {
+      throw invalidRequest("This token has no device scope. Create a new token for a device.");
+    }
     this.tokens.setEnabled(id, true);
     return { ...token, enabled: true };
   }
 
   rotateShortcutToken(id: string): CreatedApiToken {
     const token = this.requireToken(id);
+    if (token.deviceId === null) {
+      throw invalidRequest("This token has no device scope. Create a new token for a device.");
+    }
     const secret = createSecret();
     this.tokens.updateTokenHash(id, hashSecret(secret));
     return {
@@ -170,6 +207,8 @@ export class DeviceService {
       name: token.name,
       token: secret,
       permission: token.permission,
+      clientKind: token.clientKind,
+      deviceId: token.deviceId,
       createdAt: token.createdAt,
     };
   }
@@ -177,4 +216,11 @@ export class DeviceService {
   touchToken(id: string, at: number = nowMs()): void {
     this.tokens.updateLastUsed(id, at);
   }
+}
+
+function requireTokenDeviceId(deviceId: string): string {
+  if (!isUuid(deviceId)) {
+    throw invalidRequest("device_id must be a device UUID.");
+  }
+  return deviceId;
 }

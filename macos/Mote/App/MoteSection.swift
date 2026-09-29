@@ -143,7 +143,7 @@ struct RelayURLField: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TextField(RelayDefaults.productionBaseURLString, text: $text)
+        TextField(RelayDefaults.urlFieldPlaceholder, text: $text)
             .textFieldStyle(.plain)
             .font(MoteTypography.technical)
             .multilineTextAlignment(.trailing)

@@ -6,20 +6,20 @@ import { migrate } from "../storage/migrations.js";
 import { openSqlStorageDatabase } from "../storage/sqlStorage.js";
 import { handleWorkerRequest } from "./api.js";
 import {
-  acceptPairSocket,
+  beginPairSocket,
   deviceAttachment,
   onDeviceMessage,
+  onPairMessage,
   onSocketClose,
   restoreSocket,
   sweepSockets,
   type HibernatingSocket,
 } from "./sockets.js";
 import { DEVICE_WEBSOCKET_PATH, PAIR_WEBSOCKET_PATH } from "../config/constants.js";
+import { SocketClose } from "../protocol/closeReasons.js";
+import { shouldProxyToRelay } from "./routing.js";
 
-export interface Env {
-  RELAY: DurableObjectNamespace<MoteRelay>;
-  ASSETS: Fetcher;
-  MOTE_ADMIN_USERNAME?: string;
+export interface Env extends CloudflareBindings {
   MOTE_ADMIN_PASSWORD?: string;
   MOTE_PUBLIC_URL?: string;
   MOTE_SHORTCUT_ICLOUD_URL?: string;
@@ -43,6 +43,14 @@ export class MoteRelay extends DurableObject<Env> {
       for (const socket of ctx.getWebSockets()) {
         restoreSocket(asHibernating(socket), app);
       }
+      app.securityLog = {
+        info(obj, msg) {
+          console.info(JSON.stringify({ msg, ...obj }));
+        },
+        warn(obj, msg) {
+          console.warn(JSON.stringify({ msg, ...obj }));
+        },
+      };
       this.#app = app;
       await ctx.storage.setAlarm(Date.now() + app.config.staleSweepIntervalMs);
     });
@@ -55,7 +63,7 @@ export class MoteRelay extends DurableObject<Env> {
       app.config.publicUrl = url.origin;
     }
     if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
-      return this.acceptWebSocket(request, url, app);
+      return this.acceptWebSocket(request, url);
     }
     return handleWorkerRequest(request, app);
   }
@@ -67,14 +75,21 @@ export class MoteRelay extends DurableObject<Env> {
   }
 
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    onDeviceMessage(asHibernating(ws), this.app(), message);
+    const socket = asHibernating(ws);
+    const attachment = socket.deserializeAttachment();
+    const app = this.app();
+    if (attachment?.kind === "pair") {
+      onPairMessage(socket, app, message);
+      return;
+    }
+    onDeviceMessage(socket, app, message);
   }
 
   override async webSocketClose(ws: WebSocket): Promise<void> {
     onSocketClose(asHibernating(ws), this.app());
   }
 
-  private acceptWebSocket(request: Request, url: URL, app: AppContext): Response {
+  private acceptWebSocket(request: Request, url: URL): Response {
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
@@ -84,14 +99,9 @@ export class MoteRelay extends DurableObject<Env> {
       const attachment = deviceAttachment(request.headers.get("cf-connecting-ip") ?? "");
       hibernating.serializeAttachment(attachment);
     } else if (url.pathname === PAIR_WEBSOCKET_PATH) {
-      acceptPairSocket(
-        hibernating,
-        app,
-        url.searchParams.get("request_id"),
-        url.searchParams.get("pair_secret"),
-      );
+      beginPairSocket(hibernating);
     } else {
-      server.close(1008, "invalid_credentials");
+      server.close(SocketClose.invalidCredentials.code, SocketClose.invalidCredentials.reason);
     }
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -115,23 +125,11 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-function shouldProxyToRelay(pathname: string): boolean {
-  return (
-    pathname === "/health" ||
-    pathname === "/ready" ||
-    pathname.startsWith("/v1/") ||
-    pathname.startsWith("/admin/") ||
-    pathname.startsWith("/s/")
-  );
-}
-
 function workerConfig(env: Env) {
   const publicUrl = env.MOTE_PUBLIC_URL?.trim();
   return loadConfig({
     env: "production",
     publicUrl: publicUrl && publicUrl !== "" ? publicUrl : "https://mote.workers.dev",
-    databasePath: "cloudflare",
-    dashboardDist: "",
     shortcutIcloudUrl: blankToNull(env.MOTE_SHORTCUT_ICLOUD_URL),
   });
 }

@@ -1,18 +1,11 @@
 # 脚本
 
-仓库级辅助脚本可以放在这里。当前目录主要是文档占位；凭据管理使用 Relay CLI，不要在这里放密钥或真实主机名。
+| 脚本 | 作用 |
+| --- | --- |
+| `ensure-worker-types.mjs` | 用 Wrangler 生成 `relay/worker-configuration.d.ts`。该文件不入库 |
+| `check-repository.mjs` | Bundle ID、遗留迁移身份、示例 Relay 主机名、测试计划和 CI/部署边界 |
+| `check-worker-bundle.mjs` | 干跑产物里必须有 `MoteRelay`，且不能带回已删除的 Node 服务器标记 |
 
-生产设备应走 Mac **Pair** + Dashboard **Allow**。CLI 用于恢复、token 和管理员：
+仓库根的 `npm test` 会跑一致性检查。`npm run typecheck` 会先生成 Worker 类型。
 
-```text
-cd relay
-npm run cli -- device create --name "MacBook Pro" --id <MAC_DEVICE_ID>
-npm run cli -- token create --name "iPhone"
-npm run cli -- admin create --username admin
-```
-
-生产：
-
-```text
-docker compose exec relay node dist/cli.js ...
-```
+设备和 token 在 Dashboard 里管理。Mac 用 **Pair**，Dashboard **Allow**。没有用来改 Cloudflare 上数据库的 CLI。不要在这里放密钥或真实主机名。

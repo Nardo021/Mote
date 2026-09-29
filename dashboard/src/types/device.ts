@@ -17,6 +17,8 @@ export type AdminDevice = {
   last_seen_at: number | null;
   last_heartbeat_at: number | null;
   app_version: string | null;
+  platform: "macos" | "windows" | null;
+  actions: string[];
   created_at: number;
   updated_at: number;
   last_command: LastCommand | null;

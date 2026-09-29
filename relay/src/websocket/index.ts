@@ -1,2 +1,2 @@
 export { ConnectionRegistry } from "./connectionRegistry.js";
-export { handleDeviceSocket } from "./deviceSocket.js";
+export { createHeartbeatAck, isHeartbeatStale } from "./heartbeat.js";

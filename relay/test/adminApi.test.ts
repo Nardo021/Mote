@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { TextDecoder } from "node:util";
+
+import { shouldProxyToRelay } from "../src/worker/routing.js";
 
 import { ErrorCode } from "../src/utils/errors.js";
 import { hashSecret } from "../src/auth/tokenHash.js";
@@ -18,7 +17,7 @@ import {
 } from "./helpers.js";
 
 const PASSWORD = "correct-horse-admin";
-const ORIGIN = "http://127.0.0.1:3000";
+const ORIGIN = "http://127.0.0.1:8787";
 
 function adminHeaders(cookie?: string, extra: Record<string, string> = {}) {
   return {
@@ -58,14 +57,7 @@ describe("admin API", () => {
   let credential: string;
 
   before(async () => {
-    const dashboardDist = mkdtempSync(join(tmpdir(), "mote-dashboard-"));
-    mkdirSync(join(dashboardDist, "assets"));
-    writeFileSync(
-      join(dashboardDist, "index.html"),
-      "<!doctype html><title>Mote Relay</title><div id='root'></div>",
-    );
-    writeFileSync(join(dashboardDist, "assets", "app.js"), "window.__MOTE=1;");
-    server = await startTestServer({ dashboardDist });
+    server = await startTestServer();
     server.ctx.admins.create("admin", PASSWORD);
     const device = server.ctx.devices.createDevice(
       "MacBook Pro",
@@ -80,18 +72,18 @@ describe("admin API", () => {
     await stopTestServer(server);
   });
 
-  it("serves dashboard HTML at / and JSON 404 for API paths", async () => {
-    const root = await server.app.inject({ method: "GET", url: "/" });
-    assert.equal(root.statusCode, 200);
-    assert.match(root.headers["content-type"] ?? "", /text\/html/);
-    assert.match(root.body, /Mote Relay/);
+  it("returns JSON 404 for unknown API paths and leaves the dashboard to Workers Assets", async () => {
+    assert.equal(shouldProxyToRelay("/"), false);
+    assert.equal(shouldProxyToRelay("/devices"), false);
+    assert.equal(shouldProxyToRelay("/assets/app.js"), false);
+    assert.equal(shouldProxyToRelay("/health"), true);
+    assert.equal(shouldProxyToRelay("/v1/ws/device"), true);
+    assert.equal(shouldProxyToRelay("/admin/api/events"), true);
 
-    const devicesPage = await server.app.inject({
-      method: "GET",
-      url: "/devices",
-    });
-    assert.equal(devicesPage.statusCode, 200);
-    assert.match(devicesPage.body, /Mote Relay/);
+    const root = await server.app.inject({ method: "GET", url: "/" });
+    assert.equal(root.statusCode, 404);
+    assert.equal(root.json().error.code, ErrorCode.INVALID_REQUEST);
+    assert.equal(root.body.includes("<!doctype html>"), false);
 
     const missingV1 = await server.app.inject({
       method: "GET",
@@ -110,15 +102,9 @@ describe("admin API", () => {
 
     const health = await server.app.inject({ method: "GET", url: "/health" });
     assert.deepEqual(health.json(), { status: "ok" });
+    assert.equal(health.headers["x-content-type-options"], "nosniff");
     const ready = await server.app.inject({ method: "GET", url: "/ready" });
     assert.deepEqual(ready.json(), { status: "ok" });
-
-    const asset = await server.app.inject({
-      method: "GET",
-      url: "/assets/app.js",
-    });
-    assert.equal(asset.statusCode, 200);
-    assert.match(asset.headers["cache-control"] ?? "", /immutable/);
   });
 
   it("rejects unauthenticated admin routes and does not accept Shortcut tokens", async () => {
@@ -128,7 +114,7 @@ describe("admin API", () => {
     });
     assert.equal(unauthenticated.statusCode, 401);
 
-    const shortcut = server.ctx.devices.createShortcutToken("not-admin").token;
+    const shortcut = server.ctx.devices.createShortcutToken("not-admin", deviceId).token;
     const withBearer = await server.app.inject({
       method: "GET",
       url: "/admin/api/devices",
@@ -295,7 +281,7 @@ describe("admin API", () => {
       method: "POST",
       url: "/admin/api/tokens",
       headers: adminHeaders(cookie),
-      payload: { name: "iPhone Shortcut" },
+      payload: { name: "iPhone Shortcut", device_id: deviceId },
     });
     assert.equal(created.statusCode, 200);
     const token = created.json().token as string;
@@ -405,7 +391,7 @@ describe("admin API", () => {
 
   it("records shortcut activity separately and supports filters", async () => {
     const shortcut =
-      server.ctx.devices.createShortcutToken("activity-shortcut").token;
+      server.ctx.devices.createShortcutToken("activity-shortcut", deviceId).token;
     const mac = await authenticateDeviceSocket(
       server.wsUrl,
       deviceId,

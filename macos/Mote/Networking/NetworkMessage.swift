@@ -10,6 +10,8 @@ struct AuthMessage: Encodable, Sendable {
     var deviceID: String
     var credential: String
     var appVersion: String
+    var platform: String = "macos"
+    var actions: [String] = ["lock"]
 
     enum CodingKeys: String, CodingKey {
         case type
@@ -17,6 +19,8 @@ struct AuthMessage: Encodable, Sendable {
         case deviceID = "device_id"
         case credential
         case appVersion = "app_version"
+        case platform
+        case actions
     }
 }
 
