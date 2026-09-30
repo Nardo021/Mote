@@ -67,6 +67,12 @@ final class KeychainStoreTests: XCTestCase {
     }
 
     func testReadRewritesLegacyWorldReadableACL() throws {
+        // A world-readable fixture is created by rewriting a decrypt ACL. On a
+        // headless runner that panel never returns, so refuse UI and skip if
+        // Security.framework will not build the fixture without it.
+        guard SecKeychainSetUserInteractionAllowed(false) == errSecSuccess else {
+            throw XCTSkip("ACL-specific test skipped: this runner could not disable keychain user interaction, so the legacy ACL fixture could hang.")
+        }
         let service = "com.nardo021.mote.test.\(UUID().uuidString)"
         let account = "device_connection"
         defer {
@@ -142,6 +148,7 @@ private func installLegacyWorldReadableItem(service: String, account: String, da
         kSecValueData as String: data,
         kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         kSecAttrAccess as String: access,
+        kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
         kSecReturnRef as String: true
     ]
     var result: AnyObject?
