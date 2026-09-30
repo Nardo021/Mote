@@ -146,6 +146,35 @@ jobs:
         working-directory: windows
         run: dotnet test Mote.Windows.sln --configuration Release --no-build --verbosity normal
 
+  windows-e2e:
+    name: Windows E2E
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            relay/package-lock.json
+            dashboard/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install Worker runtime
+        run: |
+          npm ci
+          npm ci --prefix relay
+          npm ci --prefix dashboard
+      - name: Build Dashboard assets
+        run: npm run build --prefix dashboard
+      - name: Test
+        run: dotnet test windows/tests/Mote.Windows.IntegrationTests/Mote.Windows.IntegrationTests.csproj --configuration Release --verbosity normal
+
   consistency:
     name: Repository consistency
     runs-on: ubuntu-latest

@@ -2,7 +2,7 @@
 
 Mote for Windows 是第二套原生 Agent。它使用仓库里已有的 Mote Relay 和 Protocol v1，不另起 Relay，也不定义 Protocol v2。
 
-**状态：W2 核心运行时。还不能用于生产。** 这一阶段能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。托盘、设置界面、安装包、签名和网络/休眠生命周期还没做。窗口只说明进程在运行，不能从界面上配对。
+**状态：W3 已用本地真实 Relay 走通配对、认证、命令和断开。还不能用于生产。** 核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。托盘、设置界面、安装包、签名和网络/休眠生命周期还没做。窗口只说明进程在运行，不能从界面上配对。
 
 ## 它是什么
 
@@ -34,6 +34,12 @@ dotnet build
 dotnet test
 ```
 
-`dotnet test` 不调用 `LockWorkStation()`。凭据测试使用 `com.nardo021.mote.test/<uuid>`，用完删除，不写生产 TargetName。GitHub Actions 的 Windows job 在 `windows-latest` 上执行同样的 restore、build、test。
+`dotnet test` 跑 `Mote.Windows.sln`，不启动 Wrangler，也不调用锁屏 API。凭据测试使用 `com.nardo021.mote.test/<uuid>`，用完删除，不写生产 TargetName。GitHub Actions 的 Windows job 在 `windows-latest` 上执行同样的 restore、build、test。
 
-本地 Worker 仍是 `http://127.0.0.1:8787`。W2 的单元测试使用假 HTTP 和假传输，还不包含对真实 Worker 的端到端配对。
+对真实本地 Relay 的端到端测试在另一个项目里。它会启动隔离的 Wrangler，只应在仓库根目录已经执行 `npm ci`、`npm ci --prefix relay` 和 `npm run build --prefix dashboard` 之后运行：
+
+```text
+dotnet test windows/tests/Mote.Windows.IntegrationTests/Mote.Windows.IntegrationTests.csproj
+```
+
+这条路径使用回环上的真实 Worker、Durable Object 和 WebSocket。Credential Manager 目标是 `com.nardo021.mote.e2e/<uuid>`，设置写在临时目录。锁屏边界是测试替身，不会锁住当前会话。GitHub Actions 的 Windows E2E job 单独运行这个项目。

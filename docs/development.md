@@ -31,7 +31,7 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -desti
 
 见 [macos/README.md](../macos/README.md)。默认测试计划 `Mote-Safe` 不会锁屏。真实锁屏只在本机 DEBUG **Test Lock**。
 
-## Windows Agent（W2）
+## Windows Agent（W3）
 
 `windows/` 是 .NET 10 WPF 桌面工程。需要 .NET 10 SDK。核心运行时可以配对并维持已认证会话，但还不是生产客户端，测试也不会锁屏。
 
@@ -42,7 +42,18 @@ dotnet build
 dotnet test
 ```
 
-测试读取仓库里的 `protocol/fixtures/`，不复制夹具。测试不调用 `LockWorkStation()`，也不写当前用户的启动项。CI 在 GitHub 托管的 `windows-latest` 上跑同样的 restore、build、test。说明见 [windows/README.md](../windows/README.md)。
+测试读取仓库里的 `protocol/fixtures/`，不复制夹具。单元测试不调用锁屏 API，也不写当前用户的启动项。CI 在 GitHub 托管的 `windows-latest` 上跑同样的 restore、build、test。说明见 [windows/README.md](../windows/README.md)。
+
+真实 Relay 端到端不在 `dotnet test` 里面。先在仓库根准备 Wrangler 和 Dashboard 资源，再单独跑集成项目：
+
+```text
+npm ci
+npm ci --prefix relay
+npm run build --prefix dashboard
+dotnet test windows/tests/Mote.Windows.IntegrationTests/Mote.Windows.IntegrationTests.csproj
+```
+
+集成测试只连接 `127.0.0.1` 上的临时 Wrangler，不部署，也不使用生产凭据。
 
 ## Relay 本地开发
 

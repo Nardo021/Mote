@@ -84,6 +84,24 @@ public class ProductionBoundaryTests
         }
     }
 
+    [Fact]
+    public void IntegrationProjectStaysOutsideTheUnitSolution()
+    {
+        var solution = File.ReadAllText(Path.Combine(ProtocolFixtures.RepositoryRoot(), "windows", "Mote.Windows.sln"));
+        Assert.DoesNotContain("Mote.Windows.IntegrationTests", solution, StringComparison.Ordinal);
+
+        var integrationRoot = Path.Combine(ProtocolFixtures.RepositoryRoot(), "windows", "tests", "Mote.Windows.IntegrationTests");
+        var nativeLock = "Lock" + "WorkStation";
+        var productionCredential = "new WindowsCredentialStore" + "()";
+        var nativeConstruction = "new " + "Win32WorkstationLock";
+        foreach (var source in Directory.EnumerateFiles(integrationRoot, "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText))
+        {
+            Assert.DoesNotContain(nativeLock, source, StringComparison.Ordinal);
+            Assert.DoesNotContain(productionCredential, source, StringComparison.Ordinal);
+            Assert.DoesNotContain(nativeConstruction, source, StringComparison.Ordinal);
+        }
+    }
+
     private static string ReadProduction(string relative) =>
         File.ReadAllText(Path.Combine(ProductionRoot(), relative));
 
