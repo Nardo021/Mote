@@ -1,3 +1,4 @@
+import Darwin
 import Security
 import XCTest
 @testable import Mote
@@ -82,8 +83,15 @@ final class KeychainStoreTests: XCTestCase {
                 kSecAttrAccount as String: account
             ] as CFDictionary)
         }
-        guard installLegacyWorldReadableItem(service: service, account: account, data: Data("legacy".utf8)) else {
+        switch installLegacyWorldReadableItem(service: service, account: account, data: Data("legacy".utf8)) {
+        case .created:
+            break
+        case .failed:
             throw XCTSkip("ACL-specific test skipped: this runner's Security.framework did not permit a legacy world-readable fixture.")
+        case .timedOut:
+            throw XCTSkip("ACL-specific test skipped: building the legacy world-readable fixture blocked inside Security.framework and was stopped before it could hang the test runner.")
+        case .probeFailed:
+            XCTFail("The legacy ACL fixture probe could not be compiled.")
         }
         guard case .worldReadable = inspectDecryptACL(service: service, account: account) else {
             throw XCTSkip("ACL-specific test skipped: the legacy fixture could not be confirmed world-readable on this runner.")
@@ -136,54 +144,138 @@ private func inspectDecryptACL(service: String, account: String) -> DecryptACL {
     return .applicationScoped
 }
 
-private func installLegacyWorldReadableItem(service: String, account: String, data: Data) -> Bool {
-    var access: SecAccess?
-    guard SecAccessCreate("Mote device credential" as CFString, nil, &access) == errSecSuccess, let access else {
-        return false
-    }
-    let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: service,
-        kSecAttrAccount as String: account,
-        kSecValueData as String: data,
-        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        kSecAttrAccess as String: access,
-        kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
-        kSecReturnRef as String: true
-    ]
-    var result: AnyObject?
-    guard SecItemAdd(query as CFDictionary, &result) == errSecSuccess, let result else {
-        return false
-    }
-    let item = unsafeBitCast(result, to: SecKeychainItem.self)
-    var copied: SecAccess?
-    guard SecKeychainItemCopyAccess(item, &copied) == errSecSuccess, let copied else {
-        return false
-    }
-    var aclList: CFArray?
-    guard SecAccessCopyACLList(copied, &aclList) == errSecSuccess, let acls = aclList as? [SecACL] else {
-        return false
-    }
-    var updated = false
-    for acl in acls {
-        let tags = Set((SecACLCopyAuthorizations(acl) as? [Any] ?? []).map { String(describing: $0) })
-        guard tags.contains(kSecACLAuthorizationDecrypt as String) else {
-            continue
-        }
-        var applications: CFArray?
-        var description: CFString?
-        var prompt: SecKeychainPromptSelector = []
-        guard SecACLCopyContents(acl, &applications, &description, &prompt) == errSecSuccess else {
-            return false
-        }
-        let label = (description as String?) ?? "Mote device credential"
-        guard SecACLSetContents(acl, nil, label as CFString, prompt) == errSecSuccess else {
-            return false
-        }
-        updated = true
-    }
-    guard updated else {
-        return false
-    }
-    return SecKeychainItemSetAccess(item, copied) == errSecSuccess
+private enum LegacyACLFixture {
+    case created
+    case failed
+    case timedOut
+    case probeFailed
 }
+
+/// Builds the legacy ACL in a child process. GitHub's macOS runner blocks forever
+/// inside these Security calls, and that blocked thread cannot be abandoned in-process.
+private func installLegacyWorldReadableItem(service: String, account: String, data: Data) -> LegacyACLFixture {
+    let directory = FileManager.default.temporaryDirectory
+    let binary = directory.appendingPathComponent("mote-acl-fixture-\(UUID().uuidString)")
+    let sourceURL = binary.appendingPathExtension("swift")
+    defer {
+        try? FileManager.default.removeItem(at: sourceURL)
+        try? FileManager.default.removeItem(at: binary)
+    }
+    do {
+        try legacyACLFixtureSource.write(to: sourceURL, atomically: true, encoding: .utf8)
+        let compiler = Process()
+        compiler.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        compiler.arguments = ["swiftc", "-O", "-o", binary.path, sourceURL.path, "-framework", "Security"]
+        compiler.standardOutput = FileHandle.nullDevice
+        compiler.standardError = FileHandle.nullDevice
+        try compiler.run()
+        compiler.waitUntilExit()
+        guard compiler.terminationStatus == 0 else {
+            return .probeFailed
+        }
+
+        let runner = Process()
+        runner.executableURL = binary
+        runner.arguments = [service, account, data.base64EncodedString()]
+        let output = Pipe()
+        runner.standardOutput = output
+        runner.standardError = FileHandle.nullDevice
+        try runner.run()
+        let deadline = Date().addingTimeInterval(8)
+        while runner.isRunning, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        if runner.isRunning {
+            runner.terminate()
+            Thread.sleep(forTimeInterval: 0.2)
+            if runner.isRunning {
+                kill(runner.processIdentifier, SIGKILL)
+            }
+            return .timedOut
+        }
+        let text = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return text.contains("created") ? .created : .failed
+    } catch {
+        return .probeFailed
+    }
+}
+
+private let legacyACLFixtureSource = """
+import Foundation
+import Security
+
+let arguments = CommandLine.arguments
+guard arguments.count == 4, let data = Data(base64Encoded: arguments[3]) else {
+    fputs("failed\\n", stdout)
+    exit(1)
+}
+_ = SecKeychainSetUserInteractionAllowed(false)
+var access: SecAccess?
+guard SecAccessCreate("Mote device credential" as CFString, nil, &access) == errSecSuccess, let access else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+let query: [String: Any] = [
+    kSecClass as String: kSecClassGenericPassword,
+    kSecAttrService as String: arguments[1],
+    kSecAttrAccount as String: arguments[2],
+    kSecValueData as String: data,
+    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    kSecAttrAccess as String: access,
+    kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+]
+guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+let lookup: [String: Any] = [
+    kSecClass as String: kSecClassGenericPassword,
+    kSecAttrService as String: arguments[1],
+    kSecAttrAccount as String: arguments[2],
+    kSecReturnRef as String: true,
+    kSecMatchLimit as String: kSecMatchLimitOne,
+    kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+]
+var result: CFTypeRef?
+guard SecItemCopyMatching(lookup as CFDictionary, &result) == errSecSuccess, let result else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+let item = unsafeBitCast(result, to: SecKeychainItem.self)
+var copied: SecAccess?
+guard SecKeychainItemCopyAccess(item, &copied) == errSecSuccess, let copied else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+var aclList: CFArray?
+guard SecAccessCopyACLList(copied, &aclList) == errSecSuccess, let acls = aclList as? [SecACL] else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+var updated = false
+for acl in acls {
+    let tags = Set((SecACLCopyAuthorizations(acl) as? [Any] ?? []).map { String(describing: $0) })
+    guard tags.contains(kSecACLAuthorizationDecrypt as String) else {
+        continue
+    }
+    var applications: CFArray?
+    var description: CFString?
+    var prompt: SecKeychainPromptSelector = []
+    guard SecACLCopyContents(acl, &applications, &description, &prompt) == errSecSuccess else {
+        fputs("failed\\n", stdout)
+        exit(0)
+    }
+    let label = (description as String?) ?? "Mote device credential"
+    guard SecACLSetContents(acl, nil, label as CFString, prompt) == errSecSuccess else {
+        fputs("failed\\n", stdout)
+        exit(0)
+    }
+    updated = true
+}
+guard updated, SecKeychainItemSetAccess(item, copied) == errSecSuccess else {
+    fputs("failed\\n", stdout)
+    exit(0)
+}
+fputs("created\\n", stdout)
+fflush(stdout)
+"""
