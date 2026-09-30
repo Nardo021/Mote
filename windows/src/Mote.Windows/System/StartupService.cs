@@ -58,6 +58,8 @@ public sealed class PerUserStartupService : IStartupService
     public static PerUserStartupService ForCurrentUser(string command) =>
         new(command, new CurrentUserRunKeyStore());
 
+    public string Command => _command;
+
     public bool IsEnabled() =>
         string.Equals(_store.Read(ValueName), _command, StringComparison.Ordinal);
 
@@ -71,4 +73,12 @@ public sealed class PerUserStartupService : IStartupService
 
         _store.Remove(ValueName);
     }
+}
+
+public sealed class DisabledStartupService : IStartupService
+{
+    public bool IsEnabled() => false;
+
+    public void SetEnabled(bool enabled) =>
+        throw new InvalidOperationException("Launch at login is unavailable for this process.");
 }

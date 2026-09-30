@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Mote.Windows</RootNamespace>
     <AssemblyName>Mote.Windows</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -15,6 +16,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Mote.Windows.Tests" />
+    <Using Remove="System.Windows.Forms" />
   </ItemGroup>
 
 </Project>

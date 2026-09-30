@@ -1,0 +1,166 @@
+<Window x:Class="Mote.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:Mote.Windows.Ui"
+        Title="Mote"
+        Width="440"
+        MinWidth="400"
+        SizeToContent="Height"
+        MaxHeight="760"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        FontSize="14"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+        TextOptions.TextFormattingMode="Display">
+  <Window.Resources>
+    <ui:BooleanVisibilityConverter x:Key="ShowWhenTrue" />
+    <ui:TextVisibilityConverter x:Key="ShowWhenText" />
+    <ui:InverseBooleanConverter x:Key="NotBusy" />
+    <Style TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+    </Style>
+    <Style x:Key="Section" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,18,0,8" />
+      <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+    </Style>
+    <Style x:Key="Field" TargetType="TextBox">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+  </Window.Resources>
+  <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16,20,20">
+    <StackPanel>
+      <TextBlock FontSize="22" FontWeight="SemiBold" Text="Mote" />
+      <Border Margin="0,14,0,0"
+              Padding="14"
+              CornerRadius="8"
+              Background="#F6F6F6"
+              BorderBrush="#E4E4E4"
+              BorderThickness="1">
+        <StackPanel>
+          <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding Headline}" TextWrapping="Wrap" />
+          <TextBlock Margin="0,6,0,0" Text="{Binding Detail}" TextWrapping="Wrap" Foreground="#444444" />
+        </StackPanel>
+      </Border>
+      <TextBlock Text="{Binding SettingsWarning}"
+                 TextWrapping="Wrap"
+                 Margin="0,10,0,0"
+                 Foreground="#8A5A00"
+                 Visibility="{Binding SettingsWarning, Converter={StaticResource ShowWhenText}}" />
+      <TextBlock Text="{Binding Notice}"
+                 TextWrapping="Wrap"
+                 Margin="0,10,0,0"
+                 Visibility="{Binding Notice, Converter={StaticResource ShowWhenText}}" />
+
+      <TextBlock Style="{StaticResource Section}" Text="CONNECTION" />
+      <TextBlock Text="Relay URL" />
+      <TextBox x:Name="RelayUrlBox"
+               Style="{StaticResource Field}"
+               Text="{Binding RelayUrlText, UpdateSourceTrigger=PropertyChanged}"
+               AutomationProperties.Name="Relay URL" />
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+        <Button MinWidth="88"
+                Margin="0,0,8,0"
+                Padding="12,6"
+                Content="Save"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource NotBusy}}"
+                Click="OnSaveUrl" />
+        <Button MinWidth="120"
+                Padding="12,6"
+                Content="{Binding ConnectionButton}"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource NotBusy}}"
+                IsDefault="True"
+                Click="OnConnect" />
+      </StackPanel>
+      <TextBlock Foreground="#666666"
+                 TextWrapping="Wrap"
+                 Text="Disconnect stops the remote session. The device stays paired." />
+
+      <TextBlock Style="{StaticResource Section}" Text="DEVICE" />
+      <TextBlock Text="Name" />
+      <TextBox Style="{StaticResource Field}"
+               Text="{Binding DeviceNameText, UpdateSourceTrigger=PropertyChanged}"
+               IsReadOnly="{Binding NameEditable, Converter={StaticResource NotBusy}}"
+               AutomationProperties.Name="Device name" />
+      <TextBlock Margin="0,0,0,8"
+                 Foreground="#666666"
+                 TextWrapping="Wrap"
+                 Text="Rename a paired device in the Mote Dashboard."
+                 Visibility="{Binding HasCredential, Converter={StaticResource ShowWhenTrue}}" />
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock VerticalAlignment="Center" Text="Device ID" />
+        <TextBlock Grid.Column="1"
+                   Margin="12,0"
+                   VerticalAlignment="Center"
+                   Text="{Binding DeviceId}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   FontSize="12"
+                   TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="2" Padding="10,4" Content="Copy" Click="OnCopyDeviceId" />
+      </Grid>
+      <TextBlock Margin="0,0,0,8" Text="{Binding PairedLabel, StringFormat=Pairing  {0}}" />
+      <TextBlock Text="{Binding PairingMessage}"
+                 TextWrapping="Wrap"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding PairingMessage, Converter={StaticResource ShowWhenText}}" />
+      <StackPanel Orientation="Horizontal">
+        <Button MinWidth="120"
+                Padding="12,6"
+                Margin="0,0,8,0"
+                Content="Pair Device"
+                Visibility="{Binding ShowPair, Converter={StaticResource ShowWhenTrue}}"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource NotBusy}}"
+                Click="OnPair" />
+        <Button MinWidth="120"
+                Padding="12,6"
+                Content="Cancel Pairing"
+                Visibility="{Binding PairingActive, Converter={StaticResource ShowWhenTrue}}"
+                Click="OnCancelPairing" />
+      </StackPanel>
+
+      <TextBlock Style="{StaticResource Section}" Text="GENERAL" />
+      <CheckBox x:Name="LaunchBox"
+                Content="Launch Mote at login"
+                Checked="OnLaunchChanged"
+                Unchecked="OnLaunchChanged"
+                AutomationProperties.Name="Launch Mote at login" />
+      <TextBlock Margin="0,6,0,0"
+                 Foreground="#666666"
+                 TextWrapping="Wrap"
+                 Text="{Binding LaunchNote}"
+                 Visibility="{Binding LaunchNote, Converter={StaticResource ShowWhenText}}" />
+
+      <TextBlock Style="{StaticResource Section}" Text="ADVANCED" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Replacing the credential will not enable a disabled device."
+                 Visibility="{Binding ShowDisabledHelp, Converter={StaticResource ShowWhenTrue}}" />
+      <TextBlock Margin="0,6,0,0"
+                 TextWrapping="Wrap"
+                 Text="This version of Mote is not compatible with the Relay."
+                 Visibility="{Binding ShowCompatibilityHelp, Converter={StaticResource ShowWhenTrue}}" />
+      <StackPanel Margin="0,8,0,0" Visibility="{Binding ShowCredentialReplacement, Converter={StaticResource ShowWhenTrue}}">
+        <TextBlock TextWrapping="Wrap" Text="Paste the replacement device credential. It is stored in Credential Manager and is not shown again." />
+        <PasswordBox x:Name="CredentialBox"
+                     Margin="0,8,0,8"
+                     Padding="8,6"
+                     AutomationProperties.Name="Replacement device credential" />
+        <Button MinWidth="180"
+                Padding="12,6"
+                HorizontalAlignment="Left"
+                Content="Save credential &amp; reconnect"
+                IsEnabled="{Binding IsBusy, Converter={StaticResource NotBusy}}"
+                Click="OnSaveCredential" />
+      </StackPanel>
+      <TextBlock Margin="0,12,0,0" Foreground="#666666" Text="{Binding HeartbeatText, StringFormat=Heartbeat latency: {0}}" />
+      <TextBlock Margin="0,4,0,0" Foreground="#666666" Text="{Binding Version, StringFormat=Version {0}}" />
+    </StackPanel>
+  </ScrollViewer>
+</Window>

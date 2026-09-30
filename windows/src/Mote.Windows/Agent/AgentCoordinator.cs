@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text;
 using Mote.Windows.Actions;
 using Mote.Windows.Commands;
 using Mote.Windows.Networking;
@@ -8,6 +9,28 @@ using Mote.Windows.Security;
 using Mote.Windows.Storage;
 
 namespace Mote.Windows.Agent;
+
+public enum ConnectResult
+{
+    Started,
+    PairingRequired,
+    InvalidRelayUrl,
+    CredentialUnreadable,
+}
+
+public enum RelayUrlSaveResult
+{
+    Saved,
+    Unchanged,
+    Invalid,
+}
+
+public enum CredentialReplaceResult
+{
+    Saved,
+    Invalid,
+    StoreFailed,
+}
 
 public sealed class AgentCoordinator
 {
@@ -138,6 +161,114 @@ public sealed class AgentCoordinator
         await _relay.StopAsync(intentional: true, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ConnectResult> ConnectAsync(CancellationToken cancellationToken = default)
+    {
+        var settings = _settings.Load().Settings;
+        if (!RelayAddress.TryParseBase(settings.RelayUrl ?? "", out _))
+        {
+            return ConnectResult.InvalidRelayUrl;
+        }
+
+        if (!TryReadStoredCredential(out var unreadable))
+        {
+            return unreadable ? ConnectResult.CredentialUnreadable : ConnectResult.PairingRequired;
+        }
+
+        _settings.Save(settings with { WantsConnection = true });
+        await StartRelayAsync(cancellationToken).ConfigureAwait(false);
+        return ConnectResult.Started;
+    }
+
+    public async Task<RelayUrlSaveResult> SaveRelayUrlAsync(string relayUrl, CancellationToken cancellationToken = default)
+    {
+        var trimmed = relayUrl.Trim();
+        if (!RelayAddress.TryParseBase(trimmed, out _))
+        {
+            return RelayUrlSaveResult.Invalid;
+        }
+
+        var settings = _settings.Load().Settings;
+        var current = settings.RelayUrl?.Trim() ?? "";
+        if (string.Equals(current, trimmed, StringComparison.Ordinal))
+        {
+            return RelayUrlSaveResult.Unchanged;
+        }
+
+        _settings.Save(settings with { RelayUrl = trimmed });
+        if (settings.WantsConnection && IsRunning)
+        {
+            await _relay.StopAsync(intentional: true, cancellationToken).ConfigureAwait(false);
+            await _relay.StartAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return RelayUrlSaveResult.Saved;
+    }
+
+    public bool TrySaveDeviceName(string deviceName, out string? error)
+    {
+        if (HasCredential())
+        {
+            error = "Rename this device in the Mote Dashboard.";
+            return false;
+        }
+
+        var trimmed = deviceName.Trim();
+        if (trimmed.Length == 0)
+        {
+            error = "Enter a device name.";
+            return false;
+        }
+
+        if (trimmed.Length > 80)
+        {
+            error = "Use a shorter device name.";
+            return false;
+        }
+
+        var settings = _settings.Load().Settings;
+        _settings.Save(settings with { DeviceName = trimmed });
+        error = null;
+        return true;
+    }
+
+    public async Task<CredentialReplaceResult> ReplaceCredentialAndReconnectAsync(
+        string credential,
+        CancellationToken cancellationToken = default)
+    {
+        var trimmed = credential.Trim();
+        if (!IsStorableCredential(trimmed))
+        {
+            return CredentialReplaceResult.Invalid;
+        }
+
+        try
+        {
+            Credentials.Save(trimmed);
+        }
+        catch (CredentialStoreException)
+        {
+            AgentLog.Info("Failed to store device credential");
+            return CredentialReplaceResult.StoreFailed;
+        }
+
+        var settings = _settings.Load().Settings;
+        _settings.Save(settings with { WantsConnection = true });
+        await StartRelayAsync(cancellationToken).ConfigureAwait(false);
+        return CredentialReplaceResult.Saved;
+    }
+
+    public bool HasCredential()
+    {
+        try
+        {
+            return !string.IsNullOrEmpty(Credentials.Read());
+        }
+        catch (CredentialStoreException)
+        {
+            return false;
+        }
+    }
+
     public async Task<PairingResult> PairAsync(CancellationToken cancellationToken = default)
     {
         var result = await _pairing.PairAsync(cancellationToken).ConfigureAwait(false);
@@ -157,6 +288,43 @@ public sealed class AgentCoordinator
     }
 
     public CommandResultFrame Process(CommandFrame command) => _processor.Process(command);
+
+    private async Task StartRelayAsync(CancellationToken cancellationToken)
+    {
+        if (!IsRunning)
+        {
+            await StartAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await _relay.StartAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private bool TryReadStoredCredential(out bool unreadable)
+    {
+        try
+        {
+            var credential = Credentials.Read();
+            unreadable = false;
+            return !string.IsNullOrEmpty(credential);
+        }
+        catch (CredentialStoreException)
+        {
+            AgentLog.Info("Failed to read device credential");
+            unreadable = true;
+            return false;
+        }
+    }
+
+    private static bool IsStorableCredential(string credential)
+    {
+        if (credential.Length == 0 || credential.Contains('\0'))
+        {
+            return false;
+        }
+
+        return Encoding.UTF8.GetByteCount(credential) <= WindowsCredentialStore.MaximumBlobBytes;
+    }
 
     private CommandProcessor CreateProcessor()
     {
