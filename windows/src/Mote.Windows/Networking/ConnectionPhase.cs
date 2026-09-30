@@ -4,6 +4,7 @@ public enum ConnectionPhase
 {
     NotConfigured,
     Disconnected,
+    NetworkUnavailable,
     Connecting,
     Authenticating,
     Connected,

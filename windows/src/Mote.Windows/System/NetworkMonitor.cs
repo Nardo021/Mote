@@ -17,6 +17,8 @@ public interface INetworkMonitor : IDisposable
 
 public sealed class NetworkMonitor : INetworkMonitor
 {
+    private bool _disposed;
+
     public NetworkMonitor()
     {
         Availability = NetworkInterface.GetIsNetworkAvailable()
@@ -31,12 +33,24 @@ public sealed class NetworkMonitor : INetworkMonitor
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
     }
 
     private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs args)
     {
-        Availability = args.IsAvailable ? NetworkAvailability.Available : NetworkAvailability.Unavailable;
+        var availability = args.IsAvailable ? NetworkAvailability.Available : NetworkAvailability.Unavailable;
+        if (availability == Availability)
+        {
+            return;
+        }
+
+        Availability = availability;
         AvailabilityChanged?.Invoke(this, Availability);
     }
 }

@@ -2,6 +2,7 @@ using System.Net.Http;
 using Mote.Windows.Actions;
 using Mote.Windows.Commands;
 using Mote.Windows.Networking;
+using Mote.Windows.Platform;
 using Mote.Windows.Protocol;
 using Mote.Windows.Security;
 using Mote.Windows.Storage;
@@ -14,9 +15,16 @@ public sealed class AgentCoordinator
     private readonly IWorkstationLock _workstation;
     private readonly Func<long> _now;
     private readonly HttpClient? _http;
+    private readonly INetworkMonitor? _network;
+    private readonly IPowerMonitor? _power;
     private readonly RelayClient _relay;
     private readonly PairingClient _pairing;
+    private readonly object _eventsGate = new();
     private CommandProcessor _processor;
+    private Task _events = Task.CompletedTask;
+    private bool _acceptLifecycle = true;
+    private bool _monitorsSubscribed;
+    private bool _monitorsDisposed;
 
     public AgentCoordinator(
         SettingsStore settings,
@@ -27,7 +35,9 @@ public sealed class AgentCoordinator
         IAsyncDelay? delay = null,
         ReconnectPolicy? reconnect = null,
         Func<long>? now = null,
-        string? appVersion = null)
+        string? appVersion = null,
+        INetworkMonitor? network = null,
+        IPowerMonitor? power = null)
     {
         _settings = settings;
         Credentials = credentials;
@@ -46,6 +56,8 @@ public sealed class AgentCoordinator
             api = pairingApi;
         }
 
+        _network = network;
+        _power = power;
         _processor = CreateProcessor();
         _relay = new RelayClient(
             transports,
@@ -76,6 +88,13 @@ public sealed class AgentCoordinator
         }
 
         IsRunning = true;
+        _acceptLifecycle = true;
+        if (_network is not null)
+        {
+            await _relay.NoteNetworkAsync(_network.Availability).ConfigureAwait(false);
+        }
+
+        SubscribeMonitors();
         var settings = _settings.Load().Settings;
         if (!settings.WantsConnection)
         {
@@ -104,6 +123,8 @@ public sealed class AgentCoordinator
     public async Task ShutdownAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        _acceptLifecycle = false;
+        DetachMonitors();
         await _pairing.CancelAsync().ConfigureAwait(false);
         await _relay.StopAsync(intentional: true, cancellationToken).ConfigureAwait(false);
         _http?.Dispose();
@@ -144,4 +165,94 @@ public sealed class AgentCoordinator
     }
 
     private string? ReadCredential() => Credentials.Read();
+
+    private void SubscribeMonitors()
+    {
+        if (_monitorsSubscribed || _monitorsDisposed)
+        {
+            return;
+        }
+
+        _monitorsSubscribed = true;
+        if (_network is not null)
+        {
+            _network.AvailabilityChanged += OnNetworkAvailability;
+        }
+
+        if (_power is not null)
+        {
+            _power.Transitioned += OnPowerTransition;
+        }
+    }
+
+    private void DetachMonitors()
+    {
+        if (_monitorsDisposed)
+        {
+            return;
+        }
+
+        _monitorsDisposed = true;
+        if (_network is not null)
+        {
+            _network.AvailabilityChanged -= OnNetworkAvailability;
+        }
+
+        if (_power is not null)
+        {
+            _power.Transitioned -= OnPowerTransition;
+        }
+
+        _network?.Dispose();
+        _power?.Dispose();
+    }
+
+    private void OnNetworkAvailability(object? sender, NetworkAvailability availability)
+    {
+        if (!_acceptLifecycle)
+        {
+            return;
+        }
+
+        Enqueue(() => _relay.NoteNetworkAsync(availability));
+    }
+
+    private void OnPowerTransition(object? sender, PowerTransition transition)
+    {
+        if (!_acceptLifecycle)
+        {
+            return;
+        }
+
+        Enqueue(() => _relay.NotePowerAsync(transition));
+    }
+
+    private void Enqueue(Func<Task> work)
+    {
+        lock (_eventsGate)
+        {
+            _events = RunAfter(_events, work);
+        }
+    }
+
+    private static async Task RunAfter(Task previous, Func<Task> work)
+    {
+        try
+        {
+            await previous.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The earlier lifecycle update already reported its failure.
+        }
+
+        try
+        {
+            await work().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            AgentLog.Info("Lifecycle update failed");
+        }
+    }
 }

@@ -2,7 +2,7 @@
 
 Mote for Windows 是第二套原生 Agent。它使用仓库里已有的 Mote Relay 和 Protocol v1，不另起 Relay，也不定义 Protocol v2。
 
-**状态：W3 已用本地真实 Relay 走通配对、认证、命令和断开。还不能用于生产。** 核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。托盘、设置界面、安装包、签名和网络/休眠生命周期还没做。窗口只说明进程在运行，不能从界面上配对。
+**状态：W4 已把网络可用性和休眠/唤醒接进现有连接状态机。还不能用于生产。** 核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。网络中断和系统休眠会立刻作废当前连接代次；恢复后在条件允许时马上重连一次。托盘、设置界面、安装包和签名还没做。窗口只说明进程在运行，不能从界面上配对。
 
 ## 它是什么
 
@@ -23,6 +23,8 @@ Mote for Windows 是第二套原生 Agent。它使用仓库里已有的 Mote Rel
 设备通道是 `/v1/ws/device`。连接后立刻发送 `auth`。认证成功才开始 30 秒心跳。传输失败按现有退避重连。`invalid_credentials`、`unsupported_version`、`device_disabled` 和 `credential_rotated` 停止自动重连。显式断开也会停止重连，并且不会清掉凭据，除非用户取消的是尚未批准的配对。
 
 启动时如果 `wants_connection` 为真，并且 Relay URL 和凭据都在，才连接。没有凭据不会崩溃，也不会自己开始配对。
+
+网络和电源监视只负责报告系统事件。`RelayClient` 决定要不要连接。当前网络不可用时不会发起 WebSocket，也不会进入普通重连退避；网络恢复后立刻尝试一次。休眠会关掉当前套接字并停掉心跳，唤醒后同样立刻尝试一次。用户明确断开，以及 `invalid_credentials`、`unsupported_version`、`device_disabled`、`credential_rotated` 这些终止状态，都不会被系统事件重新打开。进程退出不会把 `wants_connection` 改成 false。
 
 ## 开发
 

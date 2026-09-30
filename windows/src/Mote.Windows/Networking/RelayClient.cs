@@ -1,12 +1,13 @@
 using System.Text;
+using Mote.Windows.Platform;
 using Mote.Windows.Protocol;
 using Mote.Windows.Storage;
 
 namespace Mote.Windows.Networking;
 
 /// <summary>
-/// The Windows connection and session state machine. Later phases inject
-/// network and power events here instead of adding a second lifecycle manager.
+/// The Windows connection and session state machine. Network and power events
+/// enter here; this type remains the only reconnect and generation authority.
 /// </summary>
 public sealed class RelayClient
 {
@@ -26,6 +27,8 @@ public sealed class RelayClient
     private bool _intentionalDisconnect;
     private bool _terminal;
     private bool _connectInFlight;
+    private bool _networkAvailable = true;
+    private bool _suspended;
     private int _reconnectAttempt;
     private ConnectionPhase _phase = ConnectionPhase.Disconnected;
     private string? _lastError;
@@ -192,6 +195,24 @@ public sealed class RelayClient
         await CloseQuietlyAsync(transport).ConfigureAwait(false);
     }
 
+    internal Task NoteNetworkAsync(NetworkAvailability availability) =>
+        availability == NetworkAvailability.Available
+            ? RestoreNetworkAsync()
+            : LoseNetworkAsync();
+
+    internal Task NotePowerAsync(PowerTransition transition)
+    {
+        switch (transition)
+        {
+            case PowerTransition.Suspend:
+                return SuspendAsync();
+            case PowerTransition.Resume:
+                return ResumeAsync();
+            default:
+                throw new InvalidOperationException($"Unhandled power transition {transition}.");
+        }
+    }
+
     internal Task HandleIncomingAsync(long generation, string json) =>
         HandleIncomingCoreAsync(generation, json);
 
@@ -215,6 +236,7 @@ public sealed class RelayClient
 
             if (!CanAttempt())
             {
+                PresentLifecyclePhase();
                 return;
             }
 
@@ -861,9 +883,181 @@ public sealed class RelayClient
         _session = CancellationTokenSource.CreateLinkedTokenSource(_lifetime!.Token);
     }
 
-    private bool CanAttempt() => CanContinue() && !_authenticated && !_connectInFlight;
+    private bool LifetimeActive => _lifetime is { IsCancellationRequested: false };
 
-    private bool CanContinue() => !_intentionalDisconnect && !_terminal;
+    private bool CanAttempt() => CanContinue() && !_authenticated && !_connectInFlight && WantsConnection();
+
+    private bool CanContinue() =>
+        LifetimeActive && !_intentionalDisconnect && !_terminal && !_suspended && _networkAvailable;
+
+    private bool WantsConnection() => _settings().WantsConnection;
+
+    private bool HasRelayTarget()
+    {
+        var settings = _settings();
+        return settings.WantsConnection
+            && RelayAddress.TryParseBase(settings.RelayUrl ?? "", out var baseUri)
+            && baseUri is not null;
+    }
+
+    private async Task LoseNetworkAsync()
+    {
+        IMessageTransport? transport;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_networkAvailable)
+            {
+                return;
+            }
+
+            _networkAvailable = false;
+            _reconnectDelay?.Cancel();
+            Log("Network unavailable");
+            transport = InvalidateLiveTransport();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        await CloseQuietlyAsync(transport).ConfigureAwait(false);
+    }
+
+    private async Task RestoreNetworkAsync()
+    {
+        var recover = false;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_networkAvailable)
+            {
+                return;
+            }
+
+            _networkAvailable = true;
+            Log("Network restored");
+            recover = CanAttempt();
+            if (recover)
+            {
+                Log("Immediate reconnect");
+            }
+            else
+            {
+                PresentLifecyclePhase();
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        if (recover)
+        {
+            await ConnectAsync(isReconnect: true, resetBackoff: true).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SuspendAsync()
+    {
+        IMessageTransport? transport;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_suspended)
+            {
+                return;
+            }
+
+            _suspended = true;
+            _reconnectDelay?.Cancel();
+            Log("System suspend");
+            transport = InvalidateLiveTransport();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        await CloseQuietlyAsync(transport).ConfigureAwait(false);
+    }
+
+    private async Task ResumeAsync()
+    {
+        var recover = false;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_suspended)
+            {
+                return;
+            }
+
+            _suspended = false;
+            Log("System resume");
+            recover = CanAttempt();
+            if (recover)
+            {
+                Log("Immediate reconnect");
+            }
+            else
+            {
+                PresentLifecyclePhase();
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        if (recover)
+        {
+            await ConnectAsync(isReconnect: true, resetBackoff: true).ConfigureAwait(false);
+        }
+    }
+
+    private IMessageTransport? InvalidateLiveTransport()
+    {
+        var live = _authenticated || _transport is not null || _connectInFlight;
+        if (!live)
+        {
+            PresentLifecyclePhase();
+            return null;
+        }
+
+        _connectInFlight = false;
+        _generation++;
+        _authenticated = false;
+        _roundTripMilliseconds = null;
+        _session?.Cancel();
+        _authTimeout?.Cancel();
+        var transport = _transport;
+        _transport = null;
+        PresentLifecyclePhase();
+        Log("Transport invalidated");
+        return transport;
+    }
+
+    private void PresentLifecyclePhase()
+    {
+        if (_terminal || _intentionalDisconnect || !LifetimeActive || _authenticated || _connectInFlight || !HasRelayTarget())
+        {
+            return;
+        }
+
+        if (!_networkAvailable)
+        {
+            _lastError = null;
+            _phase = ConnectionPhase.NetworkUnavailable;
+            return;
+        }
+
+        if (_suspended)
+        {
+            _lastError = null;
+            _phase = ConnectionPhase.Disconnected;
+        }
+    }
 
     private static async Task CloseQuietlyAsync(IMessageTransport? transport)
     {

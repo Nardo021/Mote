@@ -8,7 +8,7 @@ Bundle ID 从占位符 `com.example.mote` 换成 `com.nardo021.mote` 时，读�
 
 仓库默认 Ad-hoc 签名，Team ID 不入库。Ad-hoc 构建的 cdhash 每次都会变，重新构建可能弹出钥匙串提示。稳定的 Development Team 或 Developer ID 让同一把钥匙串身份跨构建保持不变。不要为了消掉这个提示而恢复任意进程可读的 ACL。应用沙盒保持关闭：锁屏依赖私有 `SACLockScreenImmediate` 和 `CGEvent` 回退，登录项就是这个菜单栏应用。沙盒策略和凭据 ACL 是两件事。
 
-Mote for Windows 的设备凭据不进 `%LOCALAPPDATA%\Mote\settings.json`，也不进注册表。生产存储是 Windows Credential Manager，类型 `CRED_TYPE_GENERIC`，TargetName 为 `com.nardo021.mote/device_connection`。读写走 `CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree`。原生调用失败就失败，不改写到设置、注册表明文或别的文件。单元测试只用 `com.nardo021.mote.test/<uuid>`。端到端测试只用 `com.nardo021.mote.e2e/<uuid>`，跑完删除。两者都不写生产 TargetName。Windows 锁屏只走 `LockWorkStation()`，不走 shell 或 PowerShell。端到端测试在这个 API 之前换成替身，不锁当前会话。
+Mote for Windows 的设备凭据不进 `%LOCALAPPDATA%\Mote\settings.json`，也不进注册表。生产存储是 Windows Credential Manager，类型 `CRED_TYPE_GENERIC`，TargetName 为 `com.nardo021.mote/device_connection`。读写走 `CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree`。原生调用失败就失败，不改写到设置、注册表明文或别的文件。单元测试只用 `com.nardo021.mote.test/<uuid>`。端到端测试只用 `com.nardo021.mote.e2e/<uuid>`，跑完删除。两者都不写生产 TargetName。网络中断和系统休眠不会删除这条凭据，也不会改掉用户的连接意愿。Windows 锁屏只走 `LockWorkStation()`，不走 shell 或 PowerShell。端到端测试在这个 API 之前换成替身，不锁当前会话。
 
 Mote Relay 只保存设备凭据和快捷指令 token 的 SHA-256 哈希。
 

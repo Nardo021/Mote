@@ -12,7 +12,7 @@ Mote for Mac、Mote Relay、Dashboard 和配对已经实现。iPhone 当前用 [
 | -------------------- | ------------------------- |
 | Mote                 | 产品                      |
 | Mote for Mac         | 原生 macOS 应用           |
-| Mote for Windows     | 原生 Windows Agent，W3 本地端到端已通过，尚未生产可用 |
+| Mote for Windows     | 原生 Windows Agent，W4 生命周期已接入，尚未生产可用 |
 | Mote Agent           | Mote for Mac 内的后台组件 |
 | Mote Relay           | 后端服务                  |
 | Mote Relay Dashboard | 浏览器里的管理界面        |
@@ -67,7 +67,7 @@ Cloudflare Access 不是 Mote 的认证。Cloudflare Tunnel 不是这套生产�
 - **Mote Relay Dashboard** — 浏览器管理界面，由 Workers Assets 托管，不是单独的服务器。页面：Overview、Devices（含配对批准）、Tokens、Activity、Settings。登录后打开 `GET /admin/api/events`（SSE，只推 `devices` / `pairing` / `activity` / `tokens`），再拉现有 REST。
 - **Mote Agent** — Mote for Mac 的持久后台组件。维护出站 WebSocket，并执行允许列表中的本地动作。
 - **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。当前版本 `1.5.6`。
-- **Mote for Windows** — 第二套原生 Agent。W2 已有配对、Credential Manager、已认证设备会话、心跳和 `command_result`。W3 在本地 Wrangler 上用真实 Worker、Durable Object 和 WebSocket 走通了这条路径。它还不是生产客户端：没有托盘和设置界面。目标仍是同一台 Relay、Protocol v1，以及用户会话里的托盘应用，不是 Windows 服务。见 [windows/README.md](../windows/README.md)。
+- **Mote for Windows** — 第二套原生 Agent。W2 已有配对、Credential Manager、已认证设备会话、心跳和 `command_result`。W3 在本地 Wrangler 上用真实 Worker、Durable Object 和 WebSocket 走通了这条路径。W4 把 Windows 网络可用性和休眠/唤醒送进同一个 `RelayClient`。它还不是生产客户端：没有托盘和设置界面。目标仍是同一台 Relay、Protocol v1，以及用户会话里的托盘应用，不是 Windows 服务。见 [windows/README.md](../windows/README.md)。
 - **Mote iOS** — 尚未实现。计划复用同一条 `send_command` HTTPS API，见 [ios.md](ios.md)。
 
 ### 动作

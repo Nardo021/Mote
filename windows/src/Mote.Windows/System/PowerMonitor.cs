@@ -15,6 +15,8 @@ public interface IPowerMonitor : IDisposable
 
 public sealed class PowerMonitor : IPowerMonitor
 {
+    private bool _disposed;
+
     public PowerMonitor()
     {
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -24,6 +26,12 @@ public sealed class PowerMonitor : IPowerMonitor
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
     }
 
