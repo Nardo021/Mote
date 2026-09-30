@@ -14,6 +14,7 @@ final class AppStatePairingTests: XCTestCase {
         let state = AppState(credentials: CredentialManager(store: store), pairing: pairing)
         state.deviceID = "device-1"
         state.deviceName = "MacBook"
+        state.setRelayURLOverride("https://relay.example.net")
 
         state.beginPairing()
         await state.waitForPairingToFinish()
@@ -33,6 +34,7 @@ final class AppStatePairingTests: XCTestCase {
             credentials: CredentialManager(store: InMemoryKeychainStore()),
             pairing: pairing
         )
+        state.setRelayURLOverride("https://relay.example.net")
 
         state.beginPairing()
         await state.waitForPairingToFinish()
@@ -50,6 +52,7 @@ final class AppStatePairingTests: XCTestCase {
             credentials: CredentialManager(store: InMemoryKeychainStore()),
             pairing: pairing
         )
+        state.setRelayURLOverride("https://relay.example.net")
 
         state.beginPairing()
         await state.waitForPairingToFinish()
@@ -95,6 +98,7 @@ final class AppStatePairingTests: XCTestCase {
             pairing: pairing
         )
         state.deviceID = "device-1"
+        state.setRelayURLOverride("https://relay.example.net")
 
         state.beginPairing()
         await pairing.waitUntilWaiting()
@@ -153,8 +157,9 @@ final class MockPairingService: PairingServicing, @unchecked Sendable {
     }
 
     func waitUntilWaiting() async {
-        while waitingContinuation == nil {
-            await Task.yield()
+        let deadline = Date().addingTimeInterval(2)
+        while waitingContinuation == nil, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
         }
     }
 }
