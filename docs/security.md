@@ -10,6 +10,8 @@ Bundle ID 从占位符 `com.example.mote` 换成 `com.nardo021.mote` 时，读�
 
 Mote for Windows 的设备凭据不进 `%LOCALAPPDATA%\Mote\settings.json`，也不进注册表。生产存储是 Windows Credential Manager，类型 `CRED_TYPE_GENERIC`，TargetName 为 `com.nardo021.mote/device_connection`。读写走 `CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree`。原生调用失败就失败，不改写到设置、注册表明文或别的文件。单元测试只用 `com.nardo021.mote.test/<uuid>`。端到端测试只用 `com.nardo021.mote.e2e/<uuid>`，跑完删除。两者都不写生产 TargetName。网络中断和系统休眠不会删除这条凭据，也不会改掉用户的连接意愿。设置窗口里替换凭据时，明文只经过 Credential Manager，不进 `settings.json`，也不进日志。登录启动只写当前用户的 Run 键，命令带 `--background`。Windows 锁屏只走 `LockWorkStation()`，不走 shell 或 PowerShell。端到端测试在这个 API 之前换成替身，不锁当前会话。
 
+Windows 打包没有加遥测，也没有加 Windows 服务或管理员权限。Agent 仍然只连接用户配置的 Relay。`lock` 仍是唯一允许的动作。Authenticode 只能说明这个文件来自某个签名身份、并且签完以后没被改过。它不证明 Relay、配对或设备凭据可以被信任，也不能代替 Protocol v1 的认证。未签名和测试自签的包都是开发产物。签名也不能保证 SmartScreen 不提示；新的直接下载程序即使签过名，也可能还要积累信誉。不要为了安装 Mote 去关掉系统的安全保护。
+
 Mote Relay 只保存设备凭据和快捷指令 token 的 SHA-256 哈希。
 
 这是个人工具。它不是零信任，也不声称自己是密码学产品。

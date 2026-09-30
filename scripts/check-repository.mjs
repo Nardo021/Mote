@@ -266,6 +266,7 @@ for (const file of tracked) {
     base === ".env" ||
     base === ".dev.vars" ||
     base.endsWith(".p12") ||
+    base.endsWith(".pfx") ||
     base.endsWith(".p8") ||
     base.endsWith(".pem")
   ) {
@@ -286,6 +287,9 @@ if (!ci.includes("runs-on: windows-latest") || !ci.includes("dotnet test")) {
 if (ci.includes("LockWorkStation")) {
   fail("CI must not invoke LockWorkStation.");
 }
+if (!ci.includes("build-windows-release.yml")) {
+  fail("CI must build the Windows release artifact.");
+}
 
 const deploy = read(".github/workflows/deploy-cloudflare.yml");
 if (!deploy.includes("workflow_run") || !deploy.includes('workflows: ["CI"]')) {
@@ -304,6 +308,46 @@ if (!release.includes("workflow_dispatch") || release.includes("branches: [main]
 }
 if (!release.includes("NOTARIZATION") && !release.includes("notarytool")) {
   fail("macOS release workflow must include notarization.");
+}
+if (
+  !release.includes("v[0-9]+.[0-9]+.[0-9]+") ||
+  !release.includes("MARKETING_VERSION") ||
+  !release.includes("gh release create")
+) {
+  fail("macOS release workflow must keep owning vX.Y.Z publication.");
+}
+
+const windowsRelease = read(".github/workflows/build-windows-release.yml");
+if (!windowsRelease.includes("workflow_dispatch") || !windowsRelease.includes("workflow_call")) {
+  fail("Windows release workflow must be manually triggerable and reusable.");
+}
+if (!windowsRelease.includes("contents: read") || windowsRelease.includes("contents: write")) {
+  fail("Windows release workflow must use contents: read and must not publish a release.");
+}
+if (
+  windowsRelease.includes("v[0-9]+.[0-9]+.[0-9]+") ||
+  windowsRelease.includes("gh release create") ||
+  /tags:\s*\n/.test(windowsRelease)
+) {
+  fail("Windows release workflow must not claim generic version tags or create a GitHub Release.");
+}
+if (windowsRelease.includes("LockWorkStation")) {
+  fail("Windows release workflow must not invoke LockWorkStation.");
+}
+if (!windowsRelease.includes("win-x64") || !windowsRelease.includes("--self-contained true")) {
+  fail("Windows release workflow must publish self-contained win-x64.");
+}
+
+try {
+  const version = execFileSync(process.execPath, ["scripts/windows-release-version.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    fail(`Windows release version is malformed: ${version}`);
+  }
+} catch (error) {
+  fail(`Windows release version check failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 if (failures.length > 0) {

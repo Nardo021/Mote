@@ -8,6 +8,9 @@
 | `CURRENT_PROJECT_VERSION` | 14 | 构建号 |
 | `protocol/catalogue.json` `version` | 1 | 线上协议。保持 v1 |
 | `relay` / `dashboard` 的 `package.json` `version` | 1.0.0 | 私有包元数据，不是 Mac 发行版号 |
+| Windows `Version` | 0.1.0 | Windows 工程版本。还没有和 Mac 的 `MARKETING_VERSION` 对齐 |
+
+Mac 和 Windows 现在不是同一个公开发版号。`vX.Y.Z` 仍然只由 macOS 发行工作流校验并发布。Windows 产物名字来自 Windows 工程里的 `Version`。在 W7 把两边的版本、tag 和 GitHub Release 收成一套之前，不要把 Windows 包放进现有的 Mac Release。
 
 下次真正发布时，只抬 Mac 的 marketing version 和 build。协议有不兼容改动时才另开版本，那不是这次的事。
 
@@ -76,10 +79,36 @@
 
 CI 用 ad-hoc 身份（`CODE_SIGN_IDENTITY=-`）编译和跑安全测试，不注入 Developer ID。
 
-## 这次没有做的事
+这次没有运行 macOS 发行工作流，也没有：
 
-- 没有签名
-- 没有 `codesign --verify`
-- 没有公证、装订
-- 没有打 zip 发行包
-- 没有创建 GitHub Release
+- 用 Developer ID 签名
+- `codesign --verify`
+- 公证、装订
+- 打 macOS zip 发行包
+- 创建 GitHub Release
+
+公证状态仍是 `NOTARIZATION_NOT_EXECUTED`。
+
+## Windows 产物
+
+`NO_INSTALLER_YET`
+
+`NO_MSIX_YET`
+
+Windows 发行目标是 `win-x64` 的自包含单文件 `Mote.Windows.exe`，打成 `Mote-Windows-x64-<version>.zip`。不发布 x86。没有在真实 ARM64 Windows 上运行过，所以不把 `win-arm64` 写成支持的目标。不做 MSIX，也不做 MSI、Inno、WiX 或 NSIS。这些以后仍可以加。
+
+发布配置在 `Mote.Windows.csproj` 里，只在带 RuntimeIdentifier 的 publish 上生效。可复现命令：
+
+```text
+dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x64 --self-contained true
+```
+
+`PublishSingleFile` 打开，`PublishTrimmed` 和 ReadyToRun 关闭。不使用 NativeAOT。用户不需要另装 .NET Desktop Runtime。公开 zip 里不放 PDB。版本号由 `scripts/windows-release-version.mjs` 从工程读出，拒绝不合 `major.minor.patch` 的值。
+
+`.github/workflows/build-windows-release.yml` 可以手动运行，也可以被 CI 以 `workflow_call` 调用。它不监听 `vX.Y.Z`，也不创建 GitHub Release。`mode=test` 上传的是 `UNSIGNED_RC`。`mode=production` 在没有受信任签名提供者时直接失败，不会改成未签名包再上传。测试用的自签证书只存在于当次作业里，签的是一份会被删掉的副本，不会进入 zip。
+
+便携包的更新是手动的：退出 Mote，换掉可执行文件，再启动。如果路径变了，要重新打开 Launch at login。配对和设置不在可执行文件旁边，而在 `%LOCALAPPDATA%\Mote\settings.json` 和 Windows Credential Manager 里，替换程序不会清掉它们。程序被挪走或删掉之后，原来的 Run 键会变成失效项。这次不用安装器去解决这件事。
+
+`NO_AUTO_UPDATER_YET` 同样适用于 Windows。
+
+验收清单见 [windows-release-checklist.md](windows-release-checklist.md)。签名见 [code-signing.md](code-signing.md)。

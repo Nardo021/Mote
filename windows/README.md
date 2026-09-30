@@ -2,7 +2,7 @@
 
 Mote for Windows 是第二套原生 Agent。它使用仓库里已有的 Mote Relay 和 Protocol v1，不另起 Relay，也不定义 Protocol v2。
 
-**状态：可用的 Windows Agent，带托盘和设置窗口；安装包和签名还没有。** 核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。网络中断和系统休眠会立刻作废当前连接代次，条件允许时再重连。平时收在通知区域里。这还不是可下载的正式发行包。
+**状态：可用的 Windows Agent，带托盘和设置窗口。** 可以打出未签名的 `win-x64` 便携 zip。没有安装器，也没有受信任的生产签名。这还不是可下载的正式发行包。核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。网络中断和系统休眠会立刻作废当前连接代次，条件允许时再重连。平时收在通知区域里。
 
 ## 它是什么
 
@@ -61,3 +61,27 @@ dotnet test windows/tests/Mote.Windows.IntegrationTests/Mote.Windows.Integration
 ```
 
 这条路径使用回环上的真实 Worker、Durable Object 和 WebSocket。Credential Manager 目标是 `com.nardo021.mote.e2e/<uuid>`，设置写在临时目录。锁屏边界是测试替身，不会锁住当前会话。GitHub Actions 的 Windows E2E job 单独运行这个项目。
+
+## 便携包
+
+`NO_INSTALLER_YET`。`NO_MSIX_YET`。`NO_AUTO_UPDATER_YET`。
+
+发布命令：
+
+```text
+dotnet publish src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x64 --self-contained true
+```
+
+在 `windows/` 目录执行。工程会自己打开单文件、关闭裁剪。产物文件名必须仍是 `Mote.Windows.exe`。登录启动写进去的命令是带引号的这个路径，再加 `--background`。
+
+打包：
+
+```text
+scripts/package-windows-release.ps1
+```
+
+zip 名是 `Mote-Windows-x64-<版本>.zip`。版本来自工程，不在工作流里再写一遍。设置和凭据不在这个 zip 里。换掉可执行文件不会取消配对。如果之后把程序挪到别的路径，要重新打开 Launch at login，否则原来的 Run 键会指向已经不在的文件。这次不靠安装器修这件事。
+
+正式 Windows 图标还没有放进工程。Dashboard 的 `favicon.svg` 和缺少图片文件的 macOS AppIcon 目录都不能当作已经完成的 Windows 图标。
+
+手动验收见 [docs/windows-release-checklist.md](../docs/windows-release-checklist.md)。签名边界见 [docs/code-signing.md](../docs/code-signing.md)。

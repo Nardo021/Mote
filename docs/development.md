@@ -31,9 +31,11 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -desti
 
 见 [macos/README.md](../macos/README.md)。默认测试计划 `Mote-Safe` 不会锁屏。真实锁屏只在本机 DEBUG **Test Lock**。
 
-## Windows Agent（W5）
+## Windows Agent
 
 `windows/` 是 .NET 10 WPF 托盘程序。需要 .NET 10 SDK。核心运行时可以配对并维持已认证会话。网络中断和系统休眠会作废当前连接代次，恢复后按同一套规则重连。设置窗口可以配对、连接和断开；关掉窗口不会退出。测试不会锁屏，不会改本机网络或让系统休眠，也不会写入当前用户真正的 `Mote` 登录启动项。
+
+未签名的自包含 `win-x64` 包用 `dotnet publish -c Release -r win-x64 --self-contained true` 生成。它不是正式签名发布。说明见 [release.md](release.md)。
 
 ```text
 cd windows

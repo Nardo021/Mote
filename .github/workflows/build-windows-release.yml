@@ -1,0 +1,109 @@
+name: Build Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: test builds an unsigned RC. production requires trusted signing and fails closed.
+        required: true
+        type: choice
+        default: test
+        options:
+          - test
+          - production
+  workflow_call:
+    inputs:
+      mode:
+        description: test or production
+        required: false
+        type: string
+        default: test
+      run_tests:
+        description: Run Windows unit tests before publish.
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Windows release artifact
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Refuse an unsigned official build
+        if: inputs.mode == 'production'
+        shell: pwsh
+        run: |
+          Write-Host "PRODUCTION_TRUSTED_SIGNING_NOT_EXECUTED"
+          Write-Host "No trusted Windows signing provider is configured."
+          Write-Host "Refusing to upload an unsigned file as an official release."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate Windows version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (node scripts/windows-release-version.mjs).Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "Version script returned nothing." }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding ascii
+          Write-Host "windows_version=$version"
+          Write-Host "signing_status=UNSIGNED_RC"
+
+      - name: Test
+        if: github.event_name == 'workflow_dispatch' || inputs.run_tests == true
+        working-directory: windows
+        shell: pwsh
+        run: dotnet test Mote.Windows.sln --configuration Release --verbosity minimal
+
+      - name: Publish
+        working-directory: windows
+        shell: pwsh
+        run: dotnet publish src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x64 --self-contained true --nologo
+
+      - name: Smoke published executable
+        shell: pwsh
+        run: ./scripts/smoke-windows-release.ps1 -Executable windows/src/Mote.Windows/bin/Release/net10.0-windows/win-x64/publish/Mote.Windows.exe
+
+      - name: Prove test Authenticode signing
+        shell: pwsh
+        run: ./scripts/test-sign-windows.ps1 -Executable windows/src/Mote.Windows/bin/Release/net10.0-windows/win-x64/publish/Mote.Windows.exe
+
+      - name: Package unsigned RC
+        shell: pwsh
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $sdk = (dotnet --version).Trim()
+          ./scripts/package-windows-release.ps1 `
+            -PublishDirectory windows/src/Mote.Windows/bin/Release/net10.0-windows/win-x64/publish `
+            -OutputDirectory dist/windows `
+            -Commit $env:RELEASE_COMMIT `
+            -SdkVersion $sdk `
+            -SigningStatus UNSIGNED_RC
+
+      - name: Upload unsigned RC
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned-rc-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            dist/windows/Mote-Windows-x64-*.zip
+            dist/windows/Mote-Windows-x64-*.sha256
+            dist/windows/release-manifest.json

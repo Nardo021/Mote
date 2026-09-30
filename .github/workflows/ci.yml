@@ -146,6 +146,14 @@ jobs:
         working-directory: windows
         run: dotnet test Mote.Windows.sln --configuration Release --no-build --verbosity normal
 
+  windows-release:
+    name: Windows Release Artifact
+    needs: windows
+    uses: ./.github/workflows/build-windows-release.yml
+    with:
+      mode: test
+      run_tests: false
+
   windows-e2e:
     name: Windows E2E
     runs-on: windows-latest
