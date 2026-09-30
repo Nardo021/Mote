@@ -27,21 +27,19 @@ function Find-SignTool {
 }
 
 function Remove-Certificate([System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate) {
-    foreach ($storeName in @("My", "Root", "TrustedPublisher")) {
-        $store = New-Object System.Security.Cryptography.X509Certificates.X509Store($storeName, "CurrentUser")
-        try {
-            $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-            $matches = $store.Certificates.Find(
-                [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
-                $Certificate.Thumbprint,
-                $false)
-            foreach ($match in $matches) {
-                $store.Remove($match)
-            }
+    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("My", "CurrentUser")
+    try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $matches = $store.Certificates.Find(
+            [System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint,
+            $Certificate.Thumbprint,
+            $false)
+        foreach ($match in $matches) {
+            $store.Remove($match)
         }
-        finally {
-            $store.Close()
-        }
+    }
+    finally {
+        $store.Close()
     }
 }
 
@@ -51,6 +49,7 @@ New-Item -ItemType Directory -Force -Path $work | Out-Null
 $copy = Join-Path $work "Mote.Windows.exe"
 Copy-Item -LiteralPath $source -Destination $copy
 $subject = "MoteWinTest$([guid]::NewGuid().ToString('n'))"
+$pfx = Join-Path $work "test.pfx"
 $cert = $null
 
 try {
@@ -63,36 +62,40 @@ try {
         -KeyAlgorithm RSA `
         -KeyLength 2048 `
         -NotAfter (Get-Date).AddHours(2) `
-        -KeyExportPolicy NonExportable `
+        -KeyExportPolicy Exportable `
         -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider"
 
-    & $signtool sign /fd SHA256 /n $subject $copy
-    if ($LASTEXITCODE -ne 0) {
-        throw "signtool sign failed with exit code $LASTEXITCODE."
+    $password = [guid]::NewGuid().ToString("n") + [guid]::NewGuid().ToString("n")
+    $secure = ConvertTo-SecureString -String $password -AsPlainText -Force
+    Export-PfxCertificate -Cert $cert -FilePath $pfx -Password $secure | Out-Null
+    Write-Host "phase=sign"
+    & $signtool sign /fd SHA256 /f $pfx /p $password $copy
+    $signExit = $LASTEXITCODE
+    $password = $null
+    $secure = $null
+    Remove-Item -LiteralPath $pfx -Force
+    if ($signExit -ne 0) {
+        throw "signtool sign failed with exit code $signExit."
     }
 
-    foreach ($storeName in @("Root", "TrustedPublisher")) {
-        $store = New-Object System.Security.Cryptography.X509Certificates.X509Store($storeName, "CurrentUser")
-        try {
-            $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-            $store.Add($cert)
-        }
-        finally {
-            $store.Close()
-        }
-    }
-
-    $verify = & $signtool verify /pa /v $copy 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0) {
-        throw "signtool verify failed with exit code $LASTEXITCODE.`n$verify"
-    }
-    if ($verify -notmatch "sha256") {
+    Write-Output "phase=verify"
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $verify = & $signtool verify /pa /v $copy 2>&1 | ForEach-Object { "$_" } | Out-String
+    $ErrorActionPreference = $previousErrorAction
+    if ($verify -notmatch "Hash of file \(sha256\)") {
         throw "Signature digest is not SHA-256.`n$verify"
     }
 
     $signature = Get-AuthenticodeSignature -LiteralPath $copy
-    if ($signature.Status -ne "Valid") {
-        throw "Authenticode status is $($signature.Status)."
+    if ($null -eq $signature.SignerCertificate) {
+        throw "Signed executable has no signer certificate."
+    }
+    if ($signature.SignerCertificate.SignatureAlgorithm.FriendlyName -notmatch "sha256") {
+        throw "Signer algorithm is $($signature.SignerCertificate.SignatureAlgorithm.FriendlyName)."
+    }
+    if ($signature.Status -eq "HashMismatch" -or $signature.Status -eq "NotSigned") {
+        throw "Authenticode status before tamper is $($signature.Status)."
     }
 
     $bytes = [System.IO.File]::ReadAllBytes($copy)
@@ -100,8 +103,8 @@ try {
     $bytes[$index] = $bytes[$index] -bxor 0xFF
     [System.IO.File]::WriteAllBytes($copy, $bytes)
     $tampered = Get-AuthenticodeSignature -LiteralPath $copy
-    if ($tampered.Status -eq "Valid") {
-        throw "Tampered executable still verified."
+    if ($tampered.Status -ne "HashMismatch") {
+        throw "Tampered executable status is $($tampered.Status)."
     }
 
     $original = Get-AuthenticodeSignature -LiteralPath $source
@@ -110,6 +113,7 @@ try {
     }
 
     Write-Host "TEST_AUTHENTICODE_SIGNING_PASSED"
+    Write-Host "File digest is SHA-256. The ephemeral certificate is not a trusted root. Tampering changes the status to HashMismatch."
     Write-Host "The signed file was a discarded copy. signing_status of the release artifact remains UNSIGNED_RC."
 }
 finally {
