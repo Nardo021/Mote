@@ -9,12 +9,24 @@ public enum TransportFailure
 public sealed class TransportException : Exception
 {
     public TransportException(TransportFailure failure, string message, Exception? innerException = null)
+        : this(failure, message, closeReason: null, innerException)
+    {
+    }
+
+    public TransportException(
+        TransportFailure failure,
+        string message,
+        string? closeReason,
+        Exception? innerException = null)
         : base(message, innerException)
     {
         Failure = failure;
+        CloseReason = string.IsNullOrWhiteSpace(closeReason) ? null : closeReason;
     }
 
     public TransportFailure Failure { get; }
+
+    public string? CloseReason { get; }
 }
 
 public interface IMessageTransport

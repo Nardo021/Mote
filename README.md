@@ -68,11 +68,11 @@ relay.example.com
 
 见 [macos/README.md](macos/README.md)。
 
-## Windows Agent（W1）
+## Windows Agent（W2）
 
 `windows/` 是第二套原生 Agent，仍走同一台 Relay 和 Protocol v1。它是已登录用户会话里的桌面应用，不是 Windows 服务，正常使用也不计划要求管理员权限。当前唯一动作是 `lock`。
 
-**W1 只建立工程、协议模型和安全边界，还不能用于生产。** 配对、凭据写入、已认证连接、心跳和命令回执都还没有。设置文件不保存凭据。说明见 [windows/README.md](windows/README.md)。
+**W2 有核心运行时，还不能用于生产。** 配对、Credential Manager、已认证连接、心跳和 `command_result` 已经在核心里。没有托盘或设置界面，也不能从窗口里配对。设置文件不保存凭据。说明见 [windows/README.md](windows/README.md)。
 
 ## 配对
 
@@ -131,7 +131,7 @@ npm run worker:dry-run
 - 唯一动作为 `lock`。
 - 架构中永不包含任意 shell 执行。
 - 原生 iOS 应用尚未实现。
-- Mote for Windows 的 W1 已进仓库，尚未进入上面的生产路径。
+- Mote for Windows 的 W2 核心运行时已进仓库，尚未进入上面的生产路径。
 
 ## 仓库结构
 
@@ -140,7 +140,7 @@ mote/
 ├── docs/          架构、协议、安全、部署、开发、快捷指令、iOS
 ├── design.md      视觉与文案规范
 ├── macos/         Mote for Mac
-├── windows/       Mote for Windows（W1 基础，尚未生产可用）
+├── windows/       Mote for Windows（W2 核心运行时，尚未生产可用）
 ├── dashboard/     Mote Relay Dashboard（React + Vite）
 ├── relay/         Mote Relay（Worker 与共享领域代码）
 ├── protocol/      Protocol v1 fixtures
@@ -155,7 +155,7 @@ mote/
 | 区域         | 技术                                                                                                         | 状态              |
 | ------------ | ------------------------------------------------------------------------------------------------------------ | ----------------- |
 | Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.6）   |
-| Mote for Windows | C#、.NET 10、WPF、用户会话桌面应用 | W1 基础，尚未生产可用 |
+| Mote for Windows | C#、.NET 10、WPF、用户会话桌面应用 | W2 核心运行时，尚未生产可用 |
 | Mote Relay   | Cloudflare Worker、一个 Durable Object、Durable Object SQLite、Workers Assets                               | 已实现            |
 | Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                          | Workers Assets    |
 | 传输         | HTTPS + Mac 出站 WSS；配对另有 `/v1/ws/pair`                                                                 | 已实现            |
@@ -166,7 +166,7 @@ mote/
 
 **Mote for Mac** 已完成。当前版本 `1.5.6`（build `14`）。
 
-**Mote for Windows** 处于 W1。原生 Agent 工程和 Protocol v1 模型已经进仓库，还没有生产连接，也不能当成可用客户端。见 [windows/README.md](windows/README.md)。
+**Mote for Windows** 处于 W2。核心可以配对并维持 Protocol v1 会话，还没有托盘，也不能当成生产客户端。见 [windows/README.md](windows/README.md)。
 
 **Mote Relay** 跑在 Cloudflare Worker 上。协议仍是 v1。
 
@@ -196,6 +196,6 @@ mote/
 | [贡献](CONTRIBUTING.md)          | 本地环境与 pull request                     |
 | [设计语言](design.md)            | 视觉与文案规范                              |
 | [Mote for Mac](macos/README.md)  | Mac 客户端构建、签名、配对                  |
-| [Mote for Windows](windows/README.md) | Windows Agent W1 边界与本地测试        |
+| [Mote for Windows](windows/README.md) | Windows Agent W2 运行时与本地测试      |
 | [Mote Relay](relay/README.md)    | Relay 本地开发与路由                        |
 | [Dashboard](dashboard/README.md) | 管理界面本地开发                            |

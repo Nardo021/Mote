@@ -38,10 +38,25 @@ public sealed class WebSocketTransport : IMessageTransport, IAsyncDisposable
         var chunk = new byte[8 * 1024];
         while (true)
         {
-            var result = await socket.ReceiveAsync(chunk, cancellationToken).ConfigureAwait(false);
+            WebSocketReceiveResult result;
+            try
+            {
+                result = await socket.ReceiveAsync(chunk, cancellationToken).ConfigureAwait(false);
+            }
+            catch (WebSocketException)
+            {
+                throw new TransportException(
+                    TransportFailure.Closed,
+                    "The relay socket closed.",
+                    RelayCloseReason.SocketError);
+            }
+
             if (result.MessageType == WebSocketMessageType.Close)
             {
-                throw new TransportException(TransportFailure.Closed, "The relay socket closed.");
+                throw new TransportException(
+                    TransportFailure.Closed,
+                    "The relay socket closed.",
+                    socket.CloseStatusDescription);
             }
 
             buffer.Write(chunk, 0, result.Count);

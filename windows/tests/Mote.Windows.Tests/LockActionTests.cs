@@ -35,11 +35,13 @@ public sealed class LockActionTests : IDisposable
     public async Task StartingTheAgentDoesNotLockOrReadCredentials()
     {
         var workstation = new FakeWorkstationLock();
-        var credentials = new WindowsCredentialStore();
+        var credentials = new MemoryCredentialStore();
         var settings = new SettingsStore(
             Path.Combine(_directory, "settings.json"),
             () => "77777777-7777-4777-8777-777777777777",
             () => "Test-PC");
+        var loaded = settings.Load().Settings;
+        settings.Save(loaded with { WantsConnection = false });
         var agent = new AgentCoordinator(settings, credentials, workstation);
 
         await agent.StartAsync();
@@ -47,8 +49,9 @@ public sealed class LockActionTests : IDisposable
         await agent.ShutdownAsync();
 
         Assert.Equal(0, workstation.Calls);
+        Assert.Equal(0, credentials.Reads);
         Assert.False(agent.IsRunning);
-        Assert.IsType<WindowsCredentialStore>(agent.Credentials);
+        Assert.Same(credentials, agent.Credentials);
     }
 
     public void Dispose()

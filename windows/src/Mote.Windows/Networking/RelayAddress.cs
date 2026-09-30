@@ -36,6 +36,31 @@ public static class RelayAddress
 
     public static Uri PairWebSocket(Uri baseUri) => Socket(baseUri, ProtocolConstants.PairWebSocketPath);
 
+    public static Uri PairRequests(Uri baseUri) => Http(baseUri, ClientPolicy.PairRequestsPath);
+
+    public static Uri PairCancel(Uri baseUri, string requestId)
+    {
+        if (requestId.Length == 0
+            || requestId.Length > 128
+            || requestId.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not ('-' or '_')))
+        {
+            throw new ArgumentException("Pair request id is invalid.", nameof(requestId));
+        }
+
+        return Http(baseUri, $"{ClientPolicy.PairRequestsPath}/{requestId}/cancel");
+    }
+
+    private static Uri Http(Uri baseUri, string path)
+    {
+        var builder = new UriBuilder(baseUri)
+        {
+            Path = path,
+            Query = "",
+            Fragment = "",
+        };
+        return builder.Uri;
+    }
+
     private static Uri Socket(Uri baseUri, string path)
     {
         var builder = new UriBuilder(baseUri)

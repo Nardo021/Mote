@@ -43,8 +43,7 @@ public class BoundaryTests
             DeviceId = "88888888-8888-4888-8888-888888888888",
             DeviceName = "Test-PC",
         };
-        var client = new RelayClient(new FakeTransport());
-        var auth = client.BuildAuth(settings, "device-credential", "0.1.0");
+        var auth = AuthFrame.ForWindows(settings.DeviceId, "device-credential", "0.1.0");
         var json = ProtocolCodec.Encode(auth);
 
         Assert.Equal("windows", auth.Platform);
@@ -78,17 +77,6 @@ public class BoundaryTests
         Assert.False(startup.IsEnabled());
         Assert.Null(store.Read("unrelated"));
     }
-}
-
-internal sealed class FakeTransport : IMessageTransport
-{
-    public Task ConnectAsync(Uri uri, CancellationToken cancellationToken) => Task.CompletedTask;
-
-    public Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken) => Task.CompletedTask;
-
-    public Task<byte[]> ReceiveAsync(CancellationToken cancellationToken) => Task.FromResult(Array.Empty<byte>());
-
-    public Task CloseAsync(string? reason, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
 internal sealed class MemoryStartupStore : IStartupStore

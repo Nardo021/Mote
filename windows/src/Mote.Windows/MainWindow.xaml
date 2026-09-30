@@ -8,5 +8,5 @@
         WindowStartupLocation="CenterScreen">
   <TextBlock Margin="24"
              TextWrapping="Wrap"
-             Text="Mote for Windows is running. Pairing, the tray, and settings are not in this build." />
+             Text="Mote for Windows is running. The tray and settings are not in this build." />
 </Window>

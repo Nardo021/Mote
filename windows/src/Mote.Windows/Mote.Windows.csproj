@@ -9,8 +9,12 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>0.1.0</Version>
     <Product>Mote</Product>
-    <Description>Mote for Windows agent foundation.</Description>
+    <Description>Mote for Windows agent.</Description>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mote.Windows.Tests" />
+  </ItemGroup>
 
 </Project>

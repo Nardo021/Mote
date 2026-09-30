@@ -61,16 +61,26 @@ public class ProductionBoundaryTests
             .Where(path => File.ReadAllText(path).Contains(importToken, StringComparison.Ordinal))
             .ToArray();
 
-        var import = Assert.Single(imports);
-        var native = File.ReadAllText(import);
+        Assert.Equal(2, imports.Length);
+        var credential = imports.Single(path => path.EndsWith("CredentialStore.cs", StringComparison.Ordinal));
+        var credentialText = File.ReadAllText(credential);
+        Assert.Contains("advapi32.dll", credentialText, StringComparison.Ordinal);
+        Assert.Contains("CredWriteW", credentialText, StringComparison.Ordinal);
+        Assert.Contains("CredReadW", credentialText, StringComparison.Ordinal);
+        Assert.Contains("CredDeleteW", credentialText, StringComparison.Ordinal);
+        Assert.Contains("CredFree", credentialText, StringComparison.Ordinal);
+
+        var native = File.ReadAllText(imports.Single(path => path.EndsWith("LockAction.cs", StringComparison.Ordinal)));
         Assert.Contains("user32.dll", native, StringComparison.Ordinal);
         Assert.Contains("Lock" + "WorkStation", native, StringComparison.Ordinal);
 
+        var productionCredential = "new WindowsCredentialStore" + "()";
         foreach (var test in TestFiles())
         {
             var source = File.ReadAllText(test);
             Assert.DoesNotContain(importToken, source, StringComparison.Ordinal);
             Assert.DoesNotContain(construction, source, StringComparison.Ordinal);
+            Assert.DoesNotContain(productionCredential, source, StringComparison.Ordinal);
         }
     }
 
