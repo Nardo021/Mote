@@ -279,8 +279,7 @@ final class RelayClientLifecycleTests: XCTestCase {
         await harness.transport.enqueueIncoming(authOK)
         await waitUntil(timeout: 0.4) {
             let connects = await harness.transport.connectCount
-            let connected = harness.recorder.snapshot().contains(.connected)
-            return connects == 2 && connected
+            return connects == 2 && harness.recorder.snapshot().last == .connected
         }
         await assertConnects(harness, 2)
         XCTAssertEqual(harness.recorder.snapshot().last, .connected)

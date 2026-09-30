@@ -99,7 +99,9 @@ struct RelayConfiguration: Equatable, Sendable {
 
     static func parseBaseURL(_ raw: String) -> URL? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // URL(string:) percent-encodes an internal space. That is not a relay base URL.
         guard !trimmed.isEmpty,
+              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
               let url = URL(string: trimmed),
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
