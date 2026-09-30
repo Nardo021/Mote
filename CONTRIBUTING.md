@@ -49,6 +49,16 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -configuration Debug -dest
 xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -destination 'platform=macOS' test
 ```
 
+Windows Agent 也不进 npm。需要 .NET 10 SDK：
+
+```text
+dotnet restore windows/Mote.Windows.sln
+dotnet build windows/Mote.Windows.sln
+dotnet test windows/Mote.Windows.sln
+```
+
+从仓库根执行时，`dotnet` 仍使用本机 SDK；`windows/global.json` 在 `windows/` 目录下生效。这些测试不锁屏。
+
 ## 安全测试和副作用测试
 
 Scheme `Mote` 的默认计划是 `Mote-Safe`。它跳过 `LockActionLiveTests`，并把 `MOTE_RUN_SIDE_EFFECT_TESTS` 设为 `0`。
@@ -63,6 +73,6 @@ Protocol v1 的目录、schema 和夹具在 `protocol/`。改线上字段时要�
 
 ## Pull request
 
-GitHub Actions 的 CI 会跑 Relay、Dashboard、Worker 干跑、macOS 安全测试和仓库一致性检查。CI 不部署。
+GitHub Actions 的 CI 会跑 Relay、Dashboard、Worker 干跑、macOS 安全测试、Windows Agent 测试和仓库一致性检查。CI 不部署。Windows job 使用 `windows-latest`，不调用锁屏 API。
 
 推送到 `main` 且 CI 成功之后，才会考虑 Cloudflare 部署。没有 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 时，部署任务会跳过，并且不会打印密钥。

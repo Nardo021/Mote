@@ -18,9 +18,22 @@ function relFrom(full) {
   return path.relative(root, full).split(path.sep).join("/");
 }
 
-const skipDirs = new Set(["node_modules", "dist", ".git", "DerivedData", "coverage", ".wrangler"]);
+const skipDirs = new Set([
+  "node_modules",
+  "dist",
+  ".git",
+  "DerivedData",
+  "coverage",
+  ".wrangler",
+  "bin",
+  "obj",
+  "TestResults",
+]);
 const textExt = new Set([
   ".swift",
+  ".cs",
+  ".csproj",
+  ".xaml",
   ".ts",
   ".tsx",
   ".js",
@@ -190,6 +203,9 @@ for (const file of walk(root)) {
   if (rel.startsWith("macos/Mote/") && text.includes("relay.example.com")) {
     fail(`${rel} compiles relay.example.com into the Mac app.`);
   }
+  if (rel.startsWith("windows/src/") && text.includes("relay.example.com")) {
+    fail(`${rel} compiles relay.example.com into the Windows app.`);
+  }
   if (rel.startsWith("relay/src/") && text.includes("relay.example.com")) {
     fail(`${rel} compiles relay.example.com into Relay.`);
   }
@@ -263,6 +279,12 @@ if (/wrangler deploy(?![^\n]*--dry-run)/.test(ci) || /\bnpx wrangler deploy\s*$/
 }
 if (!ci.includes("Mote-Safe") || !ci.includes("MOTE_RUN_SIDE_EFFECT_TESTS")) {
   fail("macOS CI must run the safe test plan with side-effect tests disabled.");
+}
+if (!ci.includes("runs-on: windows-latest") || !ci.includes("dotnet test")) {
+  fail("CI must restore, build, and test the Windows agent on a Windows runner.");
+}
+if (ci.includes("LockWorkStation")) {
+  fail("CI must not invoke LockWorkStation.");
 }
 
 const deploy = read(".github/workflows/deploy-cloudflare.yml");

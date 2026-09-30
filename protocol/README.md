@@ -10,7 +10,7 @@ protocol/mote-v1.schema.json  设备帧与配对帧
 protocol/fixtures/            合法帧，以及会失败的样例
 ```
 
-Relay 的 TypeScript 和 Mac 的 Swift 各自有本地类型。它们必须和这些文件一致。Relay 测试直接读取这里的 JSON。Swift 测试用源文件路径读取同一批 JSON：Xcode 只同步 `macos/MoteTests`，不会把 `protocol/` 打进测试包。
+Relay 的 TypeScript、Mac 的 Swift 和 Windows 的 C# 各自有本地类型。它们必须和这些文件一致。Relay 测试直接读取这里的 JSON。Swift 测试用源文件路径读取同一批 JSON：Xcode 只同步 `macos/MoteTests`，不会把 `protocol/` 打进测试包。Windows 测试从输出目录向上查找同一批 `protocol/fixtures/`，不把夹具复制进 `windows/`。
 
 不要在别的目录再维护一份动作列表、协议版本或关闭原因。运行时超时、心跳间隔和部署地址不属于这份契约。
 

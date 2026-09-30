@@ -1,0 +1,12 @@
+<Window x:Class="Mote.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mote"
+        Width="420"
+        Height="160"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+  <TextBlock Margin="24"
+             TextWrapping="Wrap"
+             Text="Mote for Windows is running. Pairing, the tray, and settings are not in this build." />
+</Window>

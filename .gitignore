@@ -95,5 +95,14 @@ coverage/
 .nyc_output/
 .cache/
 
+# .NET
+[Bb]in/
+[Oo]bj/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
 # OS
 Thumbs.db

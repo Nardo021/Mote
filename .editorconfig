@@ -14,5 +14,13 @@ indent_size = 2
 indent_style = space
 indent_size = 4
 
+[*.cs]
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,xaml}]
+indent_style = space
+indent_size = 2
+
 [Makefile]
 indent_style = tab

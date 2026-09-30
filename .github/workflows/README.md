@@ -11,6 +11,7 @@ pull request / push main 或 mote-v2
       ├── Dashboard
       ├── Worker dry-run
       ├── macOS safe tests
+      ├── Windows agent tests
       └── repository consistency
         │
         │  only a successful push to main
@@ -18,7 +19,7 @@ pull request / push main 或 mote-v2
  Deploy Cloudflare
 ```
 
-`ci.yml` 跑测试、类型检查、Dashboard 生产构建和 `wrangler deploy --dry-run`。它不部署，也不使用 Developer ID。
+`ci.yml` 跑测试、类型检查、Dashboard 生产构建、`wrangler deploy --dry-run`，以及 Windows 上的 `dotnet test`。它不部署，也不使用 Developer ID，也不锁屏。
 
 `deploy-cloudflare.yml` 在 CI 成功之后才可能部署。密钥只从 GitHub Secrets 读取。未设置 `CLOUDFLARE_API_TOKEN` 或 `CLOUDFLARE_ACCOUNT_ID` 时跳过，并且不打印。
 

@@ -128,6 +128,24 @@ jobs:
             DEVELOPMENT_TEAM= \
             CODE_SIGNING_ALLOWED=YES
 
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        working-directory: windows
+        run: dotnet restore Mote.Windows.sln
+      - name: Build
+        working-directory: windows
+        run: dotnet build Mote.Windows.sln --configuration Release --no-restore
+      - name: Test
+        working-directory: windows
+        run: dotnet test Mote.Windows.sln --configuration Release --no-build --verbosity normal
+
   consistency:
     name: Repository consistency
     runs-on: ubuntu-latest

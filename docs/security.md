@@ -8,6 +8,8 @@ Bundle ID 从占位符 `com.example.mote` 换成 `com.nardo021.mote` 时，读�
 
 仓库默认 Ad-hoc 签名，Team ID 不入库。Ad-hoc 构建的 cdhash 每次都会变，重新构建可能弹出钥匙串提示。稳定的 Development Team 或 Developer ID 让同一把钥匙串身份跨构建保持不变。不要为了消掉这个提示而恢复任意进程可读的 ACL。应用沙盒保持关闭：锁屏依赖私有 `SACLockScreenImmediate` 和 `CGEvent` 回退，登录项就是这个菜单栏应用。沙盒策略和凭据 ACL 是两件事。
 
+Mote for Windows 的设备凭据不进 `%LOCALAPPDATA%\Mote\settings.json`，也不进注册表。生产目标是 Windows Credential Manager，TargetName 为 `com.nardo021.mote/device_connection`。W1 只固定这个边界：调用会失败，不允许明文落盘。Credential Manager 的读写留到 W2。Windows 锁屏只走 `LockWorkStation()`，不走 shell 或 PowerShell。
+
 Mote Relay 只保存设备凭据和快捷指令 token 的 SHA-256 哈希。
 
 这是个人工具。它不是零信任，也不声称自己是密码学产品。
@@ -36,7 +38,7 @@ Authorization: Bearer <shortcut-token>
 
 该凭据可以为已知设备创建命令。它不得用于认证设备 WebSocket。
 
-### Mac 设备凭据
+### 设备凭据
 
 权限：
 
@@ -46,7 +48,7 @@ device_connection
 
 仅供 Mote Agent 认证其 WebSocket 连接。
 
-该凭据可以把一台 Mac 挂到 Mote Relay，并接收发给该设备的命令。它不得被接受为快捷指令/命令客户端凭据。
+该凭据可以把一台 Mac 挂到 Mote Relay，并接收发给该设备的命令。Windows Agent 使用同一个 `device_connection` 角色；W1 还不会把凭据写入 Credential Manager。它不得被接受为快捷指令/命令客户端凭据。
 
 在设备 WebSocket 上出示 `send_command` 密钥会被拒绝。在命令 HTTP 路径上出示 `device_connection` 密钥会被拒绝。这两种凭据都不能登录 Dashboard。
 

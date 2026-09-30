@@ -31,6 +31,19 @@ xcodebuild -project macos/Mote.xcodeproj -scheme Mote -testPlan Mote-Safe -desti
 
 见 [macos/README.md](../macos/README.md)。默认测试计划 `Mote-Safe` 不会锁屏。真实锁屏只在本机 DEBUG **Test Lock**。
 
+## Windows Agent（W1）
+
+`windows/` 是 .NET 10 WPF 桌面工程。需要 .NET 10 SDK。它还不是生产客户端。
+
+```text
+cd windows
+dotnet restore
+dotnet build
+dotnet test
+```
+
+测试读取仓库里的 `protocol/fixtures/`，不复制夹具。测试不调用 `LockWorkStation()`，也不写当前用户的启动项。CI 在 GitHub 托管的 `windows-latest` 上跑同样的 restore、build、test。说明见 [windows/README.md](../windows/README.md)。
+
 ## Relay 本地开发
 
 Relay 没有本地 Node 服务器。本地运行时就是 Wrangler。
@@ -111,7 +124,7 @@ npm run build
 npm run worker:dry-run
 ```
 
-`npm run ci` 把 Relay、协议、Dashboard 和 Worker 干跑串成一条命令。macOS 仍用 `xcodebuild`。发布和签名见 [release.md](release.md)。
+`npm run ci` 把 Relay、协议、Dashboard 和 Worker 干跑串成一条命令。macOS 仍用 `xcodebuild`。Windows 用上面的 `dotnet test`。发布和签名见 [release.md](release.md)。
 
 ## macOS 测试
 
