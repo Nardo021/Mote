@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: true
+      ref:
+        description: Git ref to build. Empty uses the caller commit.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -41,12 +46,15 @@ jobs:
         if: inputs.mode == 'production'
         shell: pwsh
         run: |
-          Write-Host "PRODUCTION_TRUSTED_SIGNING_NOT_EXECUTED"
+          Write-Host "WINDOWS_PRODUCTION_SIGNING_NOT_EXECUTED"
+          Write-Host "PUBLIC_RELEASE_BLOCKED_WINDOWS_SIGNING"
           Write-Host "No trusted Windows signing provider is configured."
           Write-Host "Refusing to upload an unsigned file as an official release."
           exit 1
 
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -100,9 +108,21 @@ jobs:
             -SigningStatus UNSIGNED_RC
 
       - name: Upload unsigned RC
+        if: inputs.mode != 'production'
         uses: actions/upload-artifact@v4
         with:
           name: windows-unsigned-rc-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            dist/windows/Mote-Windows-x64-*.zip
+            dist/windows/Mote-Windows-x64-*.sha256
+            dist/windows/release-manifest.json
+
+      - name: Upload production artifact
+        if: inputs.mode == 'production'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
           if-no-files-found: error
           path: |
             dist/windows/Mote-Windows-x64-*.zip

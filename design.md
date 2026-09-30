@@ -598,7 +598,7 @@ Start Mote at Login                    [ON]
 Device
 Name                  MacBook Pro
 Device ID             7B0F…
-Version               1.5.6 (14)
+Version               2.0.0 (15)
 ```
 
 默认窗口不显示 Remote Actions 或 Lock Permission。锁屏走登录会话，不需要辅助功能。未配置时不显示 Connection，顺序为 Setup（Relay URL + Pair）→ Device → Startup → Shortcuts。Release 可填写并保存 Relay URL。
@@ -1043,7 +1043,7 @@ Persistent WebSocket Transport
 │ Device                                      │
 │ Name                        MacBook Pro     │
 │ Device ID                        7B0F…      │
-│ Version                      1.5.6 (14)     │
+│ Version                      2.0.0 (15)     │
 └─────────────────────────────────────────────┘
 ```
 

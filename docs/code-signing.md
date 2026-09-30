@@ -30,7 +30,7 @@ dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x6
 
 ## 现在可以怎么签
 
-还没有选定已经开通的生产提供者。工作流只留一个入口：`mode=production` 在没有提供者时失败。不要同时接上好几套都会真正签名的路径。
+还没有选定已经开通的生产提供者。工作流只留一个入口：`mode=production` 在没有提供者时失败。不要同时接上好几套都会真正签名的路径。统一发版在预检里看到这一点就会停下来，不会只发布 Mac。发布作业还要求清单里的 `signing_status` 是 `PRODUCTION_SIGNED`。
 
 ### SignPath Foundation
 

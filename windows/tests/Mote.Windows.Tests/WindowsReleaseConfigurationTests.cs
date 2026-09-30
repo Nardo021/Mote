@@ -32,6 +32,8 @@ public class WindowsReleaseConfigurationTests
             ProtocolFixtures.RepositoryRoot(), ".github", "workflows", "build-windows-release.yml"));
         var macos = File.ReadAllText(Path.Combine(
             ProtocolFixtures.RepositoryRoot(), ".github", "workflows", "release-macos.yml"));
+        var product = File.ReadAllText(Path.Combine(
+            ProtocolFixtures.RepositoryRoot(), ".github", "workflows", "release.yml"));
         var ci = File.ReadAllText(Path.Combine(
             ProtocolFixtures.RepositoryRoot(), ".github", "workflows", "ci.yml"));
 
@@ -47,9 +49,13 @@ public class WindowsReleaseConfigurationTests
         Assert.DoesNotContain("LockWorkStation", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("id-token:", workflow, StringComparison.Ordinal);
 
-        Assert.Contains("v[0-9]+.[0-9]+.[0-9]+", macos, StringComparison.Ordinal);
+        Assert.Contains("workflow_call:", macos, StringComparison.Ordinal);
         Assert.Contains("MARKETING_VERSION", macos, StringComparison.Ordinal);
-        Assert.Contains("gh release create", macos, StringComparison.Ordinal);
+        Assert.Contains("notarytool", macos, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release create", macos, StringComparison.Ordinal);
+        Assert.Contains("v[0-9]+.[0-9]+.[0-9]+", product, StringComparison.Ordinal);
+        Assert.Contains("gh release create", product, StringComparison.Ordinal);
+        Assert.Contains("contents: write", product, StringComparison.Ordinal);
         Assert.Contains("build-windows-release.yml", ci, StringComparison.Ordinal);
     }
 

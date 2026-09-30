@@ -4,15 +4,15 @@
 
 | 名字 | 现在的值 | 含义 |
 | --- | --- | --- |
-| `MARKETING_VERSION` | 1.5.6 | Mote for Mac 的用户可见版本。Phase 5 没有因为发布工程而抬版本 |
-| `CURRENT_PROJECT_VERSION` | 14 | 构建号 |
+| 产品版本 | 2.0.0 | Mac `MARKETING_VERSION` 和 Windows `Version`。用户看到的是同一个 Mote 版本 |
+| `CURRENT_PROJECT_VERSION` | 15 | 只属于 Mac 的构建号。从 14 加 1，不重置，也不用协议版本 |
+| Windows `FileVersion` | 2.0.0.0 | Windows 没有单独的递增构建号。文件版本用产品版本加 `.0` |
 | `protocol/catalogue.json` `version` | 1 | 线上协议。保持 v1 |
-| `relay` / `dashboard` 的 `package.json` `version` | 1.0.0 | 私有包元数据，不是 Mac 发行版号 |
-| Windows `Version` | 0.1.0 | Windows 工程版本。还没有和 Mac 的 `MARKETING_VERSION` 对齐 |
+| `relay` / `dashboard` 的 `package.json` `version` | 1.0.0 | 私有包元数据，不是产品发行版号 |
 
-Mac 和 Windows 现在不是同一个公开发版号。`vX.Y.Z` 仍然只由 macOS 发行工作流校验并发布。Windows 产物名字来自 Windows 工程里的 `Version`。在 W7 把两边的版本、tag 和 GitHub Release 收成一套之前，不要把 Windows 包放进现有的 Mac Release。
+产品版本和构建号是两件事。Mac 的构建号继续单独增加。Windows 不另维持一套构建号。协议版本不跟着产品版本走。
 
-下次真正发布时，只抬 Mac 的 marketing version 和 build。协议有不兼容改动时才另开版本，那不是这次的事。
+公开发版只用一个 tag：`v2.0.0`。不要再拆 `mac-v2.0.0` 或 `windows-v2.0.0`。这次没有创建这个 tag，也没有创建 GitHub Release。
 
 ## 自动更新
 
@@ -45,12 +45,12 @@ Mac 和 Windows 现在不是同一个公开发版号。`vX.Y.Z` 仍然只由 mac
   → 提交公证
   → stapler
   → zip + SHA-256
-  → GitHub Release
+  → 交给统一发版工作流
 ```
 
-`.github/workflows/release-macos.yml` 只在手动触发或 `vX.Y.Z` tag 上运行。tag 必须等于 `v` 加 `MARKETING_VERSION`。普通提交和 pull request 不会发布。缺少下面任一密钥时，任务直接失败，不上传未签名包。
+`.github/workflows/release-macos.yml` 只由 `.github/workflows/release.yml` 调用。它签名、公证、打包并上传构建产物。它不再自己创建 GitHub Release。Apple 密钥只在这个 Mac 作业的 `macos-release` 环境里检查。统一发版的预检不读取这些密钥。仓库里还没有受信任的 Windows 签名，所以预检在核对版本之后失败，Mac 作业不会开始。
 
-这次实现没有运行该工作流。公证状态是 `NOTARIZATION_NOT_EXECUTED`。
+这次没有运行该工作流。公证状态是 `NOTARIZATION_NOT_EXECUTED`。Mac 生产签名是 `MACOS_PRODUCTION_SIGNING_NOT_EXECUTED`。Windows 受信任签名是 `WINDOWS_PRODUCTION_SIGNING_NOT_EXECUTED`。
 
 ## 密钥
 
@@ -105,7 +105,7 @@ dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x6
 
 `PublishSingleFile` 打开，`PublishTrimmed` 和 ReadyToRun 关闭。不使用 NativeAOT。用户不需要另装 .NET Desktop Runtime。公开 zip 里不放 PDB。版本号由 `scripts/windows-release-version.mjs` 从工程读出，拒绝不合 `major.minor.patch` 的值。
 
-`.github/workflows/build-windows-release.yml` 可以手动运行，也可以被 CI 以 `workflow_call` 调用。它不监听 `vX.Y.Z`，也不创建 GitHub Release。`mode=test` 上传的是 `UNSIGNED_RC`。`mode=production` 在没有受信任签名提供者时直接失败，不会改成未签名包再上传。测试用的自签证书只存在于当次作业里，签的是一份会被删掉的副本，不会进入 zip。
+`.github/workflows/build-windows-release.yml` 可以手动运行，CI 也会以测试模式调用它。它不监听 `vX.Y.Z`，也不创建 GitHub Release。`mode=test` 上传的是 `UNSIGNED_RC`。统一发版以 `mode=production` 调用它；没有受信任签名时失败，不会改成未签名包再发布。测试用的自签证书只存在于当次作业里，签的是一份会被删掉的副本，不会进入 zip。正式发布要求清单里的 `signing_status` 是 `PRODUCTION_SIGNED`。
 
 便携包的更新是手动的：退出 Mote，换掉可执行文件，再启动。如果路径变了，要重新打开 Launch at login。配对和设置不在可执行文件旁边，而在 `%LOCALAPPDATA%\Mote\settings.json` 和 Windows Credential Manager 里，替换程序不会清掉它们。程序被挪走或删掉之后，原来的 Run 键会变成失效项。这次不用安装器去解决这件事。
 

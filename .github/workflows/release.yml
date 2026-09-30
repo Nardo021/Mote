@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing git tag to release, for example v2.0.0
+        required: true
+        type: string
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mote-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Release preflight
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate tag, versions, and signing prerequisites
+        id: check
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$REF_NAME"
+          fi
+          git rev-parse --verify "${tag}^{commit}" >/dev/null
+          git checkout --detach "$tag"
+          version="$(node scripts/check-product-version.mjs "$tag")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "PUBLIC_RELEASE_BLOCKED_WINDOWS_SIGNING"
+          echo "WINDOWS_PRODUCTION_SIGNING_NOT_EXECUTED"
+          echo "No trusted Windows signing provider is configured."
+          echo "Refusing to build or publish a release."
+          exit 1
+
+  macos:
+    name: macOS release artifact
+    needs: preflight
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      tag: ${{ needs.preflight.outputs.tag }}
+
+  windows:
+    name: Windows release artifact
+    needs: preflight
+    uses: ./.github/workflows/build-windows-release.yml
+    with:
+      mode: production
+      run_tests: true
+      ref: ${{ needs.preflight.outputs.tag }}
+
+  publish:
+    name: Publish GitHub Release
+    needs: [preflight, macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: dist/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: dist/windows
+      - name: Verify release artifacts
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -f "dist/macos/Mote-macOS-${VERSION}.zip"
+          test -f "dist/macos/Mote-macOS-${VERSION}.sha256"
+          test -f "dist/macos/macos-release-evidence.json"
+          grep -q '"notarization":"succeeded"' dist/macos/macos-release-evidence.json
+          (cd dist/macos && sha256sum -c "Mote-macOS-${VERSION}.sha256")
+          test -f "dist/windows/Mote-Windows-x64-${VERSION}.zip"
+          test -f "dist/windows/Mote-Windows-x64-${VERSION}.sha256"
+          test -f "dist/windows/release-manifest.json"
+          python3 -c 'import json,sys; status=json.load(open(sys.argv[1]))["signing_status"]; assert status=="PRODUCTION_SIGNED", status' dist/windows/release-manifest.json
+          (cd dist/windows && sha256sum -c "Mote-Windows-x64-${VERSION}.sha256")
+      - name: Publish one GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "dist/macos/Mote-macOS-${VERSION}.zip" \
+            "dist/macos/Mote-macOS-${VERSION}.sha256" \
+            "dist/macos/macos-release-evidence.json" \
+            "dist/windows/Mote-Windows-x64-${VERSION}.zip" \
+            "dist/windows/Mote-Windows-x64-${VERSION}.sha256" \
+            "dist/windows/release-manifest.json" \
+            --title "Mote ${VERSION}" \
+            --notes-file docs/release-notes-v2.md

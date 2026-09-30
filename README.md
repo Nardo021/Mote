@@ -2,7 +2,7 @@
 
 <img src="docs/mote-icon.png" width="96" alt="Mote">
 
-Mote 是一套个人远程动作系统：用 iPhone 锁定自己的 Mac。一台 Relay，操作者自己的一台或多台 Mac。
+Mote 是一套个人远程动作系统：用 iPhone 或 Dashboard 锁定自己的 Mac 或 Windows。一台 Relay，操作者自己的电脑。当前唯一动作是 `lock`。
 
 当前 iPhone 侧走 **Apple 快捷指令 + Siri**。快捷指令向你的公网 Relay 发送经过认证的 HTTPS 请求。**Mote Relay** 再通过 Mac 主动连出的 WebSocket 把命令转发给 **Mote Agent**（运行在 **Mote for Mac** 中）。Dashboard 由同一个 Worker 的静态资源提供。原生 **Mote iOS** 尚未进仓库；后端已预留活动来源 `ios`，见 [docs/ios.md](docs/ios.md)。
 
@@ -18,10 +18,18 @@ Apple Shortcut / Dashboard → Mote Relay → Mote Agent → Lock
 ## 架构
 
 ```text
+Mote
+├── Relay — Cloudflare Worker + Durable Object
+├── Dashboard
+├── macOS Agent
+└── Windows Agent
+```
+
+```text
 Internet
     → Cloudflare Worker
     → 一个 MoteRelay Durable Object
-    → Mac 出站 WSS
+    → Mac 或 Windows 出站 WSS
 
 Dashboard：Workers Assets
 ```
@@ -35,7 +43,7 @@ relay.example.com
 ├── /admin/api/*         Admin API
 ├── /admin/api/events    Dashboard SSE（只推 topic）
 ├── /v1/*                Machine API
-├── /v1/ws/device        Mac WebSocket
+├── /v1/ws/device        Mac 或 Windows WebSocket
 ├── /v1/ws/pair          Pairing WebSocket
 ├── /v1/pair/requests    公开配对请求
 ├── /s/:deviceId         Shortcut 安装页
@@ -68,11 +76,15 @@ relay.example.com
 
 见 [macos/README.md](macos/README.md)。
 
-## Windows Agent
+## 配置 Windows
 
-`windows/` 是第二套原生 Agent，仍走同一台 Relay 和 Protocol v1。它是已登录用户会话里的桌面应用，不是 Windows 服务，正常使用也不计划要求管理员权限。当前唯一动作是 `lock`。
+Windows Agent 和 Mac 使用同一台 Relay、同一套 Protocol v1。它跑在已登录用户的会话里，不是 Windows 服务，也不要求管理员权限。凭据放在 Windows Credential Manager，不放进设置文件，也不放进 URL。
 
-**已有托盘和设置。可以构建未签名的 win-x64 便携包；没有安装器，也没有受信任的生产签名。** 配对、Credential Manager、已认证连接、心跳和 `command_result` 已经在核心里，并在本地 Worker 上做过端到端验证。网络中断和系统休眠会作废当前连接，条件允许时再重连。设置窗口可以配置 Relay、配对、连接或断开，也可以在凭据轮换后粘贴新凭据。设置文件不保存凭据。说明见 [windows/README.md](windows/README.md)。
+用 .NET 10 SDK，在 `windows/` 里构建。发行形态是自包含的 `win-x64` 单文件便携包，没有安装器。说明见 [windows/README.md](windows/README.md)。
+
+## 发行
+
+产品版本是 `2.0.0`，协议仍是 v1。仓库里还没有 GitHub Release，也没有可下载的正式二进制。签名、公证和发版步骤见 [docs/release.md](docs/release.md)。
 
 ## 配对
 
@@ -123,15 +135,15 @@ npm run worker:dry-run
 
 ## 当前范围
 
-- 一台 Relay，操作者自己的一台或多台 Mac。
+- 一台 Relay，操作者自己的 Mac 或 Windows。
 - iPhone 用 Apple 快捷指令 + Siri；Dashboard 也可以发 `lock`。
 - 快捷指令与之后的 iOS 客户端始终访问公网 HTTPS 基址。
-- Mote for Mac 始终连接该基址上的 `wss://…/v1/ws/device`。未配置时走 `wss://…/v1/ws/pair`。
+- Mac 和 Windows Agent 始终连接该基址上的 `wss://…/v1/ws/device`。未配置时走 `wss://…/v1/ws/pair`。
 - 在家和外出都走同一条公网主机名。当前不使用 Split DNS。
 - 唯一动作为 `lock`。
 - 架构中永不包含任意 shell 执行。
 - 原生 iOS 应用尚未实现。
-- Mote for Windows 已有托盘和设置。未签名便携包可以构建，但还没有进入上面的生产发布路径。
+- Mote for Windows 与 Mac 是同一个产品版本。还没有公开发布的二进制。
 
 ## 仓库结构
 
@@ -140,12 +152,12 @@ mote/
 ├── docs/          架构、协议、安全、部署、开发、快捷指令、iOS
 ├── design.md      视觉与文案规范
 ├── macos/         Mote for Mac
-├── windows/       Mote for Windows（托盘已可用；便携包未签名，无安装器）
+├── windows/       Mote for Windows
 ├── dashboard/     Mote Relay Dashboard（React + Vite）
 ├── relay/         Mote Relay（Worker 与共享领域代码）
 ├── protocol/      Protocol v1 fixtures
 ├── scripts/       一致性检查与 Worker 类型生成
-└── .github/       CI、Cloudflare 部署、macOS 发行工作流
+└── .github/       CI、Cloudflare 部署、统一发版
 ```
 
 仓库里还没有 `ios/` 目录。`deploy/` 只保留一句历史说明：Docker 自托管已经移除。
@@ -154,19 +166,19 @@ mote/
 
 | 区域         | 技术                                                                                                         | 状态              |
 | ------------ | ------------------------------------------------------------------------------------------------------------ | ----------------- |
-| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（1.5.6）   |
-| Mote for Windows | C#、.NET 10、WPF、用户会话托盘应用 | 托盘已可用；便携包未签名，无安装器 |
+| Mote for Mac | Swift 6、SwiftUI、菜单栏、ServiceManagement、URLSession WebSocket、Network.framework、Keychain、CoreGraphics | 已实现（2.0.0）   |
+| Mote for Windows | C#、.NET 10、WPF、用户会话托盘应用 | 已实现（2.0.0）。还没有公开发布的二进制 |
 | Mote Relay   | Cloudflare Worker、一个 Durable Object、Durable Object SQLite、Workers Assets                               | 已实现            |
 | Dashboard    | React、TypeScript、Vite、shadcn/ui                                                                          | Workers Assets    |
-| 传输         | HTTPS + Mac 出站 WSS；配对另有 `/v1/ws/pair`                                                                 | 已实现            |
+| 传输         | HTTPS + Mac 或 Windows 出站 WSS；配对另有 `/v1/ws/pair`                                                      | 已实现            |
 | 触发         | Apple 快捷指令 + Siri；Dashboard 也可发 `lock`                                                               | 配置步骤已文档化  |
 | Mote iOS     | 尚未实现。不在当前仓库                                                                                       | 尚未实现          |
 
 ## 开发状态
 
-**Mote for Mac** 已完成。当前版本 `1.5.6`（build `14`）。
+**Mote for Mac** 和 **Mote for Windows** 都是产品版本 `2.0.0`。Mac 构建号是 `15`。协议仍是 v1。还没有 GitHub Release。
 
-**Mote for Windows** 是带托盘和设置窗口的 Agent。核心可以配对并维持 Protocol v1 会话，本地真实 Relay 端到端已通过，网络和休眠会按同一套连接代次恢复。可以构建未签名的便携包。没有安装器，也没有受信任的生产签名，不能当成可下载的正式发行版。见 [windows/README.md](windows/README.md)。
+Windows 是带托盘和设置窗口的 Agent。见 [windows/README.md](windows/README.md)。
 
 **Mote Relay** 跑在 Cloudflare Worker 上。协议仍是 v1。
 

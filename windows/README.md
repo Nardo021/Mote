@@ -2,7 +2,7 @@
 
 Mote for Windows 是第二套原生 Agent。它使用仓库里已有的 Mote Relay 和 Protocol v1，不另起 Relay，也不定义 Protocol v2。
 
-**状态：可用的 Windows Agent，带托盘和设置窗口。** 可以打出未签名的 `win-x64` 便携 zip。没有安装器，也没有受信任的生产签名。这还不是可下载的正式发行包。核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。网络中断和系统休眠会立刻作废当前连接代次，条件允许时再重连。平时收在通知区域里。
+**状态：可用的 Windows Agent，带托盘和设置窗口。产品版本 2.0.0。** 可以打出未签名的 `win-x64` 便携 zip。没有安装器，也没有受信任的生产签名。仓库里还没有可下载的正式发行包。核心能配对、把设备凭据写入 Windows Credential Manager、建立已认证的设备 WebSocket、发送心跳，并经现有校验执行 `lock`、回传 `command_result`。网络中断和系统休眠会立刻作废当前连接代次，条件允许时再重连。平时收在通知区域里。
 
 ## 它是什么
 

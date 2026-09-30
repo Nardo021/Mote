@@ -303,18 +303,38 @@ if (/CLOUDFLARE_API_TOKEN:\s*["']?[A-Za-z0-9_-]{20,}/.test(deploy)) {
 }
 
 const release = read(".github/workflows/release-macos.yml");
-if (!release.includes("workflow_dispatch") || release.includes("branches: [main]")) {
-  fail("macOS release must be manual or tag-triggered, not a push to main.");
+if (!release.includes("workflow_call") || release.includes("branches: [main]")) {
+  fail("macOS release must be called by the product release workflow, not a push to main.");
 }
-if (!release.includes("NOTARIZATION") && !release.includes("notarytool")) {
+if (!release.includes("notarytool")) {
   fail("macOS release workflow must include notarization.");
 }
-if (
-  !release.includes("v[0-9]+.[0-9]+.[0-9]+") ||
-  !release.includes("MARKETING_VERSION") ||
-  !release.includes("gh release create")
-) {
-  fail("macOS release workflow must keep owning vX.Y.Z publication.");
+if (release.includes("gh release create") || /tags:\s*\n/.test(release)) {
+  fail("macOS release workflow must not publish a GitHub Release or own version tags.");
+}
+if (!release.includes("MARKETING_VERSION")) {
+  fail("macOS release workflow must check MARKETING_VERSION.");
+}
+
+const productRelease = read(".github/workflows/release.yml");
+if (!productRelease.includes("workflow_dispatch") || !productRelease.includes("v[0-9]+.[0-9]+.[0-9]+")) {
+  fail("Product release must be manual or triggered by one vX.Y.Z tag.");
+}
+if (!productRelease.includes("contents: read") || !productRelease.includes("contents: write")) {
+  fail("Product release must keep read on the workflow and write only for publication.");
+}
+const releaseCreates = productRelease.split("gh release create").length - 1;
+if (releaseCreates !== 1) {
+  fail("Exactly one job may create the GitHub Release.");
+}
+if (!productRelease.includes("release-macos.yml") || !productRelease.includes("build-windows-release.yml")) {
+  fail("Product release must build both platform artifacts.");
+}
+if (!productRelease.includes("PRODUCTION_SIGNED") || !productRelease.includes("PUBLIC_RELEASE_BLOCKED_WINDOWS_SIGNING")) {
+  fail("Product release must fail closed without a production-signed Windows artifact.");
+}
+if (productRelease.includes("id-token:")) {
+  fail("Product release must not grant OIDC until a signing provider requires it.");
 }
 
 const windowsRelease = read(".github/workflows/build-windows-release.yml");
@@ -339,15 +359,15 @@ if (!windowsRelease.includes("win-x64") || !windowsRelease.includes("--self-cont
 }
 
 try {
-  const version = execFileSync(process.execPath, ["scripts/windows-release-version.mjs"], {
+  const version = execFileSync(process.execPath, ["scripts/check-product-version.mjs"], {
     cwd: root,
     encoding: "utf8",
   }).trim();
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    fail(`Windows release version is malformed: ${version}`);
+    fail(`Product version is malformed: ${version}`);
   }
 } catch (error) {
-  fail(`Windows release version check failed: ${error instanceof Error ? error.message : String(error)}`);
+  fail(`Product version check failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 if (failures.length > 0) {

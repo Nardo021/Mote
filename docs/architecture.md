@@ -12,7 +12,7 @@ Mote for Mac、Mote Relay、Dashboard 和配对已经实现。iPhone 当前用 [
 | -------------------- | ------------------------- |
 | Mote                 | 产品                      |
 | Mote for Mac         | 原生 macOS 应用           |
-| Mote for Windows     | 原生 Windows 托盘 Agent。未签名便携包可构建，无安装器 |
+| Mote for Windows     | 原生 Windows 托盘 Agent   |
 | Mote Agent           | Mote for Mac 内的后台组件 |
 | Mote Relay           | 后端服务                  |
 | Mote Relay Dashboard | 浏览器里的管理界面        |
@@ -28,7 +28,7 @@ Mote for Mac、Mote Relay、Dashboard 和配对已经实现。iPhone 当前用 [
 Internet
     │
     │  HTTPS（Dashboard、快捷指令）
-    │  WSS（Mac 主动连出）
+    │  WSS（Mac 或 Windows 主动连出）
     ▼
 Cloudflare Worker
     │
@@ -43,12 +43,12 @@ Cloudflare Worker
             ├── 在线连接与配对状态
             └── 内存中的在途命令等待
                     │
-                    │  Mac 出站 WSS
+                    │  Mac 或 Windows 出站 WSS
                     ▼
-                Mote for Mac
+                Mote for Mac / Mote for Windows
                     │
                     ▼
-                macOS 锁屏
+                本机锁屏
 ```
 
 ```text
@@ -65,9 +65,9 @@ Cloudflare Access 不是 Mote 的认证。Cloudflare Tunnel 不是这套生产�
 - **Apple 快捷指令** — 向 `https://relay.example.com` 发送已认证的 HTTPS 请求。在家和外出使用同一主机名。这是当前的 iPhone 触发方式。
 - **Mote Relay** — Cloudflare Worker 把 `/health`、`/ready`、`/v1/*`、`/admin/*`、`/s/*` 交给同一个 `MoteRelay` Durable Object。其余路径由 Workers Assets 提供 Dashboard。Relay 认证命令客户端、确认 Mac 在线、生成短生命周期协议命令，并等待 `command_result`。它不执行操作系统命令，也不调用 Cloudflare API。
 - **Mote Relay Dashboard** — 浏览器管理界面，由 Workers Assets 托管，不是单独的服务器。页面：Overview、Devices（含配对批准）、Tokens、Activity、Settings。登录后打开 `GET /admin/api/events`（SSE，只推 `devices` / `pairing` / `activity` / `tokens`），再拉现有 REST。
-- **Mote Agent** — Mote for Mac 的持久后台组件。维护出站 WebSocket，并执行允许列表中的本地动作。
-- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。当前版本 `1.5.6`。
-- **Mote for Windows** — 第二套原生 Agent。W2 已有配对、Credential Manager、已认证设备会话、心跳和 `command_result`。W3 在本地 Wrangler 上用真实 Worker、Durable Object 和 WebSocket 走通了这条路径。W4 把 Windows 网络可用性和休眠/唤醒送进同一个 `RelayClient`。W5 把它收成用户会话里的托盘应用，并加上设置、配对、连接和登录启动。未签名的 win-x64 便携包可以构建。没有安装器，也没有受信任的生产签名。目标仍是同一台 Relay 和 Protocol v1，不是 Windows 服务。见 [windows/README.md](../windows/README.md)。
+- **Mote Agent** — Mac 菜单栏应用和 Windows 托盘应用里的持久后台组件。维护出站 WebSocket，并执行允许列表中的本地动作。
+- **Mote for Mac** — 原生 macOS 应用（菜单栏、生命周期、凭据、Agent 协调）。产品版本 `2.0.0`，构建号 `15`。
+- **Mote for Windows** — 原生 Windows 托盘应用。同一台 Relay、Protocol v1，跑在已登录用户会话里，不是 Windows 服务。凭据在 Credential Manager。发行形态是未签名的便携包，还没有进入 GitHub Release。见 [windows/README.md](../windows/README.md)。
 - **Mote iOS** — 尚未实现。计划复用同一条 `send_command` HTTPS API，见 [ios.md](ios.md)。
 
 ### 动作
