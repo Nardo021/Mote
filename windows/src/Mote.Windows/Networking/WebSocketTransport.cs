@@ -5,6 +5,8 @@ namespace Mote.Windows.Networking;
 
 public sealed class WebSocketTransport : IMessageTransport, IAsyncDisposable
 {
+    internal static readonly TimeSpan CloseHandshakeBudget = TimeSpan.FromSeconds(2);
+
     private ClientWebSocket? _socket;
 
     public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
@@ -76,17 +78,19 @@ public sealed class WebSocketTransport : IMessageTransport, IAsyncDisposable
             return;
         }
 
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(CloseHandshakeBudget);
         try
         {
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, reason, cancellationToken)
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, reason, budget.Token)
                     .ConfigureAwait(false);
             }
         }
-        catch (WebSocketException)
+        catch (Exception exception) when (exception is WebSocketException or OperationCanceledException or ObjectDisposedException)
         {
-            // The socket is already unusable. Dropping it is the close.
+            // A peer that never finishes the close handshake must not block pairing or disconnect.
         }
         finally
         {
