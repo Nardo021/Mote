@@ -84,7 +84,7 @@ Windows Agent 和 Mac 使用同一台 Relay、同一套 Protocol v1。它跑在�
 
 ## 发行
 
-产品版本是 `2.0.0`，协议仍是 v1。仓库里还没有 GitHub Release，也没有可下载的正式二进制。签名、公证和发版步骤见 [docs/release.md](docs/release.md)。
+产品版本是 `2.0.0`，协议仍是 v1。仓库里还没有 GitHub Release，也没有可下载的正式二进制。页首这张图是产品图标，与 Mac AppIcon 的 256 像素 PNG 是同一份文件；Windows 把同一套画稿嵌进 `Mote.Windows.exe`。签名、公证和发版步骤见 [docs/release.md](docs/release.md)。
 
 ## 配对
 

@@ -370,6 +370,18 @@ try {
   fail(`Product version check failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
+try {
+  execFileSync(process.execPath, ["scripts/build-windows-icon.mjs", "--check"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+} catch (error) {
+  const stdout = typeof error === "object" && error && "stdout" in error ? String(error.stdout ?? "") : "";
+  const stderr = typeof error === "object" && error && "stderr" in error ? String(error.stderr ?? "") : "";
+  const detail = `${stdout}\n${stderr}`.trim();
+  fail(detail || `App icon check failed: ${error instanceof Error ? error.message : String(error)}`);
+}
+
 if (failures.length > 0) {
   for (const failure of failures) {
     console.error(failure);

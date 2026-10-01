@@ -111,4 +111,6 @@ dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x6
 
 `NO_AUTO_UPDATER_YET` 同样适用于 Windows。
 
+应用图标用仓库里已经有的那套画稿。Mac 的 `AppIcon.appiconset` 是权威来源。Windows 的 `Mote.ico` 由 `scripts/build-windows-icon.mjs` 从其中 16、32、64、128、256 像素的 PNG 生成，并作为 `ApplicationIcon` 嵌进 `Mote.Windows.exe`。状态是 `FINAL_MACOS_ICON_READY` 和 `FINAL_WINDOWS_ICON_READY`。图标结构就绪不代替签名、公证或手动验收。
+
 验收清单见 [windows-release-checklist.md](windows-release-checklist.md)。签名见 [code-signing.md](code-signing.md)。

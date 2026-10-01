@@ -74,6 +74,8 @@ dotnet publish src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x64 --self
 
 在 `windows/` 目录执行。工程会自己打开单文件、关闭裁剪。产物文件名必须仍是 `Mote.Windows.exe`。登录启动写进去的命令是带引号的这个路径，再加 `--background`。
 
+本地准备同一份未签名候选包可以在仓库根目录运行 `scripts/build-windows-rc.ps1`。它跑 Windows 单元测试、生成并核对 `Mote.ico`、按上面的方式发布，然后打印 `Mote.Windows.exe` 的路径。它不会锁屏、断网、休眠，也不会创建 tag 或 GitHub Release。
+
 打包：
 
 ```text
@@ -82,6 +84,6 @@ scripts/package-windows-release.ps1
 
 zip 名是 `Mote-Windows-x64-<版本>.zip`。版本来自工程，不在工作流里再写一遍。设置和凭据不在这个 zip 里。换掉可执行文件不会取消配对。如果之后把程序挪到别的路径，要重新打开 Launch at login，否则原来的 Run 键会指向已经不在的文件。这次不靠安装器修这件事。
 
-正式 Windows 图标还没有放进工程。Dashboard 的 `favicon.svg` 和缺少图片文件的 macOS AppIcon 目录都不能当作已经完成的 Windows 图标。
+应用图标和 Mac 是同一套已经提交的画稿：`macos/Mote/Resources/Assets.xcassets/AppIcon.appiconset/`。`scripts/build-windows-icon.mjs` 把其中 16、32、64、128 和 256 像素的 PNG 原样打进 `windows/src/Mote.Windows/Resources/Mote.ico`。工程用 `ApplicationIcon` 把这个文件嵌进 `Mote.Windows.exe`。发布目录不另放 `.ico`。设置窗口使用这个可执行文件的图标，托盘用 `ExtractAssociatedIcon` 读取同一个程序图标，没有第二套托盘图。`docs/mote-icon.png` 与 `icon_256x256.png` 是同一份文件。Dashboard 的 `favicon.svg` 不是这个产品图标。改了 AppIcon PNG 之后运行 `node scripts/build-windows-icon.mjs`，再用 `--check` 确认生成结果没有漂移。
 
 手动验收见 [docs/windows-release-checklist.md](../docs/windows-release-checklist.md)。签名边界见 [docs/code-signing.md](../docs/code-signing.md)。

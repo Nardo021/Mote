@@ -16,7 +16,7 @@ function Test-ForbiddenName([string]$Name) {
     if ($lower -eq "settings.json" -or $lower -eq ".dev.vars" -or $lower -eq "appsettings.json" -or $lower -eq "appsettings.development.json") {
         return $true
     }
-    foreach ($suffix in @(".pdb", ".pfx", ".p12", ".pem", ".key", ".cer", ".crt", ".cs", ".csproj", ".snk")) {
+    foreach ($suffix in @(".pdb", ".pfx", ".p12", ".pem", ".key", ".cer", ".crt", ".cs", ".csproj", ".snk", ".ico")) {
         if ($lower.EndsWith($suffix)) {
             return $true
         }

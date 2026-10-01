@@ -69,6 +69,8 @@ macos/
 
 `Commands/CommandProcessor` 是后续本地传输的接缝。Bonjour / 直连尚未实现。
 
+应用图标在 `Mote/Resources/Assets.xcassets/AppIcon.appiconset/`。这套 PNG 是 Mote 的产品图标。Windows 的 `Mote.ico` 从其中的 16、32、64、128、256 像素文件生成，不另画一套。仓库根目录 README 使用的 `docs/mote-icon.png` 与 `icon_256x256.png` 是同一份文件。
+
 ## 运行时行为
 
 1. 启动时加载持久的 `device_id` 和设置。
