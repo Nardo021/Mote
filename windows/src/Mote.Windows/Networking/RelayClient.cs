@@ -200,6 +200,8 @@ public sealed class RelayClient
             ? RestoreNetworkAsync()
             : LoseNetworkAsync();
 
+    internal Task NotePathChangedAsync() => RefreshPathAsync();
+
     internal Task NotePowerAsync(PowerTransition transition)
     {
         switch (transition)
@@ -671,8 +673,11 @@ public sealed class RelayClient
             _gate.Release();
         }
 
-        await SendFrameAsync(generation, ProtocolCodec.Encode(result), $"Command result {result.CommandId} {result.Status}")
-            .ConfigureAwait(false);
+        if (!await SendFrameAsync(generation, ProtocolCodec.Encode(result), $"Command result {result.CommandId} {result.Status}")
+                .ConfigureAwait(false))
+        {
+            await HandleUnexpectedDisconnectAsync(generation).ConfigureAwait(false);
+        }
     }
 
     private void NoteHeartbeatAck(long generation, HeartbeatAckFrame ack)
@@ -723,7 +728,11 @@ public sealed class RelayClient
 
             try
             {
-                await SendHeartbeatAsync(generation, token).ConfigureAwait(false);
+                if (!await SendHeartbeatAsync(generation, token).ConfigureAwait(false))
+                {
+                    await HandleUnexpectedDisconnectAsync(generation).ConfigureAwait(false);
+                    return;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -731,12 +740,13 @@ public sealed class RelayClient
             }
             catch (Exception)
             {
+                await HandleUnexpectedDisconnectAsync(generation).ConfigureAwait(false);
                 return;
             }
         }
     }
 
-    private async Task SendHeartbeatAsync(long generation, CancellationToken token)
+    private async Task<bool> SendHeartbeatAsync(long generation, CancellationToken token)
     {
         var settings = _settings();
         var frame = new HeartbeatFrame
@@ -746,7 +756,7 @@ public sealed class RelayClient
             DeviceId = settings.DeviceId,
             SentAt = _now(),
         };
-        await SendFrameAsync(generation, ProtocolCodec.Encode(frame), log: null, token, requireAuthenticated: true)
+        return await SendFrameAsync(generation, ProtocolCodec.Encode(frame), log: null, token, requireAuthenticated: true)
             .ConfigureAwait(false);
     }
 
@@ -822,7 +832,7 @@ public sealed class RelayClient
         }
     }
 
-    private async Task SendFrameAsync(
+    private async Task<bool> SendFrameAsync(
         long generation,
         string json,
         string? log,
@@ -836,12 +846,12 @@ public sealed class RelayClient
         {
             if (generation != _generation || _transport is null)
             {
-                return;
+                return true;
             }
 
             if (requireAuthenticated && !_authenticated)
             {
-                return;
+                return true;
             }
 
             transport = _transport;
@@ -859,6 +869,7 @@ public sealed class RelayClient
         try
         {
             await transport.SendAsync(payload, token).ConfigureAwait(false);
+            return true;
         }
         catch (Exception)
         {
@@ -866,6 +877,8 @@ public sealed class RelayClient
             {
                 Log("Failed to send command result");
             }
+
+            return false;
         }
         finally
         {
@@ -936,6 +949,7 @@ public sealed class RelayClient
             }
 
             _networkAvailable = true;
+            _reconnectDelay?.Cancel();
             Log("Network restored");
             recover = CanAttempt();
             if (recover)
@@ -956,6 +970,40 @@ public sealed class RelayClient
         {
             await ConnectAsync(isReconnect: true, resetBackoff: true).ConfigureAwait(false);
         }
+    }
+
+    private async Task RefreshPathAsync()
+    {
+        IMessageTransport? transport = null;
+        var recover = false;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_suspended || !_networkAvailable || !LifetimeActive || _intentionalDisconnect || _terminal)
+            {
+                return;
+            }
+
+            _reconnectDelay?.Cancel();
+            transport = InvalidateLiveTransport();
+            recover = CanAttempt();
+            if (recover)
+            {
+                Log("Immediate reconnect");
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        var closing = CloseQuietlyAsync(transport);
+        if (recover)
+        {
+            await ConnectAsync(isReconnect: true, resetBackoff: true).ConfigureAwait(false);
+        }
+
+        await closing.ConfigureAwait(false);
     }
 
     private async Task SuspendAsync()
@@ -1068,7 +1116,9 @@ public sealed class RelayClient
 
         try
         {
-            await transport.CloseAsync("client_close", CancellationToken.None).ConfigureAwait(false);
+            using var abort = new CancellationTokenSource();
+            abort.Cancel();
+            await transport.CloseAsync("client_close", abort.Token).ConfigureAwait(false);
         }
         catch (Exception)
         {

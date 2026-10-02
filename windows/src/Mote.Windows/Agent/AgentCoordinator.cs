@@ -345,6 +345,7 @@ public sealed class AgentCoordinator
         if (_network is not null)
         {
             _network.AvailabilityChanged += OnNetworkAvailability;
+            _network.PathChanged += OnNetworkPath;
         }
 
         if (_power is not null)
@@ -364,6 +365,7 @@ public sealed class AgentCoordinator
         if (_network is not null)
         {
             _network.AvailabilityChanged -= OnNetworkAvailability;
+            _network.PathChanged -= OnNetworkPath;
         }
 
         if (_power is not null)
@@ -383,6 +385,16 @@ public sealed class AgentCoordinator
         }
 
         Enqueue(() => _relay.NoteNetworkAsync(availability));
+    }
+
+    private void OnNetworkPath(object? sender, EventArgs args)
+    {
+        if (!_acceptLifecycle)
+        {
+            return;
+        }
+
+        Enqueue(() => _relay.NotePathChangedAsync());
     }
 
     private void OnPowerTransition(object? sender, PowerTransition transition)

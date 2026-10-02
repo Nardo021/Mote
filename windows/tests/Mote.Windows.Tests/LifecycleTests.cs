@@ -69,6 +69,45 @@ public sealed class LifecycleTests : IDisposable
     }
 
     [Fact]
+    public async Task PathChangeReconnectsWithoutWaitingForBackoff()
+    {
+        using var harness = new SessionHarness();
+        await harness.AuthenticateAsync();
+        harness.Current().CloseFromRemote("socket_error");
+        await TestWait.Until(() => harness.Delay.IsPending(TimeSpan.FromSeconds(1)));
+
+        await harness.Client.NotePathChangedAsync();
+        await Settle();
+
+        Assert.Equal(2, Count(harness));
+        Assert.False(harness.Delay.IsPending(TimeSpan.FromSeconds(1)));
+        Assert.False(harness.Delay.IsPending(ClientPolicy.HeartbeatInterval));
+        Assert.Equal(ConnectionPhase.Authenticating, harness.Client.Phase);
+    }
+
+    [Fact]
+    public async Task AddressChangeWhileConnectedReconnectsImmediately()
+    {
+        var network = new FakeNetworkMonitor();
+        var power = new FakePowerMonitor();
+        var transports = new ScriptedTransportFactory();
+        var delay = new ManualDelay();
+        var (agent, _) = CreateAgent(transports, network, power, delay);
+        await agent.StartAsync();
+        await TestWait.Until(() => transports.Snapshot().Length == 1);
+        transports.Snapshot()[0].Enqueue(AuthOk);
+        await TestWait.Until(() => agent.Relay.IsAuthenticated);
+        await TestWait.Until(() => delay.IsPending(ClientPolicy.HeartbeatInterval));
+
+        network.RaisePathChanged();
+        await TestWait.Until(() => transports.Snapshot().Length == 2);
+
+        Assert.False(delay.IsPending(TimeSpan.FromSeconds(1)));
+        Assert.False(agent.Relay.IsAuthenticated);
+        await agent.ShutdownAsync();
+    }
+
+    [Fact]
     public async Task NetworkRestorationAfterLossOpensOneFreshGeneration()
     {
         using var harness = new SessionHarness();
@@ -588,7 +627,11 @@ internal sealed class FakeNetworkMonitor : INetworkMonitor
 
     public event EventHandler<NetworkAvailability>? AvailabilityChanged;
 
+    public event EventHandler? PathChanged;
+
     public int DisposeCount { get; private set; }
+
+    public void RaisePathChanged() => PathChanged?.Invoke(this, EventArgs.Empty);
 
     public void Set(NetworkAvailability availability)
     {

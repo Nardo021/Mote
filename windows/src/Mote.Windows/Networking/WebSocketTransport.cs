@@ -7,15 +7,24 @@ public sealed class WebSocketTransport : IMessageTransport, IAsyncDisposable
 {
     internal static readonly TimeSpan CloseHandshakeBudget = TimeSpan.FromSeconds(2);
 
+    internal static readonly TimeSpan IoBudget = TimeSpan.FromSeconds(8);
+
     private ClientWebSocket? _socket;
 
     public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
     {
         await CloseAsync(reason: null, cancellationToken).ConfigureAwait(false);
         var socket = new ClientWebSocket();
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(IoBudget);
         try
         {
-            await socket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
+            await socket.ConnectAsync(uri, budget.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            socket.Dispose();
+            throw new TransportException(TransportFailure.Closed, "The relay connection timed out.");
         }
         catch
         {
@@ -29,8 +38,17 @@ public sealed class WebSocketTransport : IMessageTransport, IAsyncDisposable
     public async Task SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
         var socket = OpenSocket();
-        await socket.SendAsync(payload, WebSocketMessageType.Text, endOfMessage: true, cancellationToken)
-            .ConfigureAwait(false);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(IoBudget);
+        try
+        {
+            await socket.SendAsync(payload, WebSocketMessageType.Text, endOfMessage: true, budget.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TransportException(TransportFailure.Closed, "The relay connection timed out.");
+        }
     }
 
     public async Task<byte[]> ReceiveAsync(CancellationToken cancellationToken)
