@@ -30,17 +30,40 @@ dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x6
 
 ## 现在可以怎么签
 
-还没有选定已经开通的生产提供者。工作流只留一个入口：`mode=production` 在没有提供者时失败。不要同时接上好几套都会真正签名的路径。统一发版在预检里看到这一点就会停下来，不会只发布 Mac。发布作业还要求清单里的 `signing_status` 是 `PRODUCTION_SIGNED`。
+还没有选定已经开通的生产提供者。2026-10-02 的 R3 审计结果是 `NO_TRUSTED_SIGNER_CONFIGURED`，所以生产签名没有执行，状态是 `WINDOWS_PRODUCTION_SIGNING_BLOCKED_EXTERNAL_PROVIDER`。工作流里的失败关闭保持原样：`mode=production` 仍然在发布之前退出，统一发版预检也仍然停住。不要同时接上好几套都会真正签名的路径。发布作业还要求清单里的 `signing_status` 是 `PRODUCTION_SIGNED`；在真实验证通过之前不要写这个状态。
+
+这次核对的是配置在不在，不是秘密的内容：
+
+| 位置 | 结果 |
+| --- | --- |
+| `Nardo021/Mote` 的 Actions secrets | 0 |
+| Actions variables | 0 |
+| Dependabot secrets | 0 |
+| Codespaces secrets | 0 |
+| GitHub Environments | 0。没有 `windows-production-signing` |
+| 组织级 Actions secrets | 没有。账号是用户，不是组织 |
+| 本机当前用户和本机个人证书库中的代码签名证书 | 0 |
+| 仓库里的证书或私钥 | 没有 |
+
+GitHub App 安装列表这次的令牌无权读取，所以不把它当作已安装或未安装的证据。文档里出现 SignPath、证书 secret 名字或 Azure Artifact Signing，只说明这些是以后可以调查的类别，不表示已经开通。
+
+在选定并配好恰好一个真实提供者之前，不要去掉 `Refuse an unsigned official build`，不要生成证书，也不要写占位 secret。
+
+选定之后，仓库外要先备好下面其中一条。标识符以提供者控制台里的实际值为准，不要写进仓库，也不要在工作流里编造。普通 CI 和 `mode=test` 继续不接触这些配置。生产签名 secret 放在 GitHub Environment `windows-production-signing`，并给这个环境加 required reviewers。
 
 ### SignPath Foundation
 
-开源项目可以调查 SignPath Foundation。Mote 还没有申请，也没有被接受。在接受之前不要写“由 SignPath Foundation 签名”，也不要放它的标识。如果以后走这条路，再单独满足它的开源要求。
+开源项目可以调查 SignPath Foundation。Mote 还没有申请，也没有被接受。在接受之前不要写“由 SignPath Foundation 签名”，也不要放它的标识。
 
-### 受信任的 OV 代码签名证书
+若以后选择 SignPath，要先在 SignPath 里拿到并核对：组织 ID、绑定本仓库的 project slug、正式发布用的 signing policy slug，以及非默认时的 artifact configuration slug。提交签名请求的 API token 只放进 `windows-production-signing`。GitHub App、trusted build system 和 origin verification 按 SignPath 当时的官方文档安装，不要猜 slug，也不要提前把 Action 写进工作流。走 Foundation 时还要先满足它公开的开源条款，包括代码签名政策、角色和多因素认证。获批之前这条路径不存在。
 
-可以用 SignTool，或证书商要求的签名方式。私钥按证书商的要求保管，不进仓库。文件摘要用 SHA-256。提供者支持或要求时间戳时，再用它推荐的 RFC 3161 服务。不要在仓库里写死一个任意的时间戳地址。
+### 受信任的 OV 或 EV 代码签名证书
 
-可能用到的 GitHub Secret 名字，只作为类别，仓库里没有值：
+可以用 SignTool，或证书商要求的签名方式。文件摘要用 SHA-256。自签证书不能当作生产信任。
+
+若选择这条路径，仓库外要先有一张公开受信任的 OV 或 EV 代码签名证书。私钥按证书商的要求保管，不进 Git。如果选定的保管方式是加密 PFX，再把材料放进 `windows-production-signing`，作业里只在临时目录解开，签完删除，不上传。提供者支持或要求时间戳时，用它指定的 RFC 3161 服务。在证书商还没指定之前，不要在仓库里写死一个时间戳地址。
+
+可能用到的 GitHub Secret 名字，只作为类别。审计时这些名字没有值：
 
 | Secret | 用途 |
 | --- | --- |
@@ -49,7 +72,9 @@ dotnet publish windows/src/Mote.Windows/Mote.Windows.csproj -c Release -r win-x6
 
 ### Azure Artifact Signing
 
-只有发布者符合条件时才是一个选项。它不是这次的默认路径。如果要用，再按它的要求给签名作业单独开 `id-token: write`。普通构建保持 `contents: read`。
+只有发布者符合条件时才是一个选项。它不是这次的默认路径。仓库和 GitHub Actions 里没有它的 endpoint、账户名、证书配置文件或 OIDC 配置。这次没有查询 Azure 订阅本身。
+
+若以后选择它，要先在 Azure 里创建 Artifact Signing 账户和证书配置文件，并取得该区域的 endpoint、账户名和配置文件名。认证优先用 OIDC，不导出私钥，也不把长期客户端密码放进普通 CI。只有到那时，才按官方 `azure/artifact-signing-action` 的当时要求，给生产签名作业单独开 `id-token: write`。普通构建保持 `contents: read`。
 
 ### Microsoft Store
 
