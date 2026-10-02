@@ -34,6 +34,7 @@ import {
 import { getSystem } from "../../api/system.js";
 import { ConfirmDialog } from "../../components/ConfirmDialog.js";
 import { CopyButton } from "../../components/CopyButton.js";
+import { SecretDialog } from "../../components/SecretDialog.js";
 import { DevicePlatform } from "../../components/DevicePlatform.js";
 import { InfoRow } from "../../components/InfoRow.js";
 import { DashboardPage } from "../../components/layout/dashboard-page.js";
@@ -65,6 +66,7 @@ export function DeviceDetailPage() {
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [issuedCredential, setIssuedCredential] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (id === undefined) {
@@ -100,10 +102,11 @@ export function DeviceDetailPage() {
           await lockDevice(current.id);
           toast.success(t("detail.locked"));
           break;
-        case "rotate":
-          await rotateDeviceCredential(current.id);
-          toast.success(t("detail.rotateDone"));
+        case "rotate": {
+          const rotated = await rotateDeviceCredential(current.id);
+          setIssuedCredential(rotated.credential);
           break;
+        }
         case "disable":
           setDevice(await disableDevice(current.id));
           break;
@@ -115,7 +118,11 @@ export function DeviceDetailPage() {
       setPending(null);
       await refresh();
     } catch (cause) {
-      toast.error(translateError(cause, t, "detail.actionFailed"));
+      toast.error(
+        action === "rotate"
+          ? t("detail.actionFailed")
+          : translateError(cause, t, "detail.actionFailed"),
+      );
       setPending(null);
     } finally {
       setBusy(false);
@@ -421,6 +428,14 @@ export function DeviceDetailPage() {
           busy={busy}
           onCancel={() => setPending(null)}
           onConfirm={() => void runPending("disable")}
+        />
+      ) : null}
+      {issuedCredential !== null ? (
+        <SecretDialog
+          title={t("detail.rotateIssuedTitle")}
+          description={t("detail.rotateIssuedWarning")}
+          secret={issuedCredential}
+          onClose={() => setIssuedCredential(null)}
         />
       ) : null}
       </DashboardPage>
