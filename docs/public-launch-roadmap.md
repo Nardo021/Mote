@@ -105,7 +105,7 @@ The **minimum privacy/support/deletion pages must be live before App Review**, e
 - Cloudflare: https://developers.cloudflare.com/durable-objects/platform/pricing/ and https://developers.cloudflare.com/durable-objects/best-practices/websockets/
 
 
-## Signed-off product requirements: one-account, zero-configuration public mode (2026-11-16)
+## User-requested product requirements: one-account, zero-configuration public mode (2026-11-16)
 
 ### Definition of done: first-user story
 
@@ -130,7 +130,7 @@ For a brand-new user who has never seen Mote:
 
 ### Recommended Cloudflare topology (PROPOSED)
 
-\`\`\`
+```
 iOS app (SwiftUI) -- Sign in with Apple -- Mote Cloud Worker account API
                                                     |
                                                   D1
@@ -142,11 +142,11 @@ iOS app (SwiftUI) -- Sign in with Apple -- Mote Cloud Worker account API
                            Durable Object keyed by verified account ID
                                      |           |
                                 Mac WSS      Windows WSS
-\`\`\`
+```
 
 **Security requirements to implement before public access:**
 
-- Create a distinct hosted Cloudflare Worker deployment, bindings, secrets, migrations and subdomain; retain the existing self-deployed Worker and Dashboard as supported advanced option. Never re-use the hard-coded \`idFromName("mote")\` singleton for multiple customers.
+- Create a distinct hosted Cloudflare Worker deployment, bindings, secrets, migrations and subdomain; retain the existing self-deployed Worker and Dashboard as supported advanced option. Never re-use the hard-coded `idFromName("mote")` singleton for multiple customers.
 - The Worker validates Sign in with Apple server-side using published keys, audience, issuer, nonce/expiry and stable subject ID; do not authorize by unverified email or a browser-provided account ID. Keep short-lived access credentials and independently revocable refresh sessions; support credential rotation, logout-all and deletion.
 - D1 is the authority for account owner/device relationship. The authoritative device lookup **must** precede routing a request to an account's Durable Object. Object keys come from verified ownership, never request-supplied user IDs. Repeat appropriate authorization on pair approval, WebSocket admission and device mutation; never rely on hidden client buttons.
 - Pairing is two-step: desktop receives a high-entropy short-lived pairing ticket/QR and optionally numeric display code; authenticated phone authorizes; server atomically claims unowned device for that user; only the waiting **same** authenticated pairing connection receives a fresh device credential. One-time ticket, short expiry, replay/reuse failure, rate limits and explicit confirmation mitigate account/device hijack. Device credentials never appear in QR or logs.
@@ -168,7 +168,7 @@ Starting suggestion: configurable beta quotas around 3 computers/account and 60 
 
 **First supported self-host route:** **Bring Your Own Cloudflare** (existing one-click Worker + per-install Durable Object; the customer owns their Cloudflare account, bill and domain). This is an independently deployed personal Relay, *not a slice of the Mote Cloud SaaS*.
 
-A second **Docker/VPS/LAN self-host** route is **NOT CURRENTLY SUPPORTED on \`mote-v2\`**. It was removed from this branch. If traditional home-server/VPS support becomes mandatory, it requires an explicit runtime/storage design, compatibility testing, security patching and a separately approved milestone. Do not imply the old Docker instructions still work.
+A second **Docker/VPS/LAN self-host** route is **NOT CURRENTLY SUPPORTED on `mote-v2`**. It was removed from this branch. If traditional home-server/VPS support becomes mandatory, it requires an explicit runtime/storage design, compatibility testing, security patching and a separately approved milestone. Do not imply the old Docker instructions still work.
 
 ### Self-host happy path
 
@@ -191,16 +191,16 @@ There are **two audiences**. **User docs** must have simple visuals and task-fir
 
 | File or URL | Audience | Required content | Release acceptance |
 |---|---|---|---|
-| \`README.md\` | Everyone | What Mote does; Cloud is zero-config default; available platforms; verified downloads; self-host docs link | Reflects tested release, not dev-only branch |
-| \`docs/quickstart.md\` | New users | Download Windows/Mac, install iOS, Apple login, QR approval, first lock, screenshots, 5-minute troubleshooting | A nondeveloper succeeds unassisted |
-| \`docs/self-host/cloudflare.md\` | Self-host | One-click deploy, Cloudflare prerequisites/cost ownership, admin bootstrap, domain, both desktop agents, iOS advanced config, test lock | Fresh empty CF account deployment tested |
-| \`docs/self-host/maintenance.md\` | Self-host | Updates, migrations, backup/restore limitations, token rotation, revoke, reset, troubleshooting, security notices | Recovery tested or clearly marked unsupported |
-| \`docs/faq.md\` | Everyone | Internet requirements, iOS-only controller, supported systems, free vs self-host, privacy, offline commands, multiple devices | Nonmarketing, accurate answers |
-| \`docs/security.md\` + \`docs/protocol.md\` | Developers | Cloud identity boundaries vs self-host credentials, tenant isolation, pairing, no arbitrary execution, v1 compatibility | Security tests match docs |
-| \`docs/cloud-operations.md\` | Operator | Service topology, migrations, rate limits, incident/abuse response, rollback, monitoring, cost ceiling | Staging and recovery drill |
-| \`docs/ios.md\`, \`docs/release.md\` | Developers | App Store flow, signing, TestFlight, Windows signing, Mac notarization, version compatibility | No personal-only plan presented as current |
-| Website: \`/privacy\`, \`/support\`, \`/account/delete\` | App Store/users | Policy, contact route, deletion instructions | Public links live before submission |
-| Website: \`/docs\`, \`/download\`, homepage | Users | Screenshots, prominent Get Mote, supported OS, download integrity, Self-host link | No dead links or false availability |
+| `README.md` | Everyone | What Mote does; Cloud is zero-config default; available platforms; verified downloads; self-host docs link | Reflects tested release, not dev-only branch |
+| `docs/quickstart.md` | New users | Download Windows/Mac, install iOS, Apple login, QR approval, first lock, screenshots, 5-minute troubleshooting | A nondeveloper succeeds unassisted |
+| `docs/self-host/cloudflare.md` | Self-host | One-click deploy, Cloudflare prerequisites/cost ownership, admin bootstrap, domain, both desktop agents, iOS advanced config, test lock | Fresh empty CF account deployment tested |
+| `docs/self-host/maintenance.md` | Self-host | Updates, migrations, backup/restore limitations, token rotation, revoke, reset, troubleshooting, security notices | Recovery tested or clearly marked unsupported |
+| `docs/faq.md` | Everyone | Internet requirements, iOS-only controller, supported systems, free vs self-host, privacy, offline commands, multiple devices | Nonmarketing, accurate answers |
+| `docs/security.md` + `docs/protocol.md` | Developers | Cloud identity boundaries vs self-host credentials, tenant isolation, pairing, no arbitrary execution, v1 compatibility | Security tests match docs |
+| `docs/cloud-operations.md` | Operator | Service topology, migrations, rate limits, incident/abuse response, rollback, monitoring, cost ceiling | Staging and recovery drill |
+| `docs/ios.md`, `docs/release.md` | Developers | App Store flow, signing, TestFlight, Windows signing, Mac notarization, version compatibility | No personal-only plan presented as current |
+| Website: `/privacy`, `/support`, `/account/delete` | App Store/users | Policy, contact route, deletion instructions | Public links live before submission |
+| Website: `/docs`, `/download`, homepage | Users | Screenshots, prominent Get Mote, supported OS, download integrity, Self-host link | No dead links or false availability |
 
 Add a docs index and navigation in the site, version docs to matching releases, run CI link checking/Markdown validation, and treat broken quickstart steps as **release blockers**. EN-first user docs is a reasonable release assumption; Chinese translations may follow after the English path has been validated.
 
@@ -218,7 +218,7 @@ Add a docs index and navigation in the site, version docs to matching releases, 
 
 ## Revised implementation slices for Cursor
 
-- **P0 — design/auth contracts:** audit \`mote-v2\`; document cloud ownership, pairing ticket protocol, account/token lifecycle, threat tests and current v1 compatibility. Implement an isolated hosted staging skeleton, **not production**. Draft PR with negative authorization tests; no new manual deployment for default users.
+- **P0 — design/auth contracts:** audit `mote-v2`; document cloud ownership, pairing ticket protocol, account/token lifecycle, threat tests and current v1 compatibility. Implement an isolated hosted staging skeleton, **not production**. Draft PR with negative authorization tests; no new manual deployment for default users.
 - **P1 — iOS Cloud-first interface:** new native SwiftUI project, Apple login shell, device list/QR scanner, credential lifecycle and lock states behind a mocked hosted API, plus advanced self-host adapter. UI tests and Xcode build; never claim real E2E from mock data.
 - **P2 — desktop hosted provisioning:** Mac and Windows Cloud default first-run wizard, short-lived QR/code and credential receipt via authenticated pairing; preserve advanced self-host URL and existing device secrets. Both platform CI; real device tests.
 - **P3 — complete vertical slice:** tie P0–P2 together against isolated staging, verify two-account tenant isolation, real QR registration, physical locks, offline/no-queue and malicious pairing tests; dogfood with several devices.
