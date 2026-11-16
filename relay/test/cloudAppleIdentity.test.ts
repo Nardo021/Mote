@@ -17,7 +17,7 @@ const keys: AppleJwks = {
 };
 const nowSec = 1_800_000_000;
 const nonce = "super-random-server-issued-nonce-value-123";
-const audience = "com.example.mote.test.ios";
+const audience = "com.nardo021.mote.testing.test.ios";
 
 function jwt(overrides: Record<string, unknown> = {}, header: Record<string, unknown> = {}): string {
   const head = Buffer.from(JSON.stringify({ alg: "RS256", kid: "test-apple-kid", ...header })).toString("base64url");
