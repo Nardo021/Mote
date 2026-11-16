@@ -8,16 +8,25 @@ import {
 } from "./appleIdentity.js";
 import { CloudIdentityRepository, type CloudD1Database } from "./identityRepository.js";
 import { CloudPairingRepository } from "./pairingRepository.js";
+import { authorizeCloudCommandAdmission } from "./tenantAdmission.js";
 
 /**
  * Entirely separate staging-only Worker entrypoint. The original self-hosted
  * relay/src/worker/index.ts must NOT import, route to or deploy this handler.
  */
+/** Real namespace binding is supplied by the isolated Cloud Worker config. */
+export type CloudTenantNamespace = {
+  idFromName(name: string): unknown;
+  get(id: unknown): { fetch(request: Request): Promise<Response> };
+};
+
 export type CloudStagingEnv = Readonly<{
   CLOUD_DB?: CloudD1Database;
   MOTE_CLOUD_STAGING_ENABLED?: string;
   MOTE_CLOUD_STAGING_GATE?: string;
   APPLE_CLIENT_ID?: string;
+  CLOUD_TENANTS?: CloudTenantNamespace;
+  MOTE_CLOUD_INTERNAL_SECRET?: string;
 }>;
 
 type HandlerDependencies = Readonly<{
@@ -207,8 +216,79 @@ export function createCloudStagingHandler(deps: HandlerDependencies = {}) {
         return approved ? respond(200, { status: "approved" }) : respond(409, { error: "pairing_unavailable" });
       }
 
-      // Command dispatch, device WebSockets and account deletion intentionally
-      // do NOT exist yet. Never delegate to the personal Relay singleton.
+
+      // The public WS URL contains ONLY a device UUID. It is a provisional
+      // D1 owner lookup; the target DO must independently verify the v1
+      // device auth frame credential BEFORE admitting the socket.
+      const wsRoute = /^\\/cloud\\/v1\\/ws\\/device\\/([a-f0-9-]{36})$/i.exec(url.pathname);
+      if (wsRoute && request.method === "GET") {
+        if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+          return respond(426, { error: "upgrade_required" });
+        }
+        const deviceId = wsRoute[1];
+        if (!deviceId || !env.CLOUD_TENANTS ||
+            !env.MOTE_CLOUD_INTERNAL_SECRET ||
+            env.MOTE_CLOUD_INTERNAL_SECRET.length < 32) {
+          return respond(503, { error: "service_unavailable" });
+        }
+        const row = await env.CLOUD_DB.prepare(
+          `SELECT d.owner_account_id FROM cloud_devices d
+           JOIN cloud_accounts a ON a.id = d.owner_account_id
+           WHERE d.id = ? AND d.status = 'active' AND a.status = 'active'`,
+        ).bind(deviceId).first<{ owner_account_id: string }>();
+        if (!row) return respond(404, { error: "not_found" });
+        const key = `mote-cloud-account:${row.owner_account_id}`;
+        const stub = env.CLOUD_TENANTS.get(env.CLOUD_TENANTS.idFromName(key));
+        // Copy the original upgrade request (including WebSocket handshake),
+        // but REPLACE all privileged headers with server-owned values.
+        const target = new URL(`/internal/ws/${deviceId}`, request.url);
+        const forwarded = new Request(target, request);
+        const headers = new Headers(forwarded.headers);
+        headers.delete("Authorization");
+        headers.delete("X-Mote-Staging-Gate");
+        headers.delete("X-Mote-Cloud-Internal");
+        headers.delete("X-Mote-Cloud-Owner");
+        headers.set("X-Mote-Cloud-Internal", env.MOTE_CLOUD_INTERNAL_SECRET);
+        headers.set("X-Mote-Cloud-Owner", row.owner_account_id);
+        return stub.fetch(new Request(forwarded, { headers }));
+      }
+
+      const commandRoute = /^\\/cloud\\/v1\\/devices\\/([a-f0-9-]{36})\\/commands$/i.exec(url.pathname);
+      if (commandRoute && request.method === "POST") {
+        const deviceId = commandRoute[1];
+        const accessToken = bearerToken(request);
+        if (!accessToken) return respond(401, { error: "unauthenticated" });
+        if (!deviceId) return respond(404, { error: "not_found" });
+        const body = await jsonBody(request);
+        if (!body || body.action === undefined) {
+          return respond(400, { error: "invalid_request" });
+        }
+        const allowed = await authorizeCloudCommandAdmission(
+          env.CLOUD_DB, accessToken, deviceId, body.action, nowMs,
+        );
+        if (!allowed.allowed) {
+          return respond(allowed.status, { error: allowed.reason });
+        }
+        if (!env.CLOUD_TENANTS || !env.MOTE_CLOUD_INTERNAL_SECRET ||
+            env.MOTE_CLOUD_INTERNAL_SECRET.length < 32) {
+          return respond(503, { error: "service_unavailable" });
+        }
+        const stub = env.CLOUD_TENANTS.get(
+          env.CLOUD_TENANTS.idFromName(`mote-cloud-account:${allowed.tenantAccountId}`),
+        );
+        return stub.fetch(new Request("https://mote-cloud.internal/internal/command", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Mote-Cloud-Internal": env.MOTE_CLOUD_INTERNAL_SECRET,
+            "X-Mote-Cloud-Owner": allowed.tenantAccountId,
+          },
+          body: JSON.stringify({ accessToken, deviceId: allowed.deviceId, action: "lock" }),
+        }));
+      }
+
+      // Account deletion and public enrollment remain unimplemented.
+      // Never delegate Cloud routes to the personal Relay singleton.
       return respond(404, { error: "not_found" });
     } catch (error) {
       if (error instanceof AppleIdentityError) {
