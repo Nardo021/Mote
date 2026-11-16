@@ -4,6 +4,8 @@ import { CloudIdentityRepository, type CloudD1Database } from "./identityReposit
 import { isUuid } from "../utils/ids.js";
 
 const RAW_PROOF = /^[A-Za-z0-9_-]{32,128}$/;
+// Non-serializable proof: only this module can mint a verified admission.
+const verifiedAdmissions = new WeakSet<object>();
 
 export type VerifiedCloudDeviceAdmission = Readonly<{
   deviceId: string;
@@ -34,7 +36,11 @@ export async function authorizeCloudDeviceAdmission(
        AND d.status = 'active' AND a.status = 'active'`,
   ).bind(deviceId, credentialHash).first<{ id: string; owner_account_id: string }>();
   if (!row || !isUuid(row.owner_account_id)) return null;
-  return { deviceId: row.id, tenantAccountId: row.owner_account_id };
+  const admission: VerifiedCloudDeviceAdmission = Object.freeze({
+    deviceId: row.id, tenantAccountId: row.owner_account_id,
+  });
+  verifiedAdmissions.add(admission);
+  return admission;
 }
 
 /**
@@ -58,7 +64,8 @@ export async function authorizeCloudCommandAdmission(
 
 /** Use ONLY verified admissions' tenantAccountId as idFromName input. */
 export function cloudTenantObjectKey(admission: VerifiedCloudDeviceAdmission): string {
-  if (!isUuid(admission.deviceId) || !isUuid(admission.tenantAccountId)) {
+  if (!verifiedAdmissions.has(admission) ||
+      !isUuid(admission.deviceId) || !isUuid(admission.tenantAccountId)) {
     throw new Error("Unverified tenant admission.");
   }
   return `mote-cloud-account:${admission.tenantAccountId}`;
