@@ -52,6 +52,10 @@ function templateCheck() {
   const cfg = JSON.parse(readFileSync(templatePath, "utf8"));
   assert.equal(cfg.name, "mote-cloud-staging");
   assert.equal(cfg.main, "../relay/src/cloud/cloudWorker.ts");
+  const ciCfg = JSON.parse(readFileSync(join(root, "cloud", "wrangler.ci.jsonc"), "utf8"));
+  assert.equal(cfg.compatibility_date, "2026-09-28");
+  assert.equal(ciCfg.compatibility_date, cfg.compatibility_date,
+    "Staging and locally tested Cloud compatibility dates must match");
   assert.equal(cfg.workers_dev, false, "Staging MUST NOT be routable by default");
   assert.ok(!cfg.routes && !cfg.route && !cfg.triggers, "No public routes or schedules");
   assert.equal(cfg.vars?.MOTE_CLOUD_STAGING_ENABLED, "false", "Staging must default OFF");
