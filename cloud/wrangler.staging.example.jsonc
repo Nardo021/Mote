@@ -6,7 +6,7 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "workers_dev": true,
+  "workers_dev": false,
   "observability": {
     "enabled": true
   },
@@ -19,7 +19,8 @@
       "binding": "CLOUD_DB",
       "database_name": "mote-cloud-staging",
       "database_id": "REPLACE_WITH_NEW_STAGING_D1_ID",
-      "migrations_dir": "migrations"
+      "migrations_dir": "migrations",
+      "migrations_table": "d1_migrations"
     }
   ],
   "durable_objects": {
