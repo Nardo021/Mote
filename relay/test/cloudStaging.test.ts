@@ -29,9 +29,10 @@ class SqliteStatement implements CloudD1Statement {
     private readonly db: DatabaseSync,
     private readonly sql: string,
     private readonly args: SQLInputValue[] = [],
+    private readonly countTriggerWrites = false,
   ) {}
   bind(...values: Array<string | number | null>): CloudD1Statement {
-    return new SqliteStatement(this.db, this.sql, values);
+    return new SqliteStatement(this.db, this.sql, values, this.countTriggerWrites);
   }
   async first<T>(): Promise<T | null> {
     return (this.db.prepare(this.sql).get(...this.args) ?? null) as T | null;
@@ -41,16 +42,20 @@ class SqliteStatement implements CloudD1Statement {
   }
   async run(): Promise<{ meta: { changes: number } }> {
     const result = this.db.prepare(this.sql).run(...this.args);
-    return { meta: { changes: Number(result.changes) } };
+    // D1 counts both UPDATE and trigger INSERT; node:sqlite counts just UPDATE.
+    const triggered = this.countTriggerWrites && result.changes > 0 &&
+      this.sql.includes("UPDATE cloud_pairing_tickets") &&
+      this.sql.includes("SET status = 'approved'");
+    return { meta: { changes: Number(result.changes) + (triggered ? 1 : 0) } };
   }
 }
-function newDb(): { raw: DatabaseSync; binding: CloudD1Database } {
+function newDb(countTriggerWrites = false): { raw: DatabaseSync; binding: CloudD1Database } {
   const raw = new DatabaseSync(":memory:");
   raw.exec("PRAGMA foreign_keys = ON");
   raw.exec(db1);
   raw.exec(db2);
   raw.exec(db3);
-  return { raw, binding: { prepare: (sql) => new SqliteStatement(raw, sql) } };
+  return { raw, binding: { prepare: (sql) => new SqliteStatement(raw, sql, [], countTriggerWrites) } };
 }
 
 function appleToken(nonce: string, subject: string): string {
@@ -64,8 +69,8 @@ function appleToken(nonce: string, subject: string): string {
   return `${message}.${sign("RSA-SHA256", Buffer.from(message), privateKey).toString("base64url")}`;
 }
 
-function harness() {
-  const { raw, binding } = newDb();
+function harness(countTriggerWrites = false) {
+  const { raw, binding } = newDb(countTriggerWrites);
   const env: CloudStagingEnv = {
     CLOUD_DB: binding,
     MOTE_CLOUD_STAGING_ENABLED: "true",
@@ -391,5 +396,30 @@ test("tenant admissions use the server-owned account and device secret, not call
     assert.deepEqual(await authorizeCloudCommandAdmission(
       db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
     ), { allowed: false, status: 401, reason: "unauthenticated" });
+  } finally { raw.close(); }
+});
+
+test("real D1 counts trigger INSERT as a second change; approval still returns success", async () => {
+  const { raw, request, signIn } = harness(true);
+  try {
+    const owner = (await signIn("apple-real-d1-count-semantics")).login;
+    const desktop = desktopRegistration("77777777-7777-4777-8777-777777777777");
+    const ticket = await request("/cloud/v1/pairings", "POST", desktop.registration);
+    assert.equal(ticket.status, 201);
+    const approvalPath = "/cloud/v1/pairings/" + ticket.body.ticketId + "/approve";
+    const proof = { claimSecret: ticket.body.claimSecret, confirmedCode: ticket.body.verificationCode };
+    assert.deepEqual(await request(approvalPath, "POST", proof, owner.accessToken), {
+      status: 200, body: { status: "approved" },
+    });
+    const row = raw.prepare("SELECT status, claimed_by_account_id FROM cloud_pairing_tickets WHERE id = ?")
+      .get(ticket.body.ticketId) as { status: string; claimed_by_account_id: string };
+    assert.equal(row.status, "approved");
+    assert.equal(row.claimed_by_account_id, owner.accountId);
+    assert.equal((await request(approvalPath, "POST", proof, owner.accessToken)).status, 404);
+    assert.equal(
+      (raw.prepare("SELECT count(*) AS n FROM cloud_devices WHERE id = ?")
+        .get(desktop.registration.deviceId) as { n: number }).n,
+      1,
+    );
   } finally { raw.close(); }
 });
