@@ -117,6 +117,32 @@ async function remoteCheck() {
   exactSet(objects.filter(o => o.type === "trigger").map(o => o.name),
     requiredTriggers, "Staging triggers drifted");
   assert.ok(objects.some(o => o.name === "d1_migrations" && o.type === "table"));
+  const sessionCols = (await api("/query", "POST", {
+    sql: "PRAGMA table_info(cloud_sessions)",
+  }))[0].results.map(row => row.name);
+  for (const column of [
+    "id", "account_id", "refresh_token_hash", "access_token_hash",
+    "expires_at_ms", "access_expires_at_ms", "revoked_at_ms",
+  ]) assert.ok(sessionCols.includes(column), "Session schema missing mandatory field");
+
+  const claimCols = (await api("/query", "POST", {
+    sql: "PRAGMA table_info(cloud_pairing_tickets)",
+  }))[0].results.map(row => row.name);
+  for (const column of [
+    "id", "device_id", "claim_secret_hash", "poll_secret_hash",
+    "device_credential_hash", "status", "claimed_by_account_id",
+  ]) assert.ok(claimCols.includes(column), "Pairing schema missing mandatory field");
+
+  const triggerBody = (await api("/query", "POST", {
+    sql: "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='cloud_pairing_approve_create_device'",
+  }))[0].results[0]?.sql ?? "";
+  assert.match(triggerBody, /AFTER\\s+UPDATE\\s+OF\\s+status/i);
+  assert.match(triggerBody, /INSERT\\s+INTO\\s+cloud_devices/i);
+  const uniquePending = (await api("/query", "POST", {
+    sql: "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_cloud_pairing_one_pending_device'",
+  }))[0].results[0]?.sql ?? "";
+  assert.match(uniquePending, /CREATE\\s+UNIQUE\\s+INDEX/i);
+  assert.match(uniquePending, /WHERE\\s+status\\s*=\\s*'pending'/i);
   const ledger = (await api("/query", "POST", {
     sql: "SELECT name FROM d1_migrations ORDER BY id",
   }))[0].results;
