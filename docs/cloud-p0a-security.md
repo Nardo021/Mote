@@ -92,4 +92,4 @@ The Relay test glob automatically includes `cloudAuthorization.test.ts` and `clo
 
 Implement staged Cloud-only identity/session verification and the D1 ownership repository behind a separate Worker configuration. Add two-account integration tests. Keep public route exposure disabled until P0C pairing and tenant-isolated DO routing tests pass. Align iOS Cloud-first UI with the hosted API contract, while maintaining the advanced self-host UI as a distinct credential profile.
 
-Source of truth: [Mote public launch roadmap](public-launch-roadmap.md). See the existing [self-host security document](security.md) for Protocol v1 and personal Relay credential roles.
+Source of truth: [Mote public launch roadmap (Draft PR #1)](https://github.com/Nardo021/Mote/pull/1). See the existing [self-host security document](security.md) for Protocol v1 and personal Relay credential roles.
