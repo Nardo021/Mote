@@ -5,8 +5,19 @@
     "rootDir": ".",
     "declaration": false,
     "sourceMap": false,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts", "worker-configuration.d.ts"],
-  "exclude": ["dist", "node_modules", "test"]
+  "include": [
+    "src/**/*.ts",
+    "worker-configuration.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "test",
+    "src/cloud/cloudWorker.ts",
+    "src/cloud/tenantDurableObject.ts"
+  ]
 }

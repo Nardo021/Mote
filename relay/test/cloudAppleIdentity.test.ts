@@ -49,7 +49,13 @@ test("rejects forged claims, changed signature and invalid header", async () => 
     jwt({}, { alg: "none" }),
     jwt({}, { kid: "other-key" }),
     jwt({}, { crit: ["b64"] }),
-    jwt().replace(/.$/, "x"),
+    (() => {
+      const token = jwt();
+      const lastDot = token.lastIndexOf(".");
+      const signature = token.slice(lastDot + 1);
+      const forgedFirst = signature[0] === "A" ? "B" : "A";
+      return token.slice(0, lastDot + 1) + forgedFirst + signature.slice(1);
+    })(),
     "abc.def.ghi",
     "",
   ];

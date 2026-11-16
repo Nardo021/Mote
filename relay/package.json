@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "node ../scripts/ensure-worker-types.mjs && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.worker.json",
+    "typecheck": "node ../scripts/ensure-worker-types.mjs && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.worker.json && node ../scripts/ensure-cloud-worker-types.mjs && tsc --noEmit -p tsconfig.cloud.json",
     "test": "node --disable-warning=ExperimentalWarning --import tsx --test test/*.test.ts",
     "build": "tsc --noEmit -p tsconfig.json"
   },

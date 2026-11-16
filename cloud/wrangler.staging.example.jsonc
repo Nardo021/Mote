@@ -1,11 +1,15 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "mote-cloud-staging",
-  "main": "../relay/src/cloud/stagingWorker.ts",
+  "main": "../relay/src/cloud/cloudWorker.ts",
   "compatibility_date": "2026-11-16",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
-  "observability": { "enabled": true },
+  "observability": {
+    "enabled": true
+  },
   "vars": {
     "MOTE_CLOUD_STAGING_ENABLED": "false",
     "APPLE_CLIENT_ID": "REPLACE_WITH_REAL_IOS_BUNDLE_ID"
@@ -16,6 +20,22 @@
       "database_name": "mote-cloud-staging",
       "database_id": "REPLACE_WITH_NEW_STAGING_D1_ID",
       "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CLOUD_TENANTS",
+        "class_name": "MoteCloudTenant"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "cloud-v1",
+      "new_sqlite_classes": [
+        "MoteCloudTenant"
+      ]
     }
   ]
 }

@@ -1,12 +1,30 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "mote-cloud-ci-dry-run",
-  "main": "../relay/src/cloud/stagingWorker.ts",
+  "main": "../relay/src/cloud/cloudWorker.ts",
   "compatibility_date": "2026-11-16",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": false,
   "vars": {
     "MOTE_CLOUD_STAGING_ENABLED": "false",
     "APPLE_CLIENT_ID": "ci-placeholder-never-for-auth"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CLOUD_TENANTS",
+        "class_name": "MoteCloudTenant"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "cloud-v1",
+      "new_sqlite_classes": [
+        "MoteCloudTenant"
+      ]
+    }
+  ]
 }

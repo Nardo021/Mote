@@ -6,6 +6,15 @@
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
-  "exclude": ["dist", "node_modules", "src/worker/index.ts"]
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "src/worker/index.ts",
+    "src/cloud/cloudWorker.ts",
+    "src/cloud/tenantDurableObject.ts"
+  ]
 }
