@@ -136,7 +136,12 @@ export class CloudPairingRepository {
              WHERE d.id = cloud_pairing_tickets.device_id
            )`,
       ).bind(accountId, ticketId, sha256(claimSecret), nowMs, accountId).run();
-      return result.meta.changes === 1;
+      // Cloudflare D1 counts the trigger's device INSERT as an additional
+      // change (2 total); Node SQLite's StatementResultingChanges reports
+      // only the ticket UPDATE (1). The WHERE clause targets the PRIMARY KEY
+      // and the trigger aborts atomically on failure, so any positive count
+      // means precisely one claim succeeded, whereas 0 means replay/race loss.
+      return Number.isSafeInteger(result.meta.changes) && result.meta.changes > 0;
     } catch {
       // Trigger insertion fails transactionally on revoked/duplicate credential.
       return false;
