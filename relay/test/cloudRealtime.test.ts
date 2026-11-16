@@ -50,7 +50,7 @@ function fixture() {
     raw.exec(readFileSync(new URL(`../../cloud/migrations/${file}`, import.meta.url), "utf8"));
   }
   const db: CloudD1Database = { prepare: (sql) => new Statement(raw, sql) };
-  for (const [account, subject] of [[A, "apple-a"], [B, "apple-b"]]) {
+  for (const [account, subject] of [[A, "apple-a"], [B, "apple-b"]] as const) {
     raw.prepare("INSERT INTO cloud_accounts(id, apple_subject, created_at_ms) VALUES (?, ?, ?)").run(
       account, subject, nowMs,
     );
