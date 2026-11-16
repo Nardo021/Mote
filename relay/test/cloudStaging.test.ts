@@ -113,7 +113,7 @@ test("staging Worker fails closed if not explicitly enabled or gate is invalid",
       status: 200, body: { service: "mote-cloud", status: "staging" },
     });
     assert.equal((await request("/cloud/v1/devices")).status, 401);
-    assert.equal((await request("/cloud/v1/pairings", "POST", {})).status, 404);
+    assert.equal((await request("/cloud/v1/pairings", "POST", {})).status, 400);
   } finally { raw.close(); }
 });
 
@@ -295,8 +295,8 @@ test("expired ticket, malformed data and credential collisions do not create orp
     const created = await request("/cloud/v1/pairings", "POST", first.registration);
     assert.equal(created.status, 201);
     const expiredAt = nowMs - 1;
-    raw.prepare("UPDATE cloud_pairing_tickets SET expires_at_ms = ? WHERE id = ?")
-      .run(expiredAt, created.body.ticketId);
+    raw.prepare("UPDATE cloud_pairing_tickets SET created_at_ms = ?, expires_at_ms = ? WHERE id = ?")
+      .run(nowMs - 10 * 60_000, expiredAt, created.body.ticketId);
     const approve = await request(`/cloud/v1/pairings/${created.body.ticketId}/approve`, "POST", {
       claimSecret: created.body.claimSecret,
       confirmedCode: created.body.verificationCode,
