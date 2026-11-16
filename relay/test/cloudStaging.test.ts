@@ -358,6 +358,7 @@ test("tenant admissions use the server-owned account and device secret, not call
     assert.ok(admitted);
     assert.equal(admitted?.tenantAccountId, a.accountId);
     assert.equal(cloudTenantObjectKey(admitted!), `mote-cloud-account:${a.accountId}`);
+    assert.throws(() => cloudTenantObjectKey({ ...admitted! }), /Unverified tenant admission/);
     assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, b.accessToken), null);
     assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, "wrong"), null);
     assert.equal(await authorizeCloudDeviceAdmission(db, b.accountId, desktop.deviceSecret), null);
