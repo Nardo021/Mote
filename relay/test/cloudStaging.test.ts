@@ -6,6 +6,7 @@ import test from "node:test";
 
 import type { AppleJwks } from "../src/cloud/appleIdentity.js";
 import type { CloudD1Database, CloudD1Statement } from "../src/cloud/identityRepository.js";
+import { authorizeCloudCommandAdmission, authorizeCloudDeviceAdmission, cloudTenantObjectKey } from "../src/cloud/tenantAdmission.js";
 import {
   createCloudStagingHandler,
   type CloudStagingEnv,
@@ -191,6 +192,7 @@ function desktopRegistration(deviceId = "44444444-4444-4444-8444-444444444444") 
   const deviceSecret = "desktop-device-credential-" + "d".repeat(43);
   const pollSecret = "desktop-only-poll-secret-" + "p".repeat(43);
   return {
+    deviceSecret,
     pollSecret,
     registration: {
       deviceId,
@@ -337,5 +339,56 @@ test("expired ticket, malformed data and credential collisions do not create orp
     assert.equal((await request("/cloud/v1/pairings", "POST", {
       ...collision.registration, platform: "linux",
     })).status, 400);
+  } finally { raw.close(); }
+});
+
+test("tenant admissions use the server-owned account and device secret, not caller-supplied owner", async () => {
+  const { raw, env, request, signIn } = harness();
+  try {
+    const a = (await signIn("socket-owner-a")).login;
+    const b = (await signIn("socket-owner-b")).login;
+    const desktop = desktopRegistration();
+    const ticket = await request("/cloud/v1/pairings", "POST", desktop.registration);
+    assert.equal(ticket.status, 201);
+    assert.equal((await request(`/cloud/v1/pairings/${ticket.body.ticketId}/approve`, "POST", {
+      claimSecret: ticket.body.claimSecret, confirmedCode: ticket.body.verificationCode,
+    }, a.accessToken)).status, 200);
+    const db = env.CLOUD_DB!;
+    const admitted = await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret);
+    assert.ok(admitted);
+    assert.equal(admitted?.tenantAccountId, a.accountId);
+    assert.equal(cloudTenantObjectKey(admitted!), `mote-cloud-account:${a.accountId}`);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, b.accessToken), null);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, "wrong"), null);
+    assert.equal(await authorizeCloudDeviceAdmission(db, b.accountId, desktop.deviceSecret), null);
+
+    const ownerCommand = await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    );
+    assert.deepEqual(ownerCommand, {
+      allowed: true, deviceId: desktop.registration.deviceId,
+      tenantAccountId: a.accountId, action: "lock",
+    });
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, b.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 404, reason: "not_found" });
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "unlock", nowMs,
+    ), { allowed: false, status: 422, reason: "unsupported_action" });
+
+    raw.prepare("UPDATE cloud_devices SET status = 'revoked' WHERE id = ?")
+      .run(desktop.registration.deviceId);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret), null);
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 404, reason: "not_found" });
+    raw.prepare("UPDATE cloud_devices SET status = 'active' WHERE id = ?")
+      .run(desktop.registration.deviceId);
+    raw.prepare("UPDATE cloud_accounts SET status = 'disabled' WHERE id = ?")
+      .run(a.accountId);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret), null);
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 401, reason: "unauthenticated" });
   } finally { raw.close(); }
 });
