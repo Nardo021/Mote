@@ -23,7 +23,7 @@ if (!token || !/^[a-f0-9]{32}$/i.test(account ?? "") ||
 }
 
 const base = `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${dbId}`;
-async function api(path, method = "GET", body) {
+async function api(path = "", method = "GET", body) {
   const response = await fetch(base + path, {
     method,
     headers: {
