@@ -203,8 +203,39 @@ jobs:
           npm ci --prefix relay
       - name: Validate opt-in D1 remote verification harness syntax
         run: node --check cloud/scripts/verify-staging-d1.mjs
+      - name: Validate staging fail-closed configuration and migration files
+        run: |
+          node --check cloud/scripts/check-staging-preflight.mjs
+          node cloud/scripts/check-staging-preflight.mjs
       - name: Bundle staged Cloud Worker without bindings or deployment
         run: npx wrangler deploy --config cloud/wrangler.ci.jsonc --dry-run --outdir dist/cloud
+      - name: Verify local Cloud Worker rejects traffic when disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --config cloud/wrangler.ci.jsonc --local --ip 127.0.0.1 --port 8797 > "${RUNNER_TEMP}/mote-cloud-disabled.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          status=""
+          for attempt in $(seq 1 50); do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:8797/cloud/v1/health 2>/dev/null || true)
+            if [[ "$status" == "503" ]]; then
+              break
+            fi
+            sleep 0.4
+          done
+          if [[ "$status" != "503" ]]; then
+            echo "Cloud Worker local runtime failed to start fail-closed."
+            tail -n 60 "${RUNNER_TEMP}/mote-cloud-disabled.log"
+            exit 1
+          fi
+          for route in "/cloud/v1/health" "/cloud/v1/devices" "/cloud/v1/pairings"; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 \
+              -H 'X-Mote-Staging-Gate: attacker-controlled-value' \
+              -X POST "http://127.0.0.1:8797${route}")
+            [[ "$code" == "503" ]] || { echo "FAIL: unsafe Cloud response on ${route}: ${code}"; exit 1; }
+          done
+          echo "PASS: Worker runtime rejects all tested routes with staging disabled."
 
   consistency:
     name: Repository consistency
