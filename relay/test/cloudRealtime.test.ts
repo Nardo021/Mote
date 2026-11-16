@@ -196,7 +196,7 @@ test("a different device cannot forge another device's command result", async ()
   } finally { raw.close(); }
 });
 
-test("revocation and credential rotation fail closed for existing and restored sockets", async () => {
+test("hibernated socket metadata restores; a revoked device cannot receive more locks", async () => {
   const { raw, db } = fixture();
   try {
     const identity = new CloudIdentityRepository(db);
@@ -205,7 +205,21 @@ test("revocation and credential rotation fail closed for existing and restored s
     const ws = await socketFor(hub, DA, GA);
     const restored = new CloudTenantRealtime(db, A, () => nowMs);
     restored.restore(ws);
-    assert.equal((await restored.command(a.accessToken, DA, "lock")).status === "timeout", false);
+    const pending = restored.command(a.accessToken, DA, "lock");
+    await flushUntil(() => ws.sent.some(line => JSON.parse(line).type === "command"));
+    const issued = ws.last<{ id: string }>();
+    await restored.onMessage(ws, JSON.stringify({
+      type: "command_result", version: 1, command_id: issued.id,
+      status: "completed", completed_at: nowMs + 300,
+    }));
+    assert.equal((await pending).status, "completed");
+
+    raw.prepare("UPDATE cloud_devices SET status = 'revoked' WHERE id = ?").run(DA);
+    const beforeCount = ws.sent.length;
+    assert.deepEqual(await restored.command(a.accessToken, DA, "lock"), {
+      httpStatus: 404, status: "failed",
+    });
+    assert.equal(ws.sent.length, beforeCount);
   } finally { raw.close(); }
 });
 
