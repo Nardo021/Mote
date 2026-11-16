@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mote-cloud-ci-dry-run",
+  "main": "../relay/src/cloud/stagingWorker.ts",
+  "compatibility_date": "2026-11-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "vars": {
+    "MOTE_CLOUD_STAGING_ENABLED": "false",
+    "APPLE_CLIENT_ID": "ci-placeholder-never-for-auth"
+  }
+}

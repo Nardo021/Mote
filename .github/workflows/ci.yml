@@ -183,6 +183,27 @@ jobs:
       - name: Test
         run: dotnet test windows/tests/Mote.Windows.IntegrationTests/Mote.Windows.IntegrationTests.csproj --configuration Release --verbosity normal
 
+  cloud-staging:
+    name: Mote Cloud staging / bundle (dry-run)
+    runs-on: ubuntu-latest
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            relay/package-lock.json
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix relay
+      - name: Bundle staged Cloud Worker without bindings or deployment
+        run: npx wrangler deploy --config cloud/wrangler.ci.jsonc --dry-run --outdir dist/cloud
+
   consistency:
     name: Repository consistency
     runs-on: ubuntu-latest
