@@ -203,6 +203,10 @@ jobs:
           npm ci --prefix relay
       - name: Validate opt-in D1 remote verification harness syntax
         run: node --check cloud/scripts/verify-staging-d1.mjs
+      - name: Validate staging fail-closed configuration and migration files
+        run: |
+          node --check cloud/scripts/check-staging-preflight.mjs
+          node cloud/scripts/check-staging-preflight.mjs
       - name: Bundle staged Cloud Worker without bindings or deployment
         run: npx wrangler deploy --config cloud/wrangler.ci.jsonc --dry-run --outdir dist/cloud
 
