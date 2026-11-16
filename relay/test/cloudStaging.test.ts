@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
 
 import type { AppleJwks } from "../src/cloud/appleIdentity.js";
 import type { CloudD1Database, CloudD1Statement } from "../src/cloud/identityRepository.js";
+import { authorizeCloudCommandAdmission, authorizeCloudDeviceAdmission, cloudTenantObjectKey } from "../src/cloud/tenantAdmission.js";
 import {
   createCloudStagingHandler,
   type CloudStagingEnv,
@@ -21,6 +22,7 @@ const audience = "com.nardo021.mote.testing.ios";
 const gate = "test-only-private-staging-gate-not-for-apps";
 const db1 = readFileSync(new URL("../../cloud/migrations/0001_core.sql", import.meta.url), "utf8");
 const db2 = readFileSync(new URL("../../cloud/migrations/0002_auth.sql", import.meta.url), "utf8");
+const db3 = readFileSync(new URL("../../cloud/migrations/0003_pairing_claim.sql", import.meta.url), "utf8");
 
 class SqliteStatement implements CloudD1Statement {
   constructor(
@@ -47,6 +49,7 @@ function newDb(): { raw: DatabaseSync; binding: CloudD1Database } {
   raw.exec("PRAGMA foreign_keys = ON");
   raw.exec(db1);
   raw.exec(db2);
+  raw.exec(db3);
   return { raw, binding: { prepare: (sql) => new SqliteStatement(raw, sql) } };
 }
 
@@ -110,7 +113,7 @@ test("staging Worker fails closed if not explicitly enabled or gate is invalid",
       status: 200, body: { service: "mote-cloud", status: "staging" },
     });
     assert.equal((await request("/cloud/v1/devices")).status, 401);
-    assert.equal((await request("/cloud/v1/pairings", "POST", {})).status, 404);
+    assert.equal((await request("/cloud/v1/pairings", "POST", {})).status, 400);
   } finally { raw.close(); }
 });
 
@@ -179,5 +182,214 @@ test("refresh rotation invalidates old credentials, logout revokes, disabled acc
     const another = (await signIn("apple-subject-a")).login;
     raw.prepare("UPDATE cloud_accounts SET status = 'disabled' WHERE id = ?").run(another.accountId);
     assert.equal((await request("/cloud/v1/me", "GET", undefined, another.accessToken)).status, 401);
+  } finally { raw.close(); }
+});
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+function desktopRegistration(deviceId = "44444444-4444-4444-8444-444444444444") {
+  const deviceSecret = "desktop-device-credential-" + "d".repeat(43);
+  const pollSecret = "desktop-only-poll-secret-" + "p".repeat(43);
+  return {
+    deviceSecret,
+    pollSecret,
+    registration: {
+      deviceId,
+      deviceName: "Mote Test Windows",
+      platform: "windows",
+      deviceCredentialHash: sha256(deviceSecret),
+      pollSecretHash: sha256(pollSecret),
+    },
+  };
+}
+
+test("desktop creates QR; signed-in iOS user previews and approves; only owner sees device", async () => {
+  const { raw, request, signIn } = harness();
+  try {
+    const a = (await signIn("owner-a")).login;
+    const b = (await signIn("owner-b")).login;
+    const desktop = desktopRegistration();
+    const created = await request("/cloud/v1/pairings", "POST", desktop.registration);
+    assert.equal(created.status, 201);
+    const { ticketId, claimSecret, verificationCode } = created.body;
+    assert.equal(typeof claimSecret, "string");
+    assert.match(verificationCode, /^\d{6}$/);
+    assert.equal((await request(`/cloud/v1/pairings/${ticketId}/preview`, "POST", {
+      claimSecret: "wrong-secret-" + "a".repeat(43),
+    }, a.accessToken)).status, 404);
+    assert.equal((await request(`/cloud/v1/pairings/${ticketId}/preview`, "POST", {
+      claimSecret,
+    })).status, 401);
+
+    const preview = await request(`/cloud/v1/pairings/${ticketId}/preview`, "POST", {
+      claimSecret,
+    }, a.accessToken);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.verificationCode, verificationCode);
+    assert.equal(preview.body.deviceName, desktop.registration.deviceName);
+    assert.equal((await request(`/cloud/v1/pairings/${ticketId}/approve`, "POST", {
+      claimSecret, confirmedCode: "000000" === verificationCode ? "999999" : "000000",
+    }, a.accessToken)).status, 400);
+
+    const approved = await request(`/cloud/v1/pairings/${ticketId}/approve`, "POST", {
+      claimSecret, confirmedCode: verificationCode,
+    }, a.accessToken);
+    assert.deepEqual(approved, { status: 200, body: { status: "approved" } });
+    assert.equal((await request(`/cloud/v1/pairings/${ticketId}/status`, "POST", {
+      pollSecret: desktop.pollSecret,
+    })).body.status, "approved");
+    assert.equal((await request(`/cloud/v1/pairings/${ticketId}/status`, "POST", {
+      pollSecret: "other-secret-" + "x".repeat(43),
+    })).status, 404);
+    const listA = await request("/cloud/v1/devices", "GET", undefined, a.accessToken);
+    const listB = await request("/cloud/v1/devices", "GET", undefined, b.accessToken);
+    assert.equal(listA.body.devices.length, 1);
+    assert.equal(listB.body.devices.length, 0);
+    assert.equal(listA.body.devices[0].id, desktop.registration.deviceId);
+    assert.equal(JSON.stringify(listA.body).includes("hash"), false);
+    const hashRow = raw.prepare("SELECT credential_hash FROM cloud_devices WHERE id = ?")
+      .get(desktop.registration.deviceId) as { credential_hash: string };
+    assert.equal(hashRow.credential_hash, desktop.registration.deviceCredentialHash);
+    assert.equal(JSON.stringify(created.body).includes(desktop.registration.deviceCredentialHash), false);
+  } finally { raw.close(); }
+});
+
+test("two accounts racing for same QR have one winner; replay never transfers ownership", async () => {
+  const { raw, request, signIn } = harness();
+  try {
+    const a = (await signIn("race-a")).login;
+    const b = (await signIn("race-b")).login;
+    const desktop = desktopRegistration();
+    const created = await request("/cloud/v1/pairings", "POST", desktop.registration);
+    assert.equal(created.status, 201);
+    const path = `/cloud/v1/pairings/${created.body.ticketId}/approve`;
+    const proof = {
+      claimSecret: created.body.claimSecret,
+      confirmedCode: created.body.verificationCode,
+    };
+    const [first, second] = await Promise.all([
+      request(path, "POST", proof, a.accessToken),
+      request(path, "POST", proof, b.accessToken),
+    ]);
+    assert.equal([first.status, second.status].filter(x => x === 200).length, 1);
+    assert.equal([first.status, second.status].filter(x => x !== 200).length, 1);
+    const row = raw.prepare(
+      "SELECT owner_account_id FROM cloud_devices WHERE id = ?",
+    ).get(desktop.registration.deviceId) as { owner_account_id: string };
+    assert.ok(row.owner_account_id === a.accountId || row.owner_account_id === b.accountId);
+    assert.equal((await request(path, "POST", proof, a.accessToken)).status, 404);
+    assert.equal((await request(path, "POST", proof, b.accessToken)).status, 404);
+    assert.equal((await request("/cloud/v1/pairings", "POST", desktop.registration)).status, 409);
+    assert.equal(
+      (raw.prepare("SELECT count(*) AS n FROM cloud_devices").get() as { n: number }).n, 1,
+    );
+  } finally { raw.close(); }
+});
+
+test("expired ticket, malformed data and credential collisions do not create orphan devices", async () => {
+  const { raw, request, signIn } = harness();
+  try {
+    const a = (await signIn("expiration-owner")).login;
+    const first = desktopRegistration();
+    const created = await request("/cloud/v1/pairings", "POST", first.registration);
+    assert.equal(created.status, 201);
+    const expiredAt = nowMs - 1;
+    raw.prepare("UPDATE cloud_pairing_tickets SET created_at_ms = ?, expires_at_ms = ? WHERE id = ?")
+      .run(nowMs - 10 * 60_000, expiredAt, created.body.ticketId);
+    const approve = await request(`/cloud/v1/pairings/${created.body.ticketId}/approve`, "POST", {
+      claimSecret: created.body.claimSecret,
+      confirmedCode: created.body.verificationCode,
+    }, a.accessToken);
+    assert.equal(approve.status, 404);
+    assert.deepEqual(await request(`/cloud/v1/pairings/${created.body.ticketId}/status`, "POST", {
+      pollSecret: first.pollSecret,
+    }), { status: 200, body: { status: "expired" } });
+
+    const replacement = await request("/cloud/v1/pairings", "POST", first.registration);
+    assert.equal(replacement.status, 201);
+    const approved = await request(`/cloud/v1/pairings/${replacement.body.ticketId}/approve`, "POST", {
+      claimSecret: replacement.body.claimSecret, confirmedCode: replacement.body.verificationCode,
+    }, a.accessToken);
+    assert.equal(approved.status, 200);
+
+    const collision = desktopRegistration("55555555-5555-4555-8555-555555555555");
+    const duplicateHash = await request("/cloud/v1/pairings", "POST", {
+      ...collision.registration,
+      deviceCredentialHash: first.registration.deviceCredentialHash,
+    });
+    assert.equal(duplicateHash.status, 201);
+    const rejected = await request(`/cloud/v1/pairings/${duplicateHash.body.ticketId}/approve`, "POST", {
+      claimSecret: duplicateHash.body.claimSecret,
+      confirmedCode: duplicateHash.body.verificationCode,
+    }, a.accessToken);
+    assert.equal(rejected.status, 409);
+    assert.equal(
+      (raw.prepare("SELECT status FROM cloud_pairing_tickets WHERE id = ?")
+        .get(duplicateHash.body.ticketId) as { status: string }).status,
+      "pending",
+    );
+    assert.equal(
+      (raw.prepare("SELECT count(*) AS n FROM cloud_devices").get() as { n: number }).n, 1,
+    );
+
+    assert.equal((await request("/cloud/v1/pairings", "POST", {
+      ...collision.registration, deviceCredentialHash: "short",
+    })).status, 409);
+    assert.equal((await request("/cloud/v1/pairings", "POST", {
+      ...collision.registration, platform: "linux",
+    })).status, 400);
+  } finally { raw.close(); }
+});
+
+test("tenant admissions use the server-owned account and device secret, not caller-supplied owner", async () => {
+  const { raw, env, request, signIn } = harness();
+  try {
+    const a = (await signIn("socket-owner-a")).login;
+    const b = (await signIn("socket-owner-b")).login;
+    const desktop = desktopRegistration();
+    const ticket = await request("/cloud/v1/pairings", "POST", desktop.registration);
+    assert.equal(ticket.status, 201);
+    assert.equal((await request(`/cloud/v1/pairings/${ticket.body.ticketId}/approve`, "POST", {
+      claimSecret: ticket.body.claimSecret, confirmedCode: ticket.body.verificationCode,
+    }, a.accessToken)).status, 200);
+    const db = env.CLOUD_DB!;
+    const admitted = await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret);
+    assert.ok(admitted);
+    assert.equal(admitted?.tenantAccountId, a.accountId);
+    assert.equal(cloudTenantObjectKey(admitted!), `mote-cloud-account:${a.accountId}`);
+    assert.throws(() => cloudTenantObjectKey({ ...admitted! }), /Unverified tenant admission/);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, b.accessToken), null);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, "wrong"), null);
+    assert.equal(await authorizeCloudDeviceAdmission(db, b.accountId, desktop.deviceSecret), null);
+
+    const ownerCommand = await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    );
+    assert.deepEqual(ownerCommand, {
+      allowed: true, deviceId: desktop.registration.deviceId,
+      tenantAccountId: a.accountId, action: "lock",
+    });
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, b.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 404, reason: "not_found" });
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "unlock", nowMs,
+    ), { allowed: false, status: 422, reason: "unsupported_action" });
+
+    raw.prepare("UPDATE cloud_devices SET status = 'revoked' WHERE id = ?")
+      .run(desktop.registration.deviceId);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret), null);
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 404, reason: "not_found" });
+    raw.prepare("UPDATE cloud_devices SET status = 'active' WHERE id = ?")
+      .run(desktop.registration.deviceId);
+    raw.prepare("UPDATE cloud_accounts SET status = 'disabled' WHERE id = ?")
+      .run(a.accountId);
+    assert.equal(await authorizeCloudDeviceAdmission(db, desktop.registration.deviceId, desktop.deviceSecret), null);
+    assert.deepEqual(await authorizeCloudCommandAdmission(
+      db, a.accessToken, desktop.registration.deviceId, "lock", nowMs,
+    ), { allowed: false, status: 401, reason: "unauthenticated" });
   } finally { raw.close(); }
 });
