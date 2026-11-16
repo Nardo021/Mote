@@ -17,7 +17,7 @@ const jwks: AppleJwks = { keys: [{
   kid: "test-key", kty: "RSA", alg: "RS256", use: "sig", n: exported.n!, e: exported.e!,
 }] };
 const nowMs = 1_800_000_000_000;
-const audience = "com.example.mote.ios";
+const audience = "com.nardo021.mote.testing.ios";
 const gate = "test-only-private-staging-gate-not-for-apps";
 const db1 = readFileSync(new URL("../../cloud/migrations/0001_core.sql", import.meta.url), "utf8");
 const db2 = readFileSync(new URL("../../cloud/migrations/0002_auth.sql", import.meta.url), "utf8");
