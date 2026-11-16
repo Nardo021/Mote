@@ -220,7 +220,7 @@ export function createCloudStagingHandler(deps: HandlerDependencies = {}) {
       // The public WS URL contains ONLY a device UUID. It is a provisional
       // D1 owner lookup; the target DO must independently verify the v1
       // device auth frame credential BEFORE admitting the socket.
-      const wsRoute = /^\\/cloud\\/v1\\/ws\\/device\\/([a-f0-9-]{36})$/i.exec(url.pathname);
+      const wsRoute = /^\/cloud\/v1\/ws\/device\/([a-f0-9-]{36})$/i.exec(url.pathname);
       if (wsRoute && request.method === "GET") {
         if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
           return respond(426, { error: "upgrade_required" });
@@ -253,7 +253,7 @@ export function createCloudStagingHandler(deps: HandlerDependencies = {}) {
         return stub.fetch(new Request(forwarded, { headers }));
       }
 
-      const commandRoute = /^\\/cloud\\/v1\\/devices\\/([a-f0-9-]{36})\\/commands$/i.exec(url.pathname);
+      const commandRoute = /^\/cloud\/v1\/devices\/([a-f0-9-]{36})\/commands$/i.exec(url.pathname);
       if (commandRoute && request.method === "POST") {
         const deviceId = commandRoute[1];
         const accessToken = bearerToken(request);
