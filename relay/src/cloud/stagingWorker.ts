@@ -33,7 +33,7 @@ const SECURITY_HEADERS = {
 } as const;
 
 function respond(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: SECURITY_HEADERS });
+  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: SECURITY_HEADERS });
 }
 
 function gateMatches(provided: string | null, configured: string | undefined): boolean {
