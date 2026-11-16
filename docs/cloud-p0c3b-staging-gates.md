@@ -44,6 +44,18 @@ Sources:
 [Cloudflare's current D1 migration documentation](https://developers.cloudflare.com/d1/reference/migrations/)
 and the [Wrangler migration table helper](https://github.com/cloudflare/workers-sdk/blob/main/packages/wrangler/src/d1/migrations/helpers.ts).
 
+## Runtime compatibility discovered by CI
+
+The initial local-workerd smoke job failed even though the Cloud Worker
+bundle compiled: Wrangler 4.137.0's pinned workerd binary supports a latest
+compatibility date of `2026-09-28`, while the new Cloud configs specified
+`2026-11-16`. The **Cloud-only** CI and staging configuration now use the
+same supported date `2026-09-28` to test actual local runtime behavior.
+This changes neither the existing personal Relay config nor its code.
+Before raising the Cloud compatibility date, upgrade Wrangler/workerd in
+a separate reviewed dependency update and repeat the local and real
+staging acceptance tests.
+
 ## Source changes in this PR
 
 1. `cloud/wrangler.staging.example.jsonc` now has
