@@ -7,6 +7,7 @@ import {
   type AppleJwks,
 } from "./appleIdentity.js";
 import { CloudIdentityRepository, type CloudD1Database } from "./identityRepository.js";
+import { CloudPairingRepository } from "./pairingRepository.js";
 
 /**
  * Entirely separate staging-only Worker entrypoint. The original self-hosted
@@ -87,6 +88,7 @@ export function createCloudStagingHandler(deps: HandlerDependencies = {}) {
     }
     const nowMs = (deps.now ?? Date.now)();
     const repo = new CloudIdentityRepository(env.CLOUD_DB);
+    const pairing = new CloudPairingRepository(env.CLOUD_DB);
 
     try {
       if (url.pathname === "/cloud/v1/health" && request.method === "GET") {
@@ -150,7 +152,62 @@ export function createCloudStagingHandler(deps: HandlerDependencies = {}) {
         return respond(200, { devices: await repo.listActiveDevices(session.accountId) });
       }
 
-      // Command dispatch, device WS, pairing and account deletion intentionally
+      // Staging-only pairing. The gate must never ship in user applications.
+      // Pairing creation is desktop-internal and subject to pre-public rate-limit
+      // work. Proof material is only accepted in request bodies, never URLs.
+      if (url.pathname === "/cloud/v1/pairings" && request.method === "POST") {
+        const body = await jsonBody(request);
+        if (typeof body?.deviceId !== "string" ||
+            typeof body.deviceName !== "string" ||
+            (body.platform !== "macos" && body.platform !== "windows") ||
+            typeof body.deviceCredentialHash !== "string" ||
+            typeof body.pollSecretHash !== "string") {
+          return respond(400, { error: "invalid_request" });
+        }
+        const created = await pairing.create({
+          deviceId: body.deviceId,
+          deviceName: body.deviceName,
+          platform: body.platform,
+          deviceCredentialHash: body.deviceCredentialHash,
+          pollSecretHash: body.pollSecretHash,
+        }, nowMs);
+        return created ? respond(201, created) : respond(409, { error: "pairing_unavailable" });
+      }
+
+      const pairingPath = /^\/cloud\/v1\/pairings\/([a-f0-9-]{36})\/(preview|approve|status)$/.exec(url.pathname);
+      if (pairingPath && request.method === "POST") {
+        const [, ticketId, operation] = pairingPath;
+        if (!ticketId) return respond(404, { error: "not_found" });
+        const body = await jsonBody(request);
+        if (operation === "status") {
+          if (typeof body?.pollSecret !== "string") {
+            return respond(400, { error: "invalid_request" });
+          }
+          const status = await pairing.poll(ticketId, body.pollSecret, nowMs);
+          return status ? respond(200, { status }) : respond(404, { error: "not_found" });
+        }
+
+        const raw = bearerToken(request);
+        const session = raw ? await repo.authenticateAccess(raw, nowMs) : null;
+        if (!session) return respond(401, { error: "unauthenticated" });
+        if (typeof body?.claimSecret !== "string") {
+          return respond(400, { error: "invalid_request" });
+        }
+        const preview = await pairing.preview(ticketId, body.claimSecret, nowMs);
+        if (!preview) return respond(404, { error: "not_found" });
+        if (operation === "preview") return respond(200, preview);
+
+        // Explicit visual code confirmation in the iOS pairing UI.
+        if (body.confirmedCode !== preview.verificationCode) {
+          return respond(400, { error: "confirmation_required" });
+        }
+        const approved = await pairing.approve(
+          ticketId, body.claimSecret, session.accountId, nowMs,
+        );
+        return approved ? respond(200, { status: "approved" }) : respond(409, { error: "pairing_unavailable" });
+      }
+
+      // Command dispatch, device WebSockets and account deletion intentionally
       // do NOT exist yet. Never delegate to the personal Relay singleton.
       return respond(404, { error: "not_found" });
     } catch (error) {
