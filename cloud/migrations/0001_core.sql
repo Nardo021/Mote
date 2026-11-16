@@ -63,7 +63,7 @@ CREATE TABLE cloud_pairing_tickets (
   device_credential_hash TEXT NOT NULL CHECK (length(device_credential_hash) = 64),
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'approved', 'rejected', 'expired')),
-  claimed_by_account_id TEXT REFERENCES cloud_accounts(id) ON DELETE SET NULL,
+  claimed_by_account_id TEXT REFERENCES cloud_accounts(id) ON DELETE CASCADE,
   created_at_ms INTEGER NOT NULL CHECK (created_at_ms > 0),
   expires_at_ms INTEGER NOT NULL CHECK (expires_at_ms > created_at_ms),
   CHECK (
