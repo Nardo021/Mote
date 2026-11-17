@@ -236,6 +236,9 @@ jobs:
             [[ "$code" == "503" ]] || { echo "FAIL: unsafe Cloud response on ${route}: ${code}"; exit 1; }
           done
           echo "PASS: Worker runtime rejects all tested routes with staging disabled."
+      - name: Verify local Cloud D1 and Durable Object WebSocket lock flow
+        timeout-minutes: 8
+        run: node cloud/scripts/test-local-realtime.mjs
 
   consistency:
     name: Repository consistency
