@@ -50,8 +50,12 @@ request and masked WebSocket frames (avoids a new dependency):
    authenticated WebSocket as a Protocol v1 command, with `expires_at -
    created_at = 10000`; the mock device's `command_result` returns an
    HTTP completed result to the phone.
-9. A device disconnect returns future owner commands to 409; no offline
-   persistence or queue.
+9. Both account A and account B can hold authenticated WebSockets at once,
+   without another account receiving the device command. Attempts to supply
+   forged `X-Mote-Cloud-Owner` and internal-secret headers from the desktop
+   cannot redirect it to a different account Durable Object.
+10. A device disconnect returns future owner commands to 409; no offline
+    persistence or queue.
 
 The mock device **does not call macOS/Windows lock APIs**. These tests also
 do not force a real Durable Object hibernation/restart or revoke a real
