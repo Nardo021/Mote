@@ -130,7 +130,7 @@ class NativeWs {
   }
   close() { if (!this.closed) {this.socket.write(wsFrame({}, 8)); this.socket.end();} }
 }
-function connect(deviceId) {
+function connect(deviceId, forgedHeaders = false) {
   return new Promise((resolve, reject) => {
     const req = http.request({
       host: "127.0.0.1", port,
@@ -141,6 +141,8 @@ function connect(deviceId) {
         "Sec-WebSocket-Version": "13",
         "Sec-WebSocket-Key": randomBytes(16).toString("base64"),
         "X-Mote-Staging-Gate": gate,
+        ...(forgedHeaders ? { "X-Mote-Cloud-Owner": B,
+          "X-Mote-Cloud-Internal": "forged-by-desktop" } : {}),
       },
     });
     req.once("upgrade", (response, socket, head) => {
@@ -221,7 +223,8 @@ async function main() {
   wrong.send({type:"auth",version:1,device_id:DA,credential:credentialB,platform:"windows",actions:["lock"]});
   await new Promise(resolve => setTimeout(resolve, 300));
   assert.ok(wrong.closed, "Incorrect device proof must disconnect");
-  const device = await connect(DA);
+  // Verify caller-controlled internal headers cannot redirect the tenant.
+  const device = await connect(DA, true);
   try {
     device.send({type:"auth",version:1,device_id:DA,credential:credentialA,platform:"windows",actions:["lock"]});
     const auth = await device.waitFor(x => x.type === "auth_result");
@@ -236,6 +239,22 @@ async function main() {
     const response = await pending;
     assert.equal(response.status,200);assert.equal(response.body.status,"completed");
     assert.equal((await command(tokenB, DA)).status,404);
+    // Both tenants are simultaneously connected: B cannot receive A's
+    // command and an independent B command cannot reach A's socket.
+    const deviceB = await connect(DB);
+    try {
+      deviceB.send({type:"auth",version:1,device_id:DB,
+        credential:credentialB,platform:"macos",actions:["lock"]});
+      assert.equal((await deviceB.waitFor(x=>x.type==="auth_result")).status,"ok");
+      const pendingB = command(tokenB, DB);
+      const frameB = await deviceB.waitFor(x=>x.type==="command");
+      assert.equal(frameB.device_id,DB);
+      assert.equal(device.pending.filter(x=>x.type==="command").length,0);
+      deviceB.send({type:"command_result",version:1,command_id:frameB.id,
+        status:"completed",completed_at:Date.now()});
+      assert.equal((await pendingB).status,200);
+      assert.equal((await command(tokenA, DB)).status,404);
+    } finally { deviceB.close(); }
   } finally {
     device.close();
   }
